@@ -65,7 +65,26 @@ app.get("/health", async () => ({ status: "ok", ts: new Date().toISOString() }))
 
 // ── Better Auth — manejar todas las rutas /api/auth/* ────────
 app.all("/api/auth/*", async (req, reply) => {
-  const response = await auth.handler(req.raw);
+  // Convertir request de Node.js a Web API Request para Better Auth
+  const protocol = "https";
+  const host = req.headers["host"] ?? "localhost";
+  const url = `${protocol}://${host}${req.url}`;
+
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value !== undefined) {
+      headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+    }
+  }
+
+  const hasBody = req.method !== "GET" && req.method !== "HEAD";
+  const webRequest = new Request(url, {
+    method: req.method,
+    headers,
+    body: hasBody ? JSON.stringify(req.body) : undefined,
+  });
+
+  const response = await auth.handler(webRequest);
   reply.status(response.status);
   for (const [key, value] of response.headers.entries()) {
     void reply.header(key, value);

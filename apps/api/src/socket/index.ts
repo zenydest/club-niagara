@@ -22,12 +22,19 @@ import { prisma } from "@niagara/db";
 
 export function iniciarSocketIO(io: Server) {
   io.on("connection", async (socket) => {
-    const rawHeaders = socket.handshake.headers as Record<string, string>;
+    const rawHeaders = socket.handshake.headers as Record<string, string | string[] | undefined>;
 
-    // Verificar sesión Better Auth via cookie o header Authorization
+    // Convertir a Web API Headers para Better Auth
+    const webHeaders = new Headers();
+    for (const [key, value] of Object.entries(rawHeaders)) {
+      if (value !== undefined) {
+        webHeaders.set(key, Array.isArray(value) ? value.join(", ") : value);
+      }
+    }
+
     let userId: string | null = null;
     try {
-      const session = await auth.api.getSession({ headers: rawHeaders as unknown as Headers });
+      const session = await auth.api.getSession({ headers: webHeaders });
       userId = session?.user?.id ?? null;
     } catch {
       // Sin sesión válida → solo lectura de rooms públicos

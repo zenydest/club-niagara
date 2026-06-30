@@ -84,7 +84,7 @@ export const registrarRutasVentas: FastifyPluginAsync = async (app) => {
             createdAt: new Date(v.createdAt),
             synced: "synced",
             items: {
-              create: v.items.map((item) => ({
+              create: v.items.map((item: { productoId: string; cantidad: number; precioUnitario: number; subtotal: number }) => ({
                 localId,
                 productoId: item.productoId,
                 cantidad: item.cantidad,

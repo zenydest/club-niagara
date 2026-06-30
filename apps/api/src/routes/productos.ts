@@ -46,7 +46,7 @@ export const registrarRutasProductos: FastifyPluginAsync = async (app) => {
       orderBy: { categoria: "asc" },
     });
 
-    return { categorias: result.map((r) => r.categoria) };
+    return { categorias: result.map((r: { categoria: string }) => r.categoria) };
   });
 
   // POST /api/productos
