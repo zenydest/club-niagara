@@ -24,11 +24,11 @@
   },
   "dependencies": {
     "@niagara/core": "workspace:*",
-    "@prisma/client": "^5.22.0"
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0"
   },
   "devDependencies": {
     "@niagara/config": "workspace:*",
-    "prisma": "^5.22.0",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
