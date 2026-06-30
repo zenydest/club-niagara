@@ -211,14 +211,14 @@ model Staff {
   local    Local  @relation(fields: [localId], references: [id], onDelete: Cascade)
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  ventas          Venta[]
-  accesos         Acceso[]
-  recargas        Recarga[]
-  entradasVendidas EntradaVendida[]
+  ventas           Venta[]
+  accesos          Acceso[]
+  recargas         Recarga[]
+  entradasVendidas EntradaVendida[] @relation("EntradaVendidaRrpp")
   stockMovimientos StockMovimiento[]
-  guardarropa     Guardarropa[]
-  comisionesRrpp  ComisionRrpp[]
-  cortesCaja      CorteCaja[]
+  guardarropa      Guardarropa[]
+  comisionesRrpp   ComisionRrpp[]
+  cortesCaja       CorteCaja[]
 
   @@unique([localId, userId])
   @@map("staff")
@@ -478,6 +478,7 @@ model EntradaVendida {
   local       Local       @relation(fields: [localId], references: [id], onDelete: Cascade)
   evento      Evento      @relation(fields: [eventoId], references: [id])
   entradaTipo EntradaTipo @relation(fields: [entradaTipoId], references: [id])
+  rrpp        Staff?      @relation("EntradaVendidaRrpp", fields: [rrppId], references: [id])
   accesos     Acceso[]
 
   @@map("entradas_vendidas")
