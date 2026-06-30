@@ -6,5 +6,6 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
+  platform: "node",
   external: ["@prisma/client"],
 });
