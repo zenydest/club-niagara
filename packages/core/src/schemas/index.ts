@@ -49,17 +49,22 @@ export const productoSchema = z.object({
 });
 
 export const ventaSchema = z.object({
-  evento_id: z.string().uuid().nullable().optional(),
-  barra_id: z.string().uuid().nullable().optional(),
-  metodo_pago: z.enum(["efectivo", "tarjeta", "cashless", "qr_mp", "cortesia"]),
+  // UUID generado en el cliente (offline-first)
+  id: z.string().uuid(),
+  // Timestamp generado en el cliente
+  createdAt: z.string().datetime(),
+  eventoId: z.string().uuid().nullable().optional(),
+  barraId: z.string().uuid().nullable().optional(),
+  metodoPago: z.enum(["efectivo", "tarjeta", "cashless", "qr_mp", "cortesia"]),
   total: z.number().nonnegative(),
   descuento: z.number().nonnegative().default(0),
   nota: z.string().max(500).nullable().optional(),
   items: z.array(
     z.object({
-      producto_id: z.string().uuid(),
+      productoId: z.string().uuid(),
       cantidad: z.number().int().positive(),
-      precio_unitario: z.number().nonnegative(),
+      precioUnitario: z.number().nonnegative(),
+      subtotal: z.number().nonnegative(),
     })
   ).min(1, "La venta debe tener al menos un producto"),
 });
@@ -67,8 +72,12 @@ export const ventaSchema = z.object({
 export type VentaInput = z.infer<typeof ventaSchema>;
 
 export const accesosSchema = z.object({
-  evento_id: z.string().uuid(),
-  entrada_vendida_id: z.string().uuid().nullable().optional(),
+  // UUID generado en el cliente (offline-first)
+  id: z.string().uuid(),
+  // Timestamp generado en el cliente
+  createdAt: z.string().datetime(),
+  eventoId: z.string().uuid(),
+  entradaVendidaId: z.string().uuid().nullable().optional(),
   tipo: z.enum(["ingreso", "egreso"]),
   metodo: z.enum(["manual", "qr", "cashless"]),
 });
