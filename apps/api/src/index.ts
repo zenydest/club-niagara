@@ -26,7 +26,18 @@ const PORT = Number(process.env["PORT"] ?? 3001);
 const HOST = process.env["HOST"] ?? "0.0.0.0";
 const FRONTEND_URLS = (process.env["FRONTEND_URLS"] ?? "http://localhost:5173").split(",");
 
-// ── Fastify ──────────────────────────────────────────────────
+// ── HTTP server nativo (compartido entre Fastify y Socket.io) ─
+const httpServer = createServer();
+
+// ── Socket.io se conecta al mismo HTTP server ─────────────────
+export const io = new SocketServer(httpServer, {
+  cors: {
+    origin: FRONTEND_URLS,
+    credentials: true,
+  },
+});
+
+// ── Fastify reutiliza el HTTP server vía serverFactory ────────
 const app = Fastify({
   logger: {
     level: process.env["NODE_ENV"] === "production" ? "warn" : "info",
@@ -35,16 +46,9 @@ const app = Fastify({
         ? { target: "pino-pretty", options: { colorize: true } }
         : undefined,
   },
-});
-
-// ── HTTP server compartido con Socket.io ─────────────────────
-const httpServer = createServer(app.server as unknown as Parameters<typeof createServer>[0]);
-
-// ── Socket.io ────────────────────────────────────────────────
-export const io = new SocketServer(httpServer, {
-  cors: {
-    origin: FRONTEND_URLS,
-    credentials: true,
+  serverFactory: (handler) => {
+    httpServer.on("request", handler);
+    return httpServer;
   },
 });
 
@@ -109,10 +113,8 @@ iniciarSocketIO(io);
 
 // ── Arranque ─────────────────────────────────────────────────
 try {
-  await app.ready();
-  httpServer.listen(PORT, HOST, () => {
-    console.log(`🎉 Club Niágara API corriendo en http://${HOST}:${PORT}`);
-  });
+  await app.listen({ port: PORT, host: HOST });
+  console.log(`🎉 Club Niágara API corriendo en http://${HOST}:${PORT}`);
 } catch (err) {
   app.log.error(err);
   await prisma.$disconnect();
