@@ -1,0 +1,30 @@
+{
+  "name": "Club Niágara",
+  "version": "0.0.1",
+  "private": true,
+  "description": "CLUB NIÁGARA — Sistema de gestión para boliches/discotecas",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=@niagara/web",
+    "dev:pos": "turbo dev --filter=@niagara/pos",
+    "dev:api": "turbo dev --filter=@niagara/api",
+    "start:api": "turbo start --filter=@niagara/api",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "clean": "turbo clean && rm -rf node_modules",
+    "db:generate": "turbo db:generate --filter=@niagara/db",
+    "db:migrate": "turbo db:migrate --filter=@niagara/db",
+    "db:seed": "turbo db:seed --filter=@niagara/db",
+    "db:studio": "cd packages/db && pnpm db:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.14.2"
+}

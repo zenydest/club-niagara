@@ -1,0 +1,17 @@
+{
+  "appId": "com.niagara.pos",
+  "productName": "Club Niágara Caja",
+  "directories": {
+    "output": "release/pos"
+  },
+  "files": ["dist/**/*", "electron/**/*", "package.json"],
+  "win": {
+    "target": ["nsis"],
+    "icon": "public/icon.ico"
+  },
+  "nsis": {
+    "oneClick": true,
+    "createDesktopShortcut": true,
+    "shortcutName": "Club Niágara Caja"
+  }
+}

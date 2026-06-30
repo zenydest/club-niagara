@@ -1,0 +1,610 @@
+// ============================================================
+// Club Niágara — Schema Prisma
+// ORM: Prisma | DB: PostgreSQL en Render
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// BETTER AUTH — tablas de sesión y autenticación
+// ============================================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  emailVerified Boolean  @default(false) @map("email_verified")
+  image         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  sessions Session[]
+  accounts Account[]
+  staff    Staff[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @map("access_token") @db.Text
+  refreshToken          String?   @map("refresh_token") @db.Text
+  idToken               String?   @map("id_token") @db.Text
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@unique([providerId, accountId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("verifications")
+}
+
+// ============================================================
+// ENUMS DEL DOMINIO
+// ============================================================
+
+enum RolStaff {
+  admin
+  encargado
+  cajero
+  portero
+  rrpp
+  barman
+}
+
+enum EstadoEvento {
+  borrador
+  preventa
+  en_vivo
+  cerrado
+  cancelado
+}
+
+enum MetodoPago {
+  efectivo
+  tarjeta
+  cashless
+  qr_mp
+  cortesia
+}
+
+enum EstadoSync {
+  synced
+  pending
+  error
+}
+
+enum TipoMovimientoStock {
+  ingreso
+  egreso_venta
+  egreso_merma
+  transferencia
+  ajuste
+}
+
+enum TipoEntrada {
+  general
+  vip
+  rrpp
+  invitado
+  staff
+}
+
+enum EstadoMesa {
+  libre
+  reservada
+  ocupada
+  bloqueada
+}
+
+enum EstadoReserva {
+  pendiente
+  confirmada
+  cancelada
+  completada
+}
+
+enum TipoAcceso {
+  ingreso
+  egreso
+}
+
+enum MetodoAcceso {
+  manual
+  qr
+  cashless
+}
+
+// ============================================================
+// LOCAL (raíz multi-tenant)
+// ============================================================
+
+model Local {
+  id              String   @id @default(uuid())
+  nombre          String
+  slug            String   @unique
+  direccion       String?
+  ciudad          String?
+  pais            String   @default("AR")
+  moneda          String   @default("ARS")
+  capacidadMaxima Int      @map("capacidad_maxima")
+  logoUrl         String?  @map("logo_url")
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  staff           Staff[]
+  eventos         Evento[]
+  barras          Barra[]
+  productos       Producto[]
+  depositos       Deposito[]
+  stockMovimientos StockMovimiento[]
+  ventas          Venta[]
+  ventaItems      VentaItem[]
+  tarjetasCashless TarjetaCashless[]
+  recargas        Recarga[]
+  accesos         Acceso[]
+  entradasTipo    EntradaTipo[]
+  entradasVendidas EntradaVendida[]
+  mesasVip        MesaVip[]
+  reservas        Reserva[]
+  guardarropa     Guardarropa[]
+  comisionesRrpp  ComisionRrpp[]
+  cortesCaja      CorteCaja[]
+
+  @@map("locales")
+}
+
+// ============================================================
+// STAFF
+// ============================================================
+
+model Staff {
+  id        String   @id @default(uuid())
+  localId   String   @map("local_id")
+  userId    String   @map("user_id")
+  nombre    String
+  apellido  String
+  email     String
+  rol       RolStaff
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  local    Local  @relation(fields: [localId], references: [id], onDelete: Cascade)
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ventas          Venta[]
+  accesos         Acceso[]
+  recargas        Recarga[]
+  entradasVendidas EntradaVendida[]
+  stockMovimientos StockMovimiento[]
+  guardarropa     Guardarropa[]
+  comisionesRrpp  ComisionRrpp[]
+  cortesCaja      CorteCaja[]
+
+  @@unique([localId, userId])
+  @@map("staff")
+}
+
+// ============================================================
+// EVENTOS
+// ============================================================
+
+model Evento {
+  id          String       @id @default(uuid())
+  localId     String       @map("local_id")
+  nombre      String
+  descripcion String?
+  fechaInicio DateTime     @map("fecha_inicio")
+  fechaFin    DateTime?    @map("fecha_fin")
+  capacidad   Int
+  estado      EstadoEvento @default(borrador)
+  imagenUrl   String?      @map("imagen_url")
+  aforoActual Int          @default(0) @map("aforo_actual")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  local           Local           @relation(fields: [localId], references: [id], onDelete: Cascade)
+  ventas          Venta[]
+  accesos         Acceso[]
+  entradasTipo    EntradaTipo[]
+  entradasVendidas EntradaVendida[]
+  mesasVip        MesaVip[]
+  reservas        Reserva[]
+  guardarropa     Guardarropa[]
+  comisionesRrpp  ComisionRrpp[]
+  cortesCaja      CorteCaja[]
+
+  @@map("eventos")
+}
+
+// ============================================================
+// BARRAS
+// ============================================================
+
+model Barra {
+  id          String  @id @default(uuid())
+  localId     String  @map("local_id")
+  nombre      String
+  descripcion String?
+  activo      Boolean @default(true)
+
+  local      Local       @relation(fields: [localId], references: [id], onDelete: Cascade)
+  ventas     Venta[]
+  cortesCaja CorteCaja[]
+
+  @@map("barras")
+}
+
+// ============================================================
+// PRODUCTOS
+// ============================================================
+
+model Producto {
+  id          String   @id @default(uuid())
+  localId     String   @map("local_id")
+  nombre      String
+  descripcion String?
+  categoria   String
+  precio      Decimal  @db.Decimal(10, 2)
+  costo       Decimal? @db.Decimal(10, 2)
+  imagenUrl   String?  @map("imagen_url")
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  local            Local             @relation(fields: [localId], references: [id], onDelete: Cascade)
+  ventaItems       VentaItem[]
+  stockMovimientos StockMovimiento[]
+
+  @@map("productos")
+}
+
+// ============================================================
+// DEPÓSITOS Y STOCK
+// ============================================================
+
+model Deposito {
+  id          String  @id @default(uuid())
+  localId     String  @map("local_id")
+  nombre      String
+  esPrincipal Boolean @default(false) @map("es_principal")
+
+  local            Local             @relation(fields: [localId], references: [id], onDelete: Cascade)
+  stockMovimientos StockMovimiento[]
+
+  @@map("depositos")
+}
+
+model StockMovimiento {
+  id               String              @id @default(uuid())
+  localId          String              @map("local_id")
+  depositoId       String              @map("deposito_id")
+  productoId       String              @map("producto_id")
+  tipo             TipoMovimientoStock
+  cantidad         Decimal             @db.Decimal(10, 2)
+  cantidadAnterior Decimal             @default(0) @map("cantidad_anterior") @db.Decimal(10, 2)
+  motivo           String?
+  staffId          String?             @map("staff_id")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  synced           EstadoSync          @default(synced)
+
+  local    Local    @relation(fields: [localId], references: [id], onDelete: Cascade)
+  deposito Deposito @relation(fields: [depositoId], references: [id])
+  producto Producto @relation(fields: [productoId], references: [id])
+  staff    Staff?   @relation(fields: [staffId], references: [id])
+
+  @@map("stock_movimientos")
+}
+
+// ============================================================
+// VENTAS (offline-first: id generado en cliente)
+// ============================================================
+
+model Venta {
+  id          String     @id  // UUID generado en el cliente
+  localId     String     @map("local_id")
+  eventoId    String?    @map("evento_id")
+  barraId     String?    @map("barra_id")
+  staffId     String     @map("staff_id")
+  metodoPago  MetodoPago @map("metodo_pago")
+  total       Decimal    @db.Decimal(10, 2)
+  descuento   Decimal    @default(0) @db.Decimal(10, 2)
+  nota        String?
+  createdAt   DateTime   @map("created_at")  // timestamp del cliente para offline
+  synced      EstadoSync @default(synced)
+
+  local  Local    @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento Evento?  @relation(fields: [eventoId], references: [id])
+  barra  Barra?   @relation(fields: [barraId], references: [id])
+  staff  Staff    @relation(fields: [staffId], references: [id])
+  items  VentaItem[]
+
+  @@map("ventas")
+}
+
+model VentaItem {
+  id            String  @id @default(uuid())
+  ventaId       String  @map("venta_id")
+  localId       String  @map("local_id")
+  productoId    String  @map("producto_id")
+  cantidad      Int
+  precioUnitario Decimal @map("precio_unitario") @db.Decimal(10, 2)
+  subtotal      Decimal @db.Decimal(10, 2)
+
+  venta    Venta    @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  local    Local    @relation(fields: [localId], references: [id], onDelete: Cascade)
+  producto Producto @relation(fields: [productoId], references: [id])
+
+  @@map("venta_items")
+}
+
+// ============================================================
+// CASHLESS
+// ============================================================
+
+model TarjetaCashless {
+  id            String   @id @default(uuid())
+  localId       String   @map("local_id")
+  codigo        String
+  clienteNombre String?  @map("cliente_nombre")
+  clienteEmail  String?  @map("cliente_email")
+  saldo         Decimal  @default(0) @db.Decimal(10, 2)
+  activa        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  local    Local     @relation(fields: [localId], references: [id], onDelete: Cascade)
+  recargas Recarga[]
+
+  @@unique([localId, codigo])
+  @@map("tarjetas_cashless")
+}
+
+model Recarga {
+  id          String     @id  // UUID del cliente
+  localId     String     @map("local_id")
+  tarjetaId   String     @map("tarjeta_id")
+  staffId     String     @map("staff_id")
+  monto       Decimal    @db.Decimal(10, 2)
+  metodoPago  MetodoPago @map("metodo_pago")
+  mpPaymentId String?    @map("mp_payment_id")
+  createdAt   DateTime   @map("created_at")
+  synced      EstadoSync @default(synced)
+
+  local   Local           @relation(fields: [localId], references: [id], onDelete: Cascade)
+  tarjeta TarjetaCashless @relation(fields: [tarjetaId], references: [id])
+  staff   Staff           @relation(fields: [staffId], references: [id])
+
+  @@map("recargas")
+}
+
+// ============================================================
+// ACCESOS / PORTERÍA (offline-first)
+// ============================================================
+
+model Acceso {
+  id               String       @id  // UUID del cliente
+  localId          String       @map("local_id")
+  eventoId         String       @map("evento_id")
+  staffId          String?      @map("staff_id")
+  entradaVendidaId String?      @map("entrada_vendida_id")
+  tipo             TipoAcceso
+  metodo           MetodoAcceso @default(manual)
+  createdAt        DateTime     @map("created_at")
+  synced           EstadoSync   @default(synced)
+
+  local          Local          @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento         Evento         @relation(fields: [eventoId], references: [id])
+  staff          Staff?         @relation(fields: [staffId], references: [id])
+  entradaVendida EntradaVendida? @relation(fields: [entradaVendidaId], references: [id])
+
+  @@map("accesos")
+}
+
+// ============================================================
+// ENTRADAS / BOLETERÍA
+// ============================================================
+
+model EntradaTipo {
+  id              String      @id @default(uuid())
+  eventoId        String      @map("evento_id")
+  localId         String      @map("local_id")
+  nombre          String
+  tipo            TipoEntrada
+  precio          Decimal     @db.Decimal(10, 2)
+  cantidadTotal   Int?        @map("cantidad_total")
+  cantidadVendida Int         @default(0) @map("cantidad_vendida")
+  activo          Boolean     @default(true)
+
+  evento           Evento           @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  local            Local            @relation(fields: [localId], references: [id], onDelete: Cascade)
+  entradasVendidas EntradaVendida[]
+
+  @@map("entradas_tipo")
+}
+
+model EntradaVendida {
+  id             String     @id @default(uuid())
+  localId        String     @map("local_id")
+  eventoId       String     @map("evento_id")
+  entradaTipoId  String     @map("entrada_tipo_id")
+  qrCode         String     @unique @default(uuid()) @map("qr_code")
+  clienteNombre  String?    @map("cliente_nombre")
+  clienteEmail   String?    @map("cliente_email")
+  precioPagado   Decimal    @map("precio_pagado") @db.Decimal(10, 2)
+  metodoPago     MetodoPago @map("metodo_pago")
+  rrppId         String?    @map("rrpp_id")
+  usada          Boolean    @default(false)
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  local       Local       @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento      Evento      @relation(fields: [eventoId], references: [id])
+  entradaTipo EntradaTipo @relation(fields: [entradaTipoId], references: [id])
+  accesos     Acceso[]
+
+  @@map("entradas_vendidas")
+}
+
+// ============================================================
+// MESAS VIP
+// ============================================================
+
+model MesaVip {
+  id       String     @id @default(uuid())
+  localId  String     @map("local_id")
+  numero   String
+  sector   String?
+  capacidad Int
+  estado   EstadoMesa @default(libre)
+  eventoId String?    @map("evento_id")
+  posX     Float?     @map("pos_x")
+  posY     Float?     @map("pos_y")
+
+  local    Local     @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento   Evento?   @relation(fields: [eventoId], references: [id])
+  reservas Reserva[]
+
+  @@unique([localId, numero])
+  @@map("mesas_vip")
+}
+
+// ============================================================
+// RESERVAS
+// ============================================================
+
+model Reserva {
+  id               String        @id @default(uuid())
+  localId          String        @map("local_id")
+  eventoId         String?       @map("evento_id")
+  mesaVipId        String?       @map("mesa_vip_id")
+  clienteNombre    String        @map("cliente_nombre")
+  clienteEmail     String?       @map("cliente_email")
+  clienteTelefono  String?       @map("cliente_telefono")
+  cantidadPersonas Int           @map("cantidad_personas")
+  estado           EstadoReserva @default(pendiente)
+  nota             String?
+  montoSena        Decimal?      @map("monto_sena") @db.Decimal(10, 2)
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  local    Local    @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento   Evento?  @relation(fields: [eventoId], references: [id])
+  mesaVip  MesaVip? @relation(fields: [mesaVipId], references: [id])
+
+  @@map("reservas")
+}
+
+// ============================================================
+// GUARDARROPA
+// ============================================================
+
+model Guardarropa {
+  id            String   @id @default(uuid())
+  localId       String   @map("local_id")
+  eventoId      String?  @map("evento_id")
+  numeroTicket  Int      @map("numero_ticket")
+  descripcion   String?
+  entregado     Boolean  @default(false)
+  clienteNombre String?  @map("cliente_nombre")
+  staffId       String?  @map("staff_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  local   Local   @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento  Evento? @relation(fields: [eventoId], references: [id])
+  staff   Staff?  @relation(fields: [staffId], references: [id])
+
+  @@unique([localId, eventoId, numeroTicket])
+  @@map("guardarropa")
+}
+
+// ============================================================
+// COMISIONES RRPP
+// ============================================================
+
+model ComisionRrpp {
+  id                 String   @id @default(uuid())
+  localId            String   @map("local_id")
+  staffId            String   @map("staff_id")
+  eventoId           String   @map("evento_id")
+  entradasVendidas   Int      @default(0) @map("entradas_vendidas")
+  montoTotalVentas   Decimal  @default(0) @map("monto_total_ventas") @db.Decimal(10, 2)
+  porcentajeComision Decimal  @map("porcentaje_comision") @db.Decimal(5, 2)
+  montoComision      Decimal  @default(0) @map("monto_comision") @db.Decimal(10, 2)
+  pagada             Boolean  @default(false)
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  local  Local  @relation(fields: [localId], references: [id], onDelete: Cascade)
+  staff  Staff  @relation(fields: [staffId], references: [id])
+  evento Evento @relation(fields: [eventoId], references: [id])
+
+  @@unique([staffId, eventoId])
+  @@map("comisiones_rrpp")
+}
+
+// ============================================================
+// CORTES DE CAJA
+// ============================================================
+
+model CorteCaja {
+  id               String    @id @default(uuid())
+  localId          String    @map("local_id")
+  eventoId         String?   @map("evento_id")
+  staffId          String    @map("staff_id")
+  barraId          String?   @map("barra_id")
+  efectivoEsperado Decimal   @default(0) @map("efectivo_esperado") @db.Decimal(10, 2)
+  efectivoReal     Decimal?  @map("efectivo_real") @db.Decimal(10, 2)
+  diferencia       Decimal?  @db.Decimal(10, 2)
+  ventasEfectivo   Decimal   @default(0) @map("ventas_efectivo") @db.Decimal(10, 2)
+  ventasTarjeta    Decimal   @default(0) @map("ventas_tarjeta") @db.Decimal(10, 2)
+  ventasCashless   Decimal   @default(0) @map("ventas_cashless") @db.Decimal(10, 2)
+  ventasQr         Decimal   @default(0) @map("ventas_qr") @db.Decimal(10, 2)
+  ventasCortesia   Decimal   @default(0) @map("ventas_cortesia") @db.Decimal(10, 2)
+  totalVentas      Decimal   @default(0) @map("total_ventas") @db.Decimal(10, 2)
+  nota             String?
+  cerradoAt        DateTime? @map("cerrado_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  local  Local   @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento Evento? @relation(fields: [eventoId], references: [id])
+  staff  Staff   @relation(fields: [staffId], references: [id])
+  barra  Barra?  @relation(fields: [barraId], references: [id])
+
+  @@map("cortes_caja")
+}

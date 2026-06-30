@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html { font-family: "Inter", system-ui, sans-serif; }
+  body {
+    background-color: #08080f;
+    color: #f8f8ff;
+    -webkit-font-smoothing: antialiased;
+    /* Prevenir zoom accidental en tablets táctiles */
+    touch-action: manipulation;
+    user-select: none;
+  }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #0f0f1a; }
+  ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+}
+
+@layer components {
+  /* Botón gigante de producto — optimizado para táctil */
+  .btn-producto {
+    @apply flex flex-col items-center justify-center gap-2
+           bg-surface border border-border rounded-2xl
+           p-4 min-h-[110px] w-full
+           hover:border-lime/50 hover:bg-surface-2
+           active:scale-95 active:bg-lime/10
+           transition-all duration-100 cursor-pointer;
+  }
+
+  .card {
+    @apply bg-surface border border-border rounded-2xl p-4 shadow-card;
+  }
+}

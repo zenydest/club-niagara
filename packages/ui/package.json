@@ -1,0 +1,35 @@
+{
+  "name": "@niagara/ui",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@niagara/core": "workspace:*",
+    "clsx": "^2.1.1",
+    "react": "^18.3.1",
+    "tailwind-merge": "^2.5.4"
+  },
+  "peerDependencies": {
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "@niagara/config": "workspace:*",
+    "@types/react": "^18.3.12",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  }
+}

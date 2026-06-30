@@ -1,0 +1,37 @@
+export { prisma } from "./client.js";
+
+// Re-exportar tipos de Prisma para que las apps no importen directamente de @prisma/client
+export type {
+  Local,
+  Staff,
+  Evento,
+  Barra,
+  Producto,
+  Deposito,
+  StockMovimiento,
+  Venta,
+  VentaItem,
+  TarjetaCashless,
+  Recarga,
+  Acceso,
+  EntradaTipo,
+  EntradaVendida,
+  MesaVip,
+  Reserva,
+  Guardarropa,
+  ComisionRrpp,
+  CorteCaja,
+  User,
+  Session,
+  // Enums
+  RolStaff,
+  EstadoEvento,
+  MetodoPago,
+  EstadoSync,
+  TipoMovimientoStock,
+  TipoEntrada,
+  EstadoMesa,
+  EstadoReserva,
+  TipoAcceso,
+  MetodoAcceso,
+} from "@prisma/client";

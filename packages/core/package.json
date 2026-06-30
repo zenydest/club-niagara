@@ -1,0 +1,40 @@
+{
+  "name": "@niagara/core",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "import": "./dist/schemas/index.mjs"
+    },
+    "./constants": {
+      "types": "./dist/constants/index.d.ts",
+      "import": "./dist/constants/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@niagara/config": "workspace:*",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  }
+}

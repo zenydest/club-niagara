@@ -1,0 +1,41 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.turbo/
+
+# Electron builds
+out/
+release/
+
+# Variables de entorno (NUNCA subir)
+.env
+.env.local
+.env.*.local
+
+# Prisma
+packages/db/prisma/dev.db
+packages/db/prisma/migrations/
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
