@@ -75,9 +75,7 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
     const { localId } = req;
     const { eventoId } = req.query as { eventoId?: string };
 
-    const whereEvento = eventoId ? { eventoId } : {};
-
-    // Ventas agrupadas por hora usando raw query para mayor control
+    // Ventas agrupadas por hora — filtro opcional de eventoId con cast nullable
     const resultado = await prisma.$queryRaw<Array<{ hora: Date; total: number; cantidad: number }>>`
       SELECT
         DATE_TRUNC('hour', "created_at") AS hora,
@@ -85,7 +83,7 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
         COUNT(id)::int AS cantidad
       FROM ventas
       WHERE local_id = ${localId}
-        ${eventoId ? prisma.$queryRaw`AND evento_id = ${eventoId}` : prisma.$queryRaw``}
+        AND (${eventoId ?? null}::text IS NULL OR evento_id = ${eventoId ?? null})
       GROUP BY DATE_TRUNC('hour', "created_at")
       ORDER BY hora ASC
     `;
