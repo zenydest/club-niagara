@@ -65,14 +65,14 @@ export interface Local {
 /** Usuario del staff */
 export interface Staff {
   id: string;
-  local_id: string;
-  user_id: string; // FK a auth.users de Supabase
+  localId: string;
+  userId: string;
   nombre: string;
   apellido: string;
   email: string;
   rol: RolStaff;
   activo: boolean;
-  created_at: string;
+  createdAt: string;
 }
 
 /** Evento */

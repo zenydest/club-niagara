@@ -8,7 +8,7 @@ import { AppLayout } from "@/layouts/AppLayout";
  * Maneja la bifurcación auth → app.
  */
 export function App() {
-  const { sesion, cargando, inicializar } = useAuthStore();
+  const { usuario, cargando, inicializar } = useAuthStore();
 
   // Inicializar la sesión al montar la app
   useEffect(() => {
@@ -16,7 +16,7 @@ export function App() {
   }, [inicializar]);
 
   // Pantalla de carga inicial
-  if (cargando && !sesion) {
+  if (cargando && !usuario) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -34,7 +34,7 @@ export function App() {
   }
 
   // Sin sesión → pantalla de login
-  if (!sesion) {
+  if (!usuario) {
     return <LoginPage />;
   }
 
