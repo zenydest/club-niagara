@@ -57,20 +57,27 @@ export function Sidebar({ abierto, paginaActual, onNavegar }: SidebarProps) {
         {/* Logo */}
         <div
           className={cn(
-            "flex items-center h-14 border-b border-border px-4",
+            "flex items-center h-16 border-b border-border px-3",
             !abierto && "md:justify-center md:px-2"
           )}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-lime/10 border border-lime/30">
-              <span className="text-lg font-black text-lime">N</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Club Niágara"
+              className="w-10 h-10 flex-shrink-0 object-contain"
+            />
             {abierto && (
               <div className="min-w-0">
-                <p className="font-black text-text-primary text-sm leading-none">Club Niágara</p>
-                <p className="text-xs text-text-muted mt-0.5 truncate">
+                <p className="font-black text-sm leading-none" style={{
+                  background: "linear-gradient(90deg, #1E50FF, #8B3DFF, #CC0099)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}>
                   Club Niágara
                 </p>
+                <p className="text-xs text-text-muted mt-0.5">Sistema de gestión</p>
               </div>
             )}
           </div>
@@ -89,10 +96,14 @@ export function Sidebar({ abierto, paginaActual, onNavegar }: SidebarProps) {
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150",
                       "text-sm font-medium",
                       esActivo
-                        ? "bg-lime/10 text-lime"
+                        ? "text-white"
                         : "text-text-secondary hover:bg-surface-2 hover:text-text-primary",
                       !abierto && "md:justify-center md:px-2"
                     )}
+                    style={esActivo ? {
+                      background: "linear-gradient(90deg, rgba(30,80,255,0.18) 0%, rgba(139,61,255,0.12) 100%)",
+                      borderLeft: "2px solid #8B3DFF",
+                    } : undefined}
                     title={!abierto ? item.label : undefined}
                   >
                     <span className="text-base flex-shrink-0">{item.icono}</span>

@@ -2,40 +2,54 @@ import type { Config } from "tailwindcss";
 
 /**
  * Preset de Tailwind compartido para todas las apps Club Niágara.
- * Tema oscuro de boliche: fondo casi negro, verde lima y púrpura.
+ * Paleta extraída del logo: negro profundo + azul eléctrico + púrpura + magenta.
+ * Ring de neón: #1E50FF → #8B3DFF → #CC0099
  */
 const niagaraPreset: Partial<Config> = {
   darkMode: "class",
   theme: {
     extend: {
       colors: {
-        // Colores base de Club Niágara
-        background: "#08080F",
-        surface: "#0F0F1A",
-        "surface-2": "#16162A",
-        "surface-3": "#1E1E35",
+        // Colores base — negro profundo con tinte azul
+        background: "#06060F",
+        surface: "#0C0C1A",
+        "surface-2": "#111128",
+        "surface-3": "#171735",
 
-        // Acento principal: verde lima
+        // Acento principal: azul eléctrico (lado izquierdo del ring del logo)
         lime: {
-          DEFAULT: "#C2FF00",
-          50: "#F4FFD6",
-          100: "#E8FF99",
-          200: "#D5FF4D",
-          300: "#C2FF00",
-          400: "#A8E000",
-          500: "#8DC200",
+          DEFAULT: "#1E50FF",
+          50: "#E6ECFF",
+          100: "#BFCEFF",
+          200: "#8AAAFF",
+          300: "#4D7AFF",
+          400: "#1E50FF",
+          500: "#0035E0",
+          600: "#0025B0",
         },
 
-        // Acento secundario: púrpura
+        // Acento secundario: púrpura vivido (centro del ring)
         purple: {
-          DEFAULT: "#7B3FFF",
-          50: "#EDE4FF",
-          100: "#D4BFFF",
-          200: "#B08AFF",
-          300: "#8C55FF",
-          400: "#7B3FFF",
-          500: "#6020E0",
-          600: "#4D0FCC",
+          DEFAULT: "#8B3DFF",
+          50: "#F0E8FF",
+          100: "#D9C4FF",
+          200: "#BC91FF",
+          300: "#A060FF",
+          400: "#8B3DFF",
+          500: "#6E20E0",
+          600: "#5510C0",
+        },
+
+        // Acento terciario: magenta / hot pink (lado derecho del ring)
+        magenta: {
+          DEFAULT: "#CC0099",
+          50: "#FFE0F5",
+          100: "#FFB3E6",
+          200: "#FF66CC",
+          300: "#FF1AB3",
+          400: "#CC0099",
+          500: "#990073",
+          600: "#66004D",
         },
 
         // Semánticos
@@ -45,13 +59,18 @@ const niagaraPreset: Partial<Config> = {
         info: "#3B82F6",
 
         // Texto
-        "text-primary": "#F8F8FF",
-        "text-secondary": "#9999BB",
-        "text-muted": "#55556A",
+        "text-primary": "#F0F0FF",
+        "text-secondary": "#8888AA",
+        "text-muted": "#444460",
 
         // Bordes
-        border: "#1E1E35",
-        "border-strong": "#2A2A4A",
+        border: "#171735",
+        "border-strong": "#222248",
+      },
+      backgroundImage: {
+        // Gradiente del ring del logo
+        "neon-ring": "linear-gradient(135deg, #1E50FF 0%, #8B3DFF 50%, #CC0099 100%)",
+        "neon-ring-h": "linear-gradient(90deg, #1E50FF 0%, #8B3DFF 50%, #CC0099 100%)",
       },
       fontFamily: {
         sans: ["Inter Variable", "Inter", "system-ui", "sans-serif"],
@@ -68,13 +87,18 @@ const niagaraPreset: Partial<Config> = {
       },
       animation: {
         "pulse-lime": "pulse-lime 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "neon-pulse": "neon-pulse 3s ease-in-out infinite",
         "slide-in": "slide-in 0.2s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
       },
       keyframes: {
         "pulse-lime": {
           "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.6", color: "#C2FF00" },
+          "50%": { opacity: "0.6" },
+        },
+        "neon-pulse": {
+          "0%, 100%": { opacity: "1", filter: "brightness(1)" },
+          "50%": { opacity: "0.8", filter: "brightness(1.3)" },
         },
         "slide-in": {
           from: { transform: "translateX(-100%)", opacity: "0" },
@@ -86,9 +110,11 @@ const niagaraPreset: Partial<Config> = {
         },
       },
       boxShadow: {
-        "lime-glow": "0 0 20px rgba(194, 255, 0, 0.3)",
-        "purple-glow": "0 0 20px rgba(123, 63, 255, 0.3)",
-        "card": "0 4px 24px rgba(0, 0, 0, 0.5)",
+        "lime-glow": "0 0 24px rgba(30, 80, 255, 0.4)",
+        "purple-glow": "0 0 24px rgba(139, 61, 255, 0.4)",
+        "magenta-glow": "0 0 24px rgba(204, 0, 153, 0.4)",
+        "neon-glow": "0 0 30px rgba(30, 80, 255, 0.3), 0 0 60px rgba(139, 61, 255, 0.2), 0 0 90px rgba(204, 0, 153, 0.15)",
+        "card": "0 4px 24px rgba(0, 0, 0, 0.6)",
       },
     },
   },

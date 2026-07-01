@@ -17,8 +17,8 @@
   }
 
   body {
-    background-color: #08080f;
-    color: #f8f8ff;
+    background-color: #06060F;
+    color: #F0F0FF;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -30,23 +30,25 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #0f0f1a;
+    background: #0C0C1A;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #2a2a4a;
+    background: #222248;
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #7b3fff;
+    background: #8B3DFF;
   }
 }
 
 @layer components {
-  /* Sidebar link activo */
+  /* Sidebar link activo — gradiente neon */
   .sidebar-link-active {
-    @apply bg-lime/10 text-lime border-l-2 border-lime;
+    background: linear-gradient(90deg, rgba(30,80,255,0.15) 0%, rgba(139,61,255,0.10) 100%);
+    @apply text-white border-l-2;
+    border-image: linear-gradient(180deg, #1E50FF, #8B3DFF, #CC0099) 1;
   }
 
   .sidebar-link {
@@ -62,6 +64,20 @@
 
   /* Número de KPI grande */
   .kpi-number {
-    @apply text-kpi-lg font-black tracking-tight text-lime;
+    @apply text-kpi-lg font-black tracking-tight;
+    background: linear-gradient(135deg, #1E50FF, #8B3DFF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Botón primario con gradiente neon */
+  .btn-neon {
+    background: linear-gradient(135deg, #1E50FF 0%, #8B3DFF 50%, #CC0099 100%);
+    @apply text-white font-semibold px-6 py-2.5 rounded-xl transition-all duration-200;
+  }
+  .btn-neon:hover {
+    filter: brightness(1.15);
+    box-shadow: 0 0 24px rgba(139, 61, 255, 0.5);
   }
 }

@@ -10,16 +10,48 @@
  *  - 10 productos de ejemplo
  *  - 1 depósito principal
  *  - 2 tipos de entrada
+ *  - Staff adicional (cajero, portero, rrpp)
+ *
+ * Usa Better Auth para crear usuarios con el hash correcto (scrypt).
  */
 
 import { PrismaClient, RolStaff, EstadoEvento, TipoEntrada } from "@prisma/client";
-import { createHash } from "crypto";
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
 
 const prisma = new PrismaClient();
 
-// Hasheo simple para seed (en prod Better Auth maneja el hash real)
-function hashPassword(plain: string): string {
-  return createHash("sha256").update(plain).digest("hex");
+// Instancia local de auth solo para el seed — hashea contraseñas correctamente
+const seedAuth = betterAuth({
+  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  emailAndPassword: { enabled: true },
+  secret: process.env["BETTER_AUTH_SECRET"] ?? "seed-secret-minimo-32-caracteres-ok",
+  baseURL: process.env["BETTER_AUTH_URL"] ?? "http://localhost:3001",
+});
+
+/** Crea o recupera un usuario via Better Auth (con hash correcto) */
+async function upsertAuthUser(email: string, password: string, name: string) {
+  // Buscar si ya existe
+  const existente = await prisma.user.findUnique({ where: { email } });
+  if (existente) {
+    // Actualizar la cuenta con el hash correcto (borrar y recrear)
+    await prisma.account.deleteMany({
+      where: { userId: existente.id, providerId: "credential" },
+    });
+    await prisma.user.delete({ where: { id: existente.id } });
+  }
+
+  // Crear via Better Auth para obtener hash correcto de la contraseña
+  const result = await seedAuth.api.signUpEmail({
+    body: { email, password, name },
+    headers: new Headers({ "content-type": "application/json" }),
+  });
+
+  if (!result?.user) {
+    throw new Error(`No se pudo crear el usuario ${email}`);
+  }
+
+  return result.user;
 }
 
 async function main() {
@@ -41,34 +73,12 @@ async function main() {
   });
   console.log(`✓ Local: ${local.nombre} (${local.id})`);
 
-  // ── Usuario admin ──────────────────────────────────────────
-  const adminUser = await prisma.user.upsert({
-    where: { email: "admin@clubniagara.com" },
-    update: {},
-    create: {
-      email: "admin@clubniagara.com",
-      name: "Admin Club Niágara",
-      emailVerified: true,
-      // La cuenta de credentials la crea Better Auth; esto es solo el User
-    },
-  });
-
-  // Cuenta de credenciales para Better Auth
-  await prisma.account.upsert({
-    where: {
-      providerId_accountId: {
-        providerId: "credential",
-        accountId: adminUser.email,
-      },
-    },
-    update: {},
-    create: {
-      accountId: adminUser.email,
-      providerId: "credential",
-      userId: adminUser.id,
-      password: hashPassword("Admin1234!"),
-    },
-  });
+  // ── Usuario admin (Better Auth hashea la contraseña) ───────
+  const adminUser = await upsertAuthUser(
+    "admin@clubniagara.com",
+    "Admin1234!",
+    "Admin Club Niágara"
+  );
 
   // Staff vinculado al local
   const staffAdmin = await prisma.staff.upsert({
@@ -136,7 +146,7 @@ async function main() {
   console.log("✓ Tipos de entrada: General, VIP");
 
   // ── Barras ─────────────────────────────────────────────────
-  const barraPrincipal = await prisma.barra.upsert({
+  await prisma.barra.upsert({
     where: { id: "barra-main-001" },
     update: {},
     create: {
@@ -202,35 +212,27 @@ async function main() {
   }
   console.log(`✓ Productos: ${productos.length} cargados`);
 
-  // ── Staff adicional de ejemplo ─────────────────────────────
-  const rolesExtra: Array<{ email: string; nombre: string; apellido: string; rol: RolStaff }> = [
-    { email: "cajero@clubniagara.com", nombre: "Carlos", apellido: "Gómez", rol: RolStaff.cajero },
-    { email: "portero@clubniagara.com", nombre: "Diego", apellido: "Rodríguez", rol: RolStaff.portero },
-    { email: "rrpp@clubniagara.com", nombre: "Valeria", apellido: "López", rol: RolStaff.rrpp },
+  // ── Staff adicional ────────────────────────────────────────
+  const rolesExtra = [
+    { email: "cajero@clubniagara.com", nombre: "Carlos", apellido: "Gómez", rol: RolStaff.cajero, password: "Niagara1234!" },
+    { email: "portero@clubniagara.com", nombre: "Diego", apellido: "Rodríguez", rol: RolStaff.portero, password: "Niagara1234!" },
+    { email: "rrpp@clubniagara.com", nombre: "Valeria", apellido: "López", rol: RolStaff.rrpp, password: "Niagara1234!" },
   ];
 
   for (const r of rolesExtra) {
-    const u = await prisma.user.upsert({
-      where: { email: r.email },
-      update: {},
-      create: { email: r.email, name: `${r.nombre} ${r.apellido}`, emailVerified: true },
-    });
-
-    await prisma.account.upsert({
-      where: { providerId_accountId: { providerId: "credential", accountId: r.email } },
-      update: {},
-      create: {
-        accountId: r.email,
-        providerId: "credential",
-        userId: u.id,
-        password: hashPassword("Niagara1234!"),
-      },
-    });
+    const u = await upsertAuthUser(r.email, r.password, `${r.nombre} ${r.apellido}`);
 
     await prisma.staff.upsert({
       where: { localId_userId: { localId: local.id, userId: u.id } },
       update: {},
-      create: { localId: local.id, userId: u.id, nombre: r.nombre, apellido: r.apellido, email: r.email, rol: r.rol },
+      create: {
+        localId: local.id,
+        userId: u.id,
+        nombre: r.nombre,
+        apellido: r.apellido,
+        email: r.email,
+        rol: r.rol,
+      },
     });
   }
   console.log("✓ Staff adicional: cajero, portero, rrpp");

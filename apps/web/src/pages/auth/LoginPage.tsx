@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Button, Input } from "@niagara/ui";
+import { Input } from "@niagara/ui";
 import { loginSchema } from "@niagara/core";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -47,10 +47,22 @@ export function LoginPage() {
       <div className="relative w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-surface rounded-3xl border border-border mb-6 shadow-purple-glow">
-            <span className="text-4xl font-black text-lime tracking-tighter">N</span>
+          <div className="flex justify-center mb-6">
+            <img
+              src="/logo.png"
+              alt="Club Niágara"
+              className="w-24 h-24 object-contain animate-neon-pulse"
+            />
           </div>
-          <h1 className="text-3xl font-black text-text-primary">
+          <h1
+            className="text-3xl font-black"
+            style={{
+              background: "linear-gradient(90deg, #1E50FF, #8B3DFF, #CC0099)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}
+          >
             Club Niágara
           </h1>
           <p className="text-text-secondary mt-1">
@@ -93,15 +105,13 @@ export function LoginPage() {
               </div>
             )}
 
-            <Button
+            <button
               type="submit"
-              variante="lime"
-              tamaño="lg"
-              cargando={cargando}
-              className="w-full mt-2"
+              disabled={cargando}
+              className="btn-neon w-full mt-2 py-3 text-base disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {cargando ? "Ingresando..." : "Ingresar"}
-            </Button>
+            </button>
           </form>
         </div>
 
