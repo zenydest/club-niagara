@@ -68,17 +68,7 @@ export function Sidebar({ abierto, paginaActual, onNavegar }: SidebarProps) {
               className="w-10 h-10 flex-shrink-0 object-contain"
             />
             {abierto && (
-              <div className="min-w-0">
-                <p className="font-black text-sm leading-none" style={{
-                  background: "linear-gradient(90deg, #1E50FF, #8B3DFF, #CC0099)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}>
-                  Club Niágara
-                </p>
-                <p className="text-xs text-text-muted mt-0.5">Sistema de gestión</p>
-              </div>
+              <p className="text-xs text-text-muted">Sistema de gestión</p>
             )}
           </div>
         </div>

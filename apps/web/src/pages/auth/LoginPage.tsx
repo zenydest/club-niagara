@@ -54,20 +54,6 @@ export function LoginPage() {
               className="w-24 h-24 object-contain animate-neon-pulse"
             />
           </div>
-          <h1
-            className="text-3xl font-black"
-            style={{
-              background: "linear-gradient(90deg, #1E50FF, #8B3DFF, #CC0099)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            Club Niágara
-          </h1>
-          <p className="text-text-secondary mt-1">
-            Sistema de gestión para boliches
-          </p>
         </div>
 
         {/* Card de login */}
