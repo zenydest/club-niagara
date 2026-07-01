@@ -56,21 +56,11 @@ const app = Fastify({
 await app.register(helmet, { contentSecurityPolicy: false });
 await app.register(cookie);
 await app.register(cors, {
-  origin: (origin, cb) => {
-    // Permitir requests sin origin (Postman, server-to-server) y orígenes autorizados
-    if (!origin || FRONTEND_URLS.includes(origin)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`CORS: origen no permitido: ${origin}`), false);
-    }
-  },
+  origin: FRONTEND_URLS,
   credentials: true,
-  // Encabezados custom que enviamos desde el frontend
-  allowedHeaders: ["Content-Type", "Authorization", "x-local-id", "Cookie"],
-  exposedHeaders: ["Set-Cookie"],
+  // Necesario para que el preflight permita el header custom x-local-id
+  allowedHeaders: ["Content-Type", "Authorization", "x-local-id"],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  preflight: true,
-  strictPreflight: false,
 });
 await app.register(rateLimit, {
   max: 200,
