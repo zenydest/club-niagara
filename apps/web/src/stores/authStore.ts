@@ -115,7 +115,7 @@ async function cargarStaff(
   // Al no tener aún el localId (primer login), pedimos la lista de locales
   // que tiene el usuario y tomamos el primero.
   try {
-    const data = await api.get<{ staff: Staff[] }>("/staff").catch(() => null);
+    const data = await api.get<{ staff: Staff[] }>("/me").catch(() => null);
 
     if (!data?.staff?.length) {
       set({

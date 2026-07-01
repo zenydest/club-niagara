@@ -16,7 +16,7 @@ declare module "fastify" {
   }
 }
 
-const RUTAS_PUBLICAS = ["/health", "/api/auth/"];
+const RUTAS_PUBLICAS = ["/health", "/api/auth/", "/api/me"];
 
 /** Convierte IncomingHttpHeaders de Node.js a Web API Headers */
 function toWebHeaders(incoming: Record<string, string | string[] | undefined>): Headers {
