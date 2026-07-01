@@ -130,7 +130,7 @@ async function cargarStaff(
 
     // Conectar Socket.io y unirse al room del local
     socket.connect();
-    socket.emit("join:local", { localId: staffActual.localId });
+    socket.emit("join:local", { localId: data.staff.localId });
   } catch {
     set({
       error: "Error al cargar tu perfil. Intentá de nuevo.",

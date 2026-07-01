@@ -47,7 +47,12 @@ const app = Fastify({
         : undefined,
   },
   serverFactory: (handler) => {
-    httpServer.on("request", handler);
+    // Socket.io ya escucha en httpServer para /socket.io/*
+    // Le pasamos a Fastify solo los requests que NO son de Socket.io
+    httpServer.on("request", (req, res) => {
+      if (req.url?.startsWith("/socket.io/")) return;
+      handler(req, res);
+    });
     return httpServer;
   },
 });
