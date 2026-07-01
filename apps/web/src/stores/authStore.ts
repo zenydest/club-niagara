@@ -115,9 +115,10 @@ async function cargarStaff(
   // Al no tener aún el localId (primer login), pedimos la lista de locales
   // que tiene el usuario y tomamos el primero.
   try {
-    const data = await api.get<{ staff: Staff[] }>("/me").catch(() => null);
+    // /api/staff/perfil no requiere x-local-id — el tenant plugin hace bootstrap
+    const data = await api.get<{ staff: Staff }>("/staff/perfil").catch(() => null);
 
-    if (!data?.staff?.length) {
+    if (!data?.staff) {
       set({
         error: "Tu usuario no tiene acceso a ningún local. Contactá al administrador.",
         cargando: false,
@@ -125,13 +126,7 @@ async function cargarStaff(
       return;
     }
 
-    const staffActual = data.staff[0];
-    if (!staffActual) {
-      set({ error: "No se encontró tu perfil de staff.", cargando: false });
-      return;
-    }
-
-    set({ staff: staffActual, cargando: false, error: null });
+    set({ staff: data.staff, cargando: false, error: null });
 
     // Conectar Socket.io y unirse al room del local
     socket.connect();

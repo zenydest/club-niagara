@@ -16,7 +16,7 @@ declare module "fastify" {
   }
 }
 
-const RUTAS_PUBLICAS = ["/health", "/api/auth/", "/api/me"];
+const RUTAS_PUBLICAS = ["/health", "/api/auth/"];
 
 /** Convierte IncomingHttpHeaders de Node.js a Web API Headers */
 function toWebHeaders(incoming: Record<string, string | string[] | undefined>): Headers {
@@ -43,8 +43,21 @@ const tenantPlugin: FastifyPluginAsync = async (app) => {
     }
 
     const localId = req.headers["x-local-id"] as string | undefined;
+
     if (!localId) {
-      return reply.status(400).send({ error: "Header x-local-id requerido" });
+      // Bootstrap: sin x-local-id, buscamos el primer local activo del usuario.
+      // Esto permite la primera carga sin conocer el localId (ej: /api/staff/perfil).
+      const staffRecord = await prisma.staff.findFirst({
+        where: { userId: session.user.id, activo: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!staffRecord) {
+        return reply.status(403).send({ error: "Sin acceso a ningún local" });
+      }
+      req.localId = staffRecord.localId;
+      req.staffActual = staffRecord;
+      req.userId = session.user.id;
+      return;
     }
 
     const local = await prisma.local.findUnique({ where: { id: localId } });

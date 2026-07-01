@@ -97,29 +97,6 @@ app.all("/api/auth/*", async (req, reply) => {
   return reply.send(body);
 });
 
-// ── GET /api/me — bootstrap: retorna el staff del usuario sin necesitar localId ─
-// Esta ruta NO pasa por el tenant plugin (está en RUTAS_PUBLICAS)
-app.get("/api/me", async (req, reply) => {
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(req.headers)) {
-    if (value !== undefined) {
-      headers.set(key, Array.isArray(value) ? value.join(", ") : value);
-    }
-  }
-
-  const session = await auth.api.getSession({ headers });
-  if (!session?.user) {
-    return reply.status(401).send({ error: "No autenticado" });
-  }
-
-  const staff = await prisma.staff.findMany({
-    where: { userId: session.user.id, activo: true },
-    orderBy: { createdAt: "asc" },
-  });
-
-  return { staff };
-});
-
 // ── Plugin de contexto tenant (inyecta localId en req) ───────
 await app.register(tenantContextPlugin);
 

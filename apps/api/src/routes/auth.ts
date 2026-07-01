@@ -19,6 +19,12 @@ const crearStaffSchema = z.object({
 });
 
 export const registrarRutasAuth: FastifyPluginAsync = async (app) => {
+  // GET /api/staff/perfil — propio perfil, sin chequeo de rol ni x-local-id
+  // El tenant plugin (modo bootstrap) ya resolvió el staff en req.staffActual
+  app.get("/perfil", async (req) => {
+    return { staff: req.staffActual };
+  });
+
   // GET /api/staff — listar staff del local
   app.get("/", async (req, reply) => {
     const { localId } = req;
