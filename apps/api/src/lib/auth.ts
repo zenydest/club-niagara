@@ -50,6 +50,17 @@ export const auth = betterAuth({
 
   // Trusted origins para CORS
   trustedOrigins: (process.env["FRONTEND_URLS"] ?? "http://localhost:5173").split(","),
+
+  // Cookies cross-origin: Vercel (frontend) → Render (API) son dominios distintos.
+  // SameSite=None;Secure permite que el browser envíe la cookie en requests cross-site.
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
+      httpOnly: true,
+      path: "/",
+    },
+  },
 });
 
 /** Tipo de sesión inferido de Better Auth */
