@@ -12,6 +12,29 @@ import { io } from "../index.js";
 import { accesosSchema } from "@niagara/core";
 
 export const registrarRutasAccesos: FastifyPluginAsync = async (app) => {
+  // GET /api/accesos/eventos-activos — eventos en vivo o preventa del local
+  app.get("/eventos-activos", async (req, reply) => {
+    const { localId } = req;
+
+    const eventos = await prisma.evento.findMany({
+      where: {
+        localId,
+        estado: { in: ["en_vivo", "preventa"] },
+      },
+      select: {
+        id: true,
+        nombre: true,
+        fechaInicio: true,
+        capacidad: true,
+        aforoActual: true,
+        estado: true,
+      },
+      orderBy: { fechaInicio: "desc" },
+    });
+
+    return { eventos };
+  });
+
   // GET /api/accesos/aforo?eventoId=
   app.get("/aforo", async (req, reply) => {
     const { localId } = req;
