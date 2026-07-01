@@ -102,7 +102,7 @@ async function main() {
 
   const evento = await prisma.evento.upsert({
     where: { id: "evt-demo-001" },
-    update: {},
+    update: { estado: EstadoEvento.en_vivo },
     create: {
       id: "evt-demo-001",
       localId: local.id,
@@ -110,7 +110,7 @@ async function main() {
       descripcion: "Evento de demostración del sistema",
       fechaInicio: mañana,
       capacidad: 300,
-      estado: EstadoEvento.preventa,
+      estado: EstadoEvento.en_vivo,
     },
   });
   console.log(`✓ Evento: ${evento.nombre}`);
