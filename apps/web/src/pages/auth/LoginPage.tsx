@@ -51,7 +51,7 @@ export function LoginPage() {
             <img
               src="/logo.png"
               alt="Club Niágara"
-              className="w-24 h-24 object-contain animate-neon-pulse"
+              className="w-40 h-40 object-contain animate-neon-pulse"
             />
           </div>
         </div>
