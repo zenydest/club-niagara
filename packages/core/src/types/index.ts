@@ -225,6 +225,7 @@ export interface EntradaVendida {
   qr_code: string; // UUID único del QR
   cliente_nombre: string | null;
   cliente_email: string | null;
+  cliente_telefono: string | null;
   precio_pagado: number;
   metodo_pago: MetodoPago;
   rrpp_id: string | null;

@@ -237,6 +237,30 @@ async function main() {
   }
   console.log("✓ Staff adicional: cajero, portero, rrpp");
 
+  // ── Tarjetas cashless de demo ──────────────────────────────
+  const tarjetasDemo = [
+    { id: "tarjeta-demo-001", codigo: "PULSERA-001", clienteNombre: "Juan Pérez", saldo: 5000 },
+    { id: "tarjeta-demo-002", codigo: "PULSERA-002", clienteNombre: "María García", saldo: 12000 },
+    { id: "tarjeta-demo-003", codigo: "PULSERA-003", clienteNombre: "Carlos López", saldo: 0 },
+  ];
+
+  for (const t of tarjetasDemo) {
+    await prisma.tarjetaCashless.upsert({
+      where: { id: t.id },
+      update: {},
+      create: {
+        id: t.id,
+        localId: local.id,
+        codigo: t.codigo,
+        clienteNombre: t.clienteNombre,
+        saldo: t.saldo,
+        activa: true,
+      },
+    });
+  }
+  console.log(`✓ Tarjetas cashless: ${tarjetasDemo.length} creadas`);
+  console.log("   PULSERA-001 — $5.000 · PULSERA-002 — $12.000 · PULSERA-003 — $0");
+
   console.log("\n✅ Seed completado. Usuarios de prueba:");
   console.log("   admin@clubniagara.com     / Admin1234!");
   console.log("   cajero@clubniagara.com    / Niagara1234!");

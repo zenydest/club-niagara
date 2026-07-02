@@ -11,6 +11,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { cn } from "@niagara/ui";
 import { useCajaStore } from "@/stores/cajaStore";
+import { useCashlessStore } from "@/stores/cashlessStore";
 import type { MetodoPago, Producto } from "@niagara/core";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -218,12 +219,41 @@ function ModalPago({
 
   const total = carrito.reduce((acc, i) => acc + i.subtotal, 0);
   const vuelto = Math.max(0, montoCobrado - total);
+  // Estado para cashless: código y validación de saldo
+  const [codigoCashless, setCodigoCashless] = useState("");
+  const {
+    tarjetaConsultada,
+    consultando: consultandoCashless,
+    errorConsulta: errorCashless,
+    procesando: procesandoCashless,
+    consultarTarjeta,
+    cobrar: cobrarCashless,
+    limpiarConsulta,
+  } = useCashlessStore();
+
+  const saldoCashlessSuficiente =
+    tarjetaConsultada ? tarjetaConsultada.saldo >= total : false;
+
   const puedeConfirmar =
-    metodoPago !== "efectivo" || montoCobrado >= total;
+    metodoPago === "efectivo"
+      ? montoCobrado >= total
+      : metodoPago === "cashless"
+        ? saldoCashlessSuficiente
+        : true; // tarjeta, qr_mp, cortesia siempre habilitados
 
   const handleConfirmar = async () => {
+    // Si es cashless: primero debitar saldo de la tarjeta
+    if (metodoPago === "cashless") {
+      if (!tarjetaConsultada) return;
+      const cobro = await cobrarCashless(tarjetaConsultada.codigo, total);
+      if (!cobro?.ok) return; // el error se muestra via errorConsulta
+    }
+
     const ok = await confirmarVenta(eventoId);
-    if (ok) onExito();
+    if (ok) {
+      limpiarConsulta();
+      onExito();
+    }
   };
 
   return (
@@ -358,17 +388,66 @@ function ModalPago({
           )}
 
           {metodoPago === "cashless" && (
-            <div className="p-4 rounded-xl bg-surface-2 border border-border text-center space-y-2">
-              <p className="text-2xl">🪙</p>
-              <p className="text-sm font-medium text-text-primary">
-                Tarjeta / pulsera cashless
-              </p>
-              <p className="text-xs text-text-secondary">
-                Sistema cashless disponible en el módulo 4
-              </p>
-              <p className="text-xs text-lime font-medium">
-                Por ahora: registrar para reporte y sync posterior
-              </p>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Código de tarjeta / pulsera"
+                  value={codigoCashless}
+                  onChange={(e) => {
+                    setCodigoCashless(e.target.value.toUpperCase());
+                    limpiarConsulta();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && codigoCashless.trim()) {
+                      void consultarTarjeta(codigoCashless.trim());
+                    }
+                  }}
+                  className="flex-1 px-3 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary font-mono text-sm focus:outline-none focus:ring-2 focus:ring-lime/40"
+                  autoFocus
+                />
+                <button
+                  onClick={() => void consultarTarjeta(codigoCashless.trim())}
+                  disabled={!codigoCashless.trim() || consultandoCashless}
+                  className="px-3 py-2.5 rounded-xl bg-lime/20 border border-lime/40 text-lime text-sm font-semibold hover:bg-lime/30 disabled:opacity-50 transition-all"
+                >
+                  {consultandoCashless ? "…" : "OK"}
+                </button>
+              </div>
+
+              {errorCashless && (
+                <p className="text-xs text-danger">{errorCashless}</p>
+              )}
+
+              {tarjetaConsultada && (
+                <div className={cn(
+                  "px-4 py-3 rounded-xl border",
+                  saldoCashlessSuficiente
+                    ? "bg-green-500/10 border-green-500/30"
+                    : "bg-danger/10 border-danger/30"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-mono font-bold text-lime text-sm">{tarjetaConsultada.codigo}</p>
+                      {tarjetaConsultada.clienteNombre && (
+                        <p className="text-xs text-text-secondary">{tarjetaConsultada.clienteNombre}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className={cn("text-lg font-black", saldoCashlessSuficiente ? "text-green-400" : "text-danger")}>
+                        {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(tarjetaConsultada.saldo)}
+                      </p>
+                      <p className="text-[10px] text-text-secondary">saldo disponible</p>
+                    </div>
+                  </div>
+                  {!saldoCashlessSuficiente && (
+                    <p className="text-xs text-danger mt-1.5">
+                      Saldo insuficiente — faltan{" "}
+                      {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(total - tarjetaConsultada.saldo)}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

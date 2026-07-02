@@ -88,6 +88,37 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
     return reply.status(201).send({ evento });
   });
 
+  // PATCH /api/eventos/:id — editar datos del evento
+  app.patch("/:id", async (req, reply) => {
+    const { localId } = req;
+    const { id } = req.params as { id: string };
+
+    if (!["admin", "encargado"].includes(req.staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const body = crearEventoSchema.partial().safeParse(req.body);
+    if (!body.success) {
+      return reply.status(400).send({ error: body.error.flatten() });
+    }
+
+    const evento = await prisma.evento.update({
+      where: { id, localId },
+      data: {
+        ...(body.data.nombre && { nombre: body.data.nombre }),
+        ...(body.data.descripcion !== undefined && { descripcion: body.data.descripcion }),
+        ...(body.data.fechaInicio && { fechaInicio: new Date(body.data.fechaInicio) }),
+        ...(body.data.fechaFin !== undefined && {
+          fechaFin: body.data.fechaFin ? new Date(body.data.fechaFin) : null,
+        }),
+        ...(body.data.capacidad && { capacidad: body.data.capacidad }),
+        ...(body.data.imagenUrl !== undefined && { imagenUrl: body.data.imagenUrl }),
+      },
+    });
+
+    return { evento };
+  });
+
   // PATCH /api/eventos/:id/estado
   app.patch("/:id/estado", async (req, reply) => {
     const { localId } = req;
