@@ -20,6 +20,7 @@ import { registrarRutasEventos } from "./routes/eventos.js";
 import { registrarRutasVentas } from "./routes/ventas.js";
 import { registrarRutasAccesos } from "./routes/accesos.js";
 import { registrarRutasProductos } from "./routes/productos.js";
+import { registrarRutasBarras } from "./routes/barras.js";
 import { iniciarSocketIO } from "./socket/index.js";
 
 const PORT = Number(process.env["PORT"] ?? 3001);
@@ -114,6 +115,7 @@ await app.register(registrarRutasEventos, { prefix: "/api/eventos" });
 await app.register(registrarRutasVentas, { prefix: "/api/ventas" });
 await app.register(registrarRutasAccesos, { prefix: "/api/accesos" });
 await app.register(registrarRutasProductos, { prefix: "/api/productos" });
+await app.register(registrarRutasBarras, { prefix: "/api/barras" });
 await app.register(registrarRutasAuth, { prefix: "/api/staff" });
 
 // ── Socket.io handlers ───────────────────────────────────────

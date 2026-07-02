@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { Sidebar } from "@/components/Sidebar";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { PorteriaPage } from "@/pages/porteria/PorteriaPage";
+import { CajaPage } from "@/pages/caja/CajaPage";
 import { ROL_LABELS } from "@niagara/core";
 
 type Pagina = "dashboard" | "porteria" | "caja" | "cashless" | "eventos" | "reservas" | "reportes" | "stock" | "staff";
@@ -24,6 +25,8 @@ export function AppLayout() {
         return <DashboardPage />;
       case "porteria":
         return <PorteriaPage />;
+      case "caja":
+        return <CajaPage />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
