@@ -25,7 +25,14 @@ const preferenciaSchema = z.object({
 
 // ── Helper: crear preferencia de pago en MP ───────────────────────
 
-async function crearPreferenciaMP(monto: number, descripcion: string, referencia?: string) {
+interface MPPreferenciaResponse {
+  id: string;
+  init_point?: string;
+  qr_data?: string;
+  simulado?: boolean;
+}
+
+async function crearPreferenciaMP(monto: number, descripcion: string, referencia?: string): Promise<MPPreferenciaResponse> {
   if (!MP_MODO_REAL) {
     // Respuesta simulada para desarrollo
     return {
@@ -64,11 +71,11 @@ async function crearPreferenciaMP(monto: number, descripcion: string, referencia
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
+    const err = await response.json().catch(() => ({})) as unknown;
     throw new Error(`Error MP: ${JSON.stringify(err)}`);
   }
 
-  return response.json();
+  return response.json() as Promise<MPPreferenciaResponse>;
 }
 
 // ── Rutas ────────────────────────────────────────────────────────
