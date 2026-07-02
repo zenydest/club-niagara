@@ -261,6 +261,34 @@ async function main() {
   console.log(`✓ Tarjetas cashless: ${tarjetasDemo.length} creadas`);
   console.log("   PULSERA-001 — $5.000 · PULSERA-002 — $12.000 · PULSERA-003 — $0");
 
+  // ── Mesas VIP de demo ──────────────────────────────────────
+  const mesasDemo = [
+    { id: "mesa-demo-01", numero: "1",  sector: "Terraza",  capacidad: 6,  posX: 20, posY: 25 },
+    { id: "mesa-demo-02", numero: "2",  sector: "Terraza",  capacidad: 6,  posX: 45, posY: 25 },
+    { id: "mesa-demo-03", numero: "3",  sector: "Terraza",  capacidad: 4,  posX: 70, posY: 25 },
+    { id: "mesa-demo-04", numero: "A1", sector: "Interior", capacidad: 8,  posX: 20, posY: 60 },
+    { id: "mesa-demo-05", numero: "A2", sector: "Interior", capacidad: 8,  posX: 45, posY: 60 },
+    { id: "mesa-demo-06", numero: "A3", sector: "Interior", capacidad: 10, posX: 70, posY: 60 },
+  ];
+
+  for (const m of mesasDemo) {
+    await prisma.mesaVip.upsert({
+      where: { id: m.id },
+      update: {},
+      create: {
+        id: m.id,
+        localId: local.id,
+        numero: m.numero,
+        sector: m.sector,
+        capacidad: m.capacidad,
+        posX: m.posX,
+        posY: m.posY,
+        estado: "libre",
+      },
+    });
+  }
+  console.log(`✓ Mesas VIP: ${mesasDemo.length} creadas (Terraza x3, Interior x3)`);
+
   console.log("\n✅ Seed completado. Usuarios de prueba:");
   console.log("   admin@clubniagara.com     / Admin1234!");
   console.log("   cajero@clubniagara.com    / Niagara1234!");

@@ -24,6 +24,7 @@ import { registrarRutasBarras } from "./routes/barras.js";
 import { registrarRutasEntradas } from "./routes/entradas.js";
 import { registrarRutasCashless } from "./routes/cashless.js";
 import { registrarRutasMP } from "./routes/mp.js";
+import { registrarRutasVip } from "./routes/vip.js";
 import { iniciarSocketIO } from "./socket/index.js";
 
 const PORT = Number(process.env["PORT"] ?? 3001);
@@ -122,6 +123,7 @@ await app.register(registrarRutasBarras, { prefix: "/api/barras" });
 await app.register(registrarRutasEntradas, { prefix: "/api/entradas" });
 await app.register(registrarRutasCashless, { prefix: "/api/cashless" });
 await app.register(registrarRutasMP, { prefix: "/api/mp" });
+await app.register(registrarRutasVip, { prefix: "/api/vip" });
 await app.register(registrarRutasAuth, { prefix: "/api/staff" });
 
 // ── Socket.io handlers ───────────────────────────────────────
