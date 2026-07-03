@@ -8,6 +8,7 @@ import { CajaPage } from "@/pages/caja/CajaPage";
 import { CashlessPage } from "@/pages/cashless/CashlessPage";
 import { EventosPage } from "@/pages/eventos/EventosPage";
 import { VIPPage } from "@/pages/vip/VIPPage";
+import { ReportesPage } from "@/pages/reportes/ReportesPage";
 import { ROL_LABELS } from "@niagara/core";
 
 type Pagina = "dashboard" | "porteria" | "caja" | "cashless" | "eventos" | "reservas" | "reportes" | "stock" | "staff";
@@ -36,6 +37,8 @@ export function AppLayout() {
         return <EventosPage />;
       case "reservas":
         return <VIPPage />;
+      case "reportes":
+        return <ReportesPage />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
