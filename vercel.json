@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
 
-  "buildCommand": "npx turbo build --filter=@niagara/web",
+  "buildCommand": "pnpm turbo build --filter=@niagara/web --no-cache",
   "outputDirectory": "apps/web/dist",
-  "installCommand": "npm install -g pnpm@10 && pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install --frozen-lockfile",
   "framework": null,
 
   "rewrites": [
