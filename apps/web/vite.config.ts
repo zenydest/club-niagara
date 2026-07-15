@@ -14,7 +14,9 @@ export default defineConfig({
     host: true, // Para acceso desde otros dispositivos en la red local
   },
   build: {
-    outDir: "dist",
-    sourcemap: true,
+    // En Vercel, output va a la raíz del monorepo donde Turbo detection lo busca
+    outDir: process.env["VERCEL"] ? "../../dist" : "dist",
+    emptyOutDir: true,
+    sourcemap: false, // Desactivado en prod para reducir tamaño
   },
 });
