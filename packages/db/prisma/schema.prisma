@@ -288,6 +288,7 @@ model Producto {
   costo       Decimal? @db.Decimal(10, 2)
   imagenUrl   String?  @map("imagen_url")
   activo      Boolean  @default(true)
+  stockMinimo Int?     @map("stock_minimo")   // alerta cuando el nivel baja de este umbral
   createdAt   DateTime @default(now()) @map("created_at")
 
   local            Local             @relation(fields: [localId], references: [id], onDelete: Cascade)

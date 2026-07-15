@@ -9,9 +9,12 @@ import { CashlessPage } from "@/pages/cashless/CashlessPage";
 import { EventosPage } from "@/pages/eventos/EventosPage";
 import { VIPPage } from "@/pages/vip/VIPPage";
 import { ReportesPage } from "@/pages/reportes/ReportesPage";
+import { GuardarropaPage } from "@/pages/guardarropa/GuardarropaPage";
+import { StockPage } from "@/pages/stock/StockPage";
+import { PersonalPage } from "@/pages/personal/PersonalPage";
 import { ROL_LABELS } from "@niagara/core";
 
-type Pagina = "dashboard" | "porteria" | "caja" | "cashless" | "eventos" | "reservas" | "reportes" | "stock" | "staff";
+type Pagina = "dashboard" | "porteria" | "caja" | "cashless" | "eventos" | "reservas" | "reportes" | "guardarropa" | "stock" | "staff";
 
 /**
  * Layout principal de la app.
@@ -39,6 +42,12 @@ export function AppLayout() {
         return <VIPPage />;
       case "reportes":
         return <ReportesPage />;
+      case "guardarropa":
+        return <GuardarropaPage />;
+      case "stock":
+        return <StockPage />;
+      case "staff":
+        return <PersonalPage />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-4">

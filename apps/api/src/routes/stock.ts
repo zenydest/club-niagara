@@ -1,0 +1,374 @@
+/**
+ * Stock — depósitos, nivel de stock y movimientos.
+ * Prefix: /api/stock
+ *
+ * Depósitos:
+ *   GET    /depositos              — listar depósitos del local
+ *   POST   /depositos              — crear depósito
+ *
+ * Nivel de stock:
+ *   GET    /nivel?depositoId=      — stock actual por producto (sum de movimientos)
+ *   GET    /alertas?depositoId=    — productos bajo su stockMinimo
+ *
+ * Movimientos:
+ *   GET    /movimientos?productoId=&depositoId=&tipo=&fechaDesde=
+ *   POST   /movimientos            — registrar movimiento manual
+ *
+ * Productos (solo lo referente a stock):
+ *   PATCH  /productos/:id          — actualizar stockMinimo (y campos de producto)
+ */
+
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import { prisma } from "@niagara/db";
+
+// ── Helper: stock actual por (productoId, depositoId) ─────────────
+// ingreso → +cantidad | egreso_* → -cantidad | ajuste → +cantidad (firmado) | transferencia → ignorado
+type StockRow = { producto_id: string; deposito_id: string; stock: number };
+
+async function calcularStockNivel(localId: string, depositoId?: string): Promise<StockRow[]> {
+  const rows = await prisma.$queryRaw<StockRow[]>`
+    SELECT
+      producto_id,
+      deposito_id,
+      SUM(
+        CASE
+          WHEN tipo = 'ingreso'     THEN cantidad
+          WHEN tipo = 'egreso_venta'  THEN -cantidad
+          WHEN tipo = 'egreso_merma'  THEN -cantidad
+          WHEN tipo = 'ajuste'      THEN cantidad
+          ELSE 0
+        END
+      )::float AS stock
+    FROM stock_movimientos
+    WHERE local_id = ${localId}
+      ${depositoId ? prisma.$queryRaw`AND deposito_id = ${depositoId}` : prisma.$queryRaw``}
+    GROUP BY producto_id, deposito_id
+  `;
+  return rows;
+}
+
+export const registrarRutasStock: FastifyPluginAsync = async (app) => {
+
+  // ══════════════════════════════════════════════════════════════
+  // DEPÓSITOS
+  // ══════════════════════════════════════════════════════════════
+
+  app.get("/depositos", async (req) => {
+    const { localId } = req;
+    const depositos = await prisma.deposito.findMany({
+      where: { localId },
+      orderBy: [{ esPrincipal: "desc" }, { nombre: "asc" }],
+    });
+    return { depositos };
+  });
+
+  app.post("/depositos", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const body = z.object({
+      nombre: z.string().min(1).max(100),
+      esPrincipal: z.boolean().optional().default(false),
+    }).safeParse(req.body);
+
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const deposito = await prisma.deposito.create({
+      data: { localId, nombre: body.data.nombre, esPrincipal: body.data.esPrincipal },
+    });
+    return reply.status(201).send({ deposito });
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // NIVEL DE STOCK
+  // ══════════════════════════════════════════════════════════════
+
+  app.get("/nivel", async (req) => {
+    const { localId } = req;
+    const { depositoId } = req.query as { depositoId?: string };
+
+    // Calcular stock actual
+    const stockRows = await prisma.$queryRaw<
+      { producto_id: string; deposito_id: string; stock: number }[]
+    >`
+      SELECT
+        producto_id,
+        deposito_id,
+        SUM(
+          CASE
+            WHEN tipo = 'ingreso'      THEN cantidad
+            WHEN tipo = 'egreso_venta' THEN -cantidad
+            WHEN tipo = 'egreso_merma' THEN -cantidad
+            WHEN tipo = 'ajuste'       THEN cantidad
+            ELSE 0
+          END
+        )::float AS stock
+      FROM stock_movimientos
+      WHERE local_id = ${localId}
+      ${depositoId ? prisma.$queryRaw`AND deposito_id::text = ${depositoId}` : prisma.$queryRaw``}
+      GROUP BY producto_id, deposito_id
+    `;
+
+    // Obtener todos los productos activos
+    const productos = await prisma.producto.findMany({
+      where: { localId, activo: true },
+      select: { id: true, nombre: true, categoria: true, precio: true, costo: true, stockMinimo: true },
+      orderBy: [{ categoria: "asc" }, { nombre: "asc" }],
+    });
+
+    // Obtener depósitos para join
+    const depositos = await prisma.deposito.findMany({
+      where: { localId },
+      select: { id: true, nombre: true, esPrincipal: true },
+    });
+    const depositoMap = Object.fromEntries(depositos.map((d) => [d.id, d]));
+
+    // Construir índice de stock: productoId → Map<depositoId, stock>
+    const stockIndex = new Map<string, Map<string, number>>();
+    for (const row of stockRows) {
+      if (!stockIndex.has(row.producto_id)) stockIndex.set(row.producto_id, new Map());
+      stockIndex.get(row.producto_id)!.set(row.deposito_id, row.stock);
+    }
+
+    // Armar respuesta
+    const resultado = productos.map((p) => {
+      const porDeposito = stockIndex.get(p.id) ?? new Map<string, number>();
+      const stockTotal = [...porDeposito.values()].reduce((a, b) => a + b, 0);
+      const bajoMinimo = p.stockMinimo !== null && stockTotal <= p.stockMinimo;
+
+      return {
+        ...p,
+        precio: Number(p.precio),
+        costo: p.costo ? Number(p.costo) : null,
+        stockTotal,
+        bajoMinimo,
+        porDeposito: [...porDeposito.entries()].map(([dId, stock]) => ({
+          depositoId: dId,
+          depositoNombre: depositoMap[dId]?.nombre ?? "Desconocido",
+          esPrincipal: depositoMap[dId]?.esPrincipal ?? false,
+          stock,
+        })),
+      };
+    });
+
+    return { productos: resultado, depositos };
+  });
+
+  // GET /api/stock/alertas — productos bajo stockMinimo
+  app.get("/alertas", async (req) => {
+    const { localId } = req;
+
+    // Reusar la lógica de nivel
+    const stockRows = await prisma.$queryRaw<
+      { producto_id: string; stock: number }[]
+    >`
+      SELECT
+        producto_id,
+        SUM(
+          CASE
+            WHEN tipo = 'ingreso'      THEN cantidad
+            WHEN tipo = 'egreso_venta' THEN -cantidad
+            WHEN tipo = 'egreso_merma' THEN -cantidad
+            WHEN tipo = 'ajuste'       THEN cantidad
+            ELSE 0
+          END
+        )::float AS stock
+      FROM stock_movimientos
+      WHERE local_id = ${localId}
+      GROUP BY producto_id
+    `;
+
+    const stockMap = Object.fromEntries(stockRows.map((r) => [r.producto_id, r.stock]));
+
+    const productos = await prisma.producto.findMany({
+      where: { localId, activo: true, stockMinimo: { not: null } },
+      select: { id: true, nombre: true, categoria: true, stockMinimo: true },
+    });
+
+    const alertas = productos
+      .filter((p) => {
+        const stock = stockMap[p.id] ?? 0;
+        return p.stockMinimo !== null && stock <= p.stockMinimo;
+      })
+      .map((p) => ({
+        ...p,
+        stockActual: stockMap[p.id] ?? 0,
+      }));
+
+    return { alertas, total: alertas.length };
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // MOVIMIENTOS
+  // ══════════════════════════════════════════════════════════════
+
+  app.get("/movimientos", async (req) => {
+    const { localId } = req;
+    const { productoId, depositoId, tipo, fechaDesde, fechaHasta, page, limit } = req.query as {
+      productoId?: string;
+      depositoId?: string;
+      tipo?: string;
+      fechaDesde?: string;
+      fechaHasta?: string;
+      page?: string;
+      limit?: string;
+    };
+
+    const skip = (Number(page ?? 1) - 1) * Number(limit ?? 50);
+    const take = Math.min(Number(limit ?? 50), 200);
+
+    const where = {
+      localId,
+      ...(productoId && { productoId }),
+      ...(depositoId && { depositoId }),
+      ...(tipo && { tipo: tipo as never }),
+      ...(fechaDesde || fechaHasta
+        ? { createdAt: { gte: fechaDesde ? new Date(fechaDesde) : undefined, lte: fechaHasta ? new Date(fechaHasta) : undefined } }
+        : {}),
+    };
+
+    const [movimientos, total] = await Promise.all([
+      prisma.stockMovimiento.findMany({
+        where,
+        include: {
+          producto: { select: { nombre: true, categoria: true } },
+          deposito: { select: { nombre: true } },
+          staff: { select: { nombre: true, apellido: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      prisma.stockMovimiento.count({ where }),
+    ]);
+
+    return {
+      movimientos: movimientos.map((m) => ({
+        ...m,
+        cantidad: Number(m.cantidad),
+        cantidadAnterior: Number(m.cantidadAnterior),
+      })),
+      total,
+    };
+  });
+
+  app.post("/movimientos", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado", "barman"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos para registrar movimientos de stock" });
+    }
+
+    const body = z.object({
+      depositoId: z.string().uuid(),
+      productoId: z.string().uuid(),
+      tipo: z.enum(["ingreso", "egreso_merma", "ajuste"]),
+      cantidad: z.number(), // positivo para ingreso/ajuste positivo, puede ser negativo para ajuste
+      motivo: z.string().max(300).optional(),
+    }).safeParse(req.body);
+
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    // Verificar que el depósito y producto pertenezcan al local
+    const [deposito, producto] = await Promise.all([
+      prisma.deposito.findUnique({ where: { id: body.data.depositoId, localId } }),
+      prisma.producto.findUnique({ where: { id: body.data.productoId, localId } }),
+    ]);
+    if (!deposito) return reply.status(404).send({ error: "Depósito no encontrado" });
+    if (!producto) return reply.status(404).send({ error: "Producto no encontrado" });
+
+    // Calcular stock anterior
+    const stockActualRows = await prisma.$queryRaw<{ stock: number }[]>`
+      SELECT SUM(
+        CASE
+          WHEN tipo = 'ingreso'      THEN cantidad
+          WHEN tipo = 'egreso_venta' THEN -cantidad
+          WHEN tipo = 'egreso_merma' THEN -cantidad
+          WHEN tipo = 'ajuste'       THEN cantidad
+          ELSE 0
+        END
+      )::float AS stock
+      FROM stock_movimientos
+      WHERE local_id = ${localId}
+        AND producto_id::text = ${body.data.productoId}
+        AND deposito_id::text = ${body.data.depositoId}
+    `;
+    const cantidadAnterior = stockActualRows[0]?.stock ?? 0;
+
+    const movimiento = await prisma.stockMovimiento.create({
+      data: {
+        localId,
+        depositoId: body.data.depositoId,
+        productoId: body.data.productoId,
+        tipo: body.data.tipo,
+        cantidad: body.data.cantidad,
+        cantidadAnterior,
+        motivo: body.data.motivo ?? null,
+        staffId: staffActual.id,
+        synced: "synced",
+      },
+      include: {
+        producto: { select: { nombre: true } },
+        deposito: { select: { nombre: true } },
+      },
+    });
+
+    return reply.status(201).send({
+      movimiento: {
+        ...movimiento,
+        cantidad: Number(movimiento.cantidad),
+        cantidadAnterior: Number(movimiento.cantidadAnterior),
+      },
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // PRODUCTOS (solo campos de stock)
+  // ══════════════════════════════════════════════════════════════
+
+  app.patch("/productos/:id", async (req, reply) => {
+    const { localId, staffActual } = req;
+    const { id } = req.params as { id: string };
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const body = z.object({
+      nombre: z.string().min(1).max(200).optional(),
+      descripcion: z.string().max(500).nullable().optional(),
+      categoria: z.string().min(1).max(100).optional(),
+      precio: z.number().positive().optional(),
+      costo: z.number().nonnegative().nullable().optional(),
+      stockMinimo: z.number().int().nonnegative().nullable().optional(),
+      activo: z.boolean().optional(),
+    }).safeParse(req.body);
+
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const producto = await prisma.producto.update({
+      where: { id, localId },
+      data: {
+        ...(body.data.nombre !== undefined && { nombre: body.data.nombre }),
+        ...(body.data.descripcion !== undefined && { descripcion: body.data.descripcion }),
+        ...(body.data.categoria !== undefined && { categoria: body.data.categoria }),
+        ...(body.data.precio !== undefined && { precio: body.data.precio }),
+        ...(body.data.costo !== undefined && { costo: body.data.costo }),
+        ...(body.data.stockMinimo !== undefined && { stockMinimo: body.data.stockMinimo }),
+        ...(body.data.activo !== undefined && { activo: body.data.activo }),
+      },
+    });
+
+    return {
+      producto: {
+        ...producto,
+        precio: Number(producto.precio),
+        costo: producto.costo ? Number(producto.costo) : null,
+      },
+    };
+  });
+};

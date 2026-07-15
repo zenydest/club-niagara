@@ -1,0 +1,40 @@
+##
+## Club Niágara — Render.com deploy config
+## Docs: https://render.com/docs/render-yaml-spec
+##
+
+services:
+  # ── API (Fastify + Better Auth + Socket.io) ───────────────────────
+  - type: web
+    name: club-niagara-api
+    runtime: node
+    region: oregon
+    plan: free          # cambiá a "starter" o superior en producción
+
+    # Render clona el repo y corre estos comandos desde la raíz
+    buildCommand: |
+      npm install -g pnpm@10
+      pnpm install --frozen-lockfile
+      pnpm --filter @niagara/db db:generate
+      pnpm --filter @niagara/api build
+    startCommand: node apps/api/dist/index.js
+
+    # Health check — Render reinicia el servicio si falla
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      - key: HOST
+        value: "0.0.0.0"
+      # ⚠️  Completar en Render dashboard → Environment:
+      - key: DATABASE_URL
+        sync: false          # Render te pide el valor manualmente
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false          # ej: https://club-niagara-api.onrender.com
+      - key: FRONTEND_URLS
+        sync: false          # ej: https://club-niagara.vercel.app
