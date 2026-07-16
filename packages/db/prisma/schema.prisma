@@ -25,9 +25,10 @@ model User {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  sessions Session[]
-  accounts Account[]
-  staff    Staff[]
+  sessions  Session[]
+  accounts  Account[]
+  staff     Staff[]
+  clientes  Cliente[]
 
   @@map("users")
 }
@@ -171,24 +172,25 @@ model Local {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  staff           Staff[]
-  eventos         Evento[]
-  barras          Barra[]
-  productos       Producto[]
-  depositos       Deposito[]
+  staff            Staff[]
+  eventos          Evento[]
+  barras           Barra[]
+  productos        Producto[]
+  depositos        Deposito[]
   stockMovimientos StockMovimiento[]
-  ventas          Venta[]
-  ventaItems      VentaItem[]
+  ventas           Venta[]
+  ventaItems       VentaItem[]
   tarjetasCashless TarjetaCashless[]
-  recargas        Recarga[]
-  accesos         Acceso[]
-  entradasTipo    EntradaTipo[]
+  recargas         Recarga[]
+  accesos          Acceso[]
+  entradasTipo     EntradaTipo[]
   entradasVendidas EntradaVendida[]
-  mesasVip        MesaVip[]
-  reservas        Reserva[]
-  guardarropa     Guardarropa[]
-  comisionesRrpp  ComisionRrpp[]
-  cortesCaja      CorteCaja[]
+  mesasVip         MesaVip[]
+  reservas         Reserva[]
+  guardarropa      Guardarropa[]
+  comisionesRrpp   ComisionRrpp[]
+  cortesCaja       CorteCaja[]
+  clientes         Cliente[]
 
   @@map("locales")
 }
@@ -384,6 +386,7 @@ model VentaItem {
 model TarjetaCashless {
   id            String   @id @default(uuid())
   localId       String   @map("local_id")
+  clienteId     String?  @map("cliente_id")
   codigo        String
   clienteNombre String?  @map("cliente_nombre")
   clienteEmail  String?  @map("cliente_email")
@@ -392,7 +395,8 @@ model TarjetaCashless {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  local    Local     @relation(fields: [localId], references: [id], onDelete: Cascade)
+  local    Local    @relation(fields: [localId], references: [id], onDelete: Cascade)
+  cliente  Cliente? @relation(fields: [clienteId], references: [id])
   recargas Recarga[]
 
   @@unique([localId, codigo])
@@ -463,24 +467,26 @@ model EntradaTipo {
 }
 
 model EntradaVendida {
-  id             String     @id @default(uuid())
-  localId        String     @map("local_id")
-  eventoId       String     @map("evento_id")
-  entradaTipoId  String     @map("entrada_tipo_id")
-  qrCode         String     @unique @default(uuid()) @map("qr_code")
-  clienteNombre    String?    @map("cliente_nombre")
-  clienteEmail     String?    @map("cliente_email")
-  clienteTelefono  String?    @map("cliente_telefono")
-  precioPagado     Decimal    @map("precio_pagado") @db.Decimal(10, 2)
-  metodoPago     MetodoPago @map("metodo_pago")
-  rrppId         String?    @map("rrpp_id")
-  usada          Boolean    @default(false)
-  createdAt      DateTime   @default(now()) @map("created_at")
+  id              String     @id @default(uuid())
+  localId         String     @map("local_id")
+  eventoId        String     @map("evento_id")
+  entradaTipoId   String     @map("entrada_tipo_id")
+  clienteId       String?    @map("cliente_id")
+  qrCode          String     @unique @default(uuid()) @map("qr_code")
+  clienteNombre   String?    @map("cliente_nombre")
+  clienteEmail    String?    @map("cliente_email")
+  clienteTelefono String?    @map("cliente_telefono")
+  precioPagado    Decimal    @map("precio_pagado") @db.Decimal(10, 2)
+  metodoPago      MetodoPago @map("metodo_pago")
+  rrppId          String?    @map("rrpp_id")
+  usada           Boolean    @default(false)
+  createdAt       DateTime   @default(now()) @map("created_at")
 
-  local       Local       @relation(fields: [localId], references: [id], onDelete: Cascade)
-  evento      Evento      @relation(fields: [eventoId], references: [id])
+  local       Local    @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento      Evento   @relation(fields: [eventoId], references: [id])
   entradaTipo EntradaTipo @relation(fields: [entradaTipoId], references: [id])
-  rrpp        Staff?      @relation("EntradaVendidaRrpp", fields: [rrppId], references: [id])
+  cliente     Cliente? @relation(fields: [clienteId], references: [id])
+  rrpp        Staff?   @relation("EntradaVendidaRrpp", fields: [rrppId], references: [id])
   accesos     Acceso[]
 
   @@map("entradas_vendidas")
@@ -610,4 +616,27 @@ model CorteCaja {
   barra  Barra?  @relation(fields: [barraId], references: [id])
 
   @@map("cortes_caja")
+}
+
+// ============================================================
+// CLIENTES (app móvil del cliente final)
+// ============================================================
+
+model Cliente {
+  id       String  @id @default(uuid())
+  localId  String  @map("local_id")
+  userId   String  @map("user_id")
+  nombre   String
+  apellido String
+  telefono String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  local    Local             @relation(fields: [localId], references: [id], onDelete: Cascade)
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tarjetas TarjetaCashless[]
+  entradas EntradaVendida[]
+
+  @@unique([localId, userId])
+  @@map("clientes")
 }

@@ -29,6 +29,7 @@ import { registrarRutasReportes } from "./routes/reportes.js";
 import { registrarRutasGuardarropa } from "./routes/guardarropa.js";
 import { registrarRutasStock } from "./routes/stock.js";
 import { registrarRutasPersonal } from "./routes/personal.js";
+import { registrarRutasCliente } from "./routes/cliente.js";
 import { iniciarSocketIO } from "./socket/index.js";
 
 const PORT = Number(process.env["PORT"] ?? 3001);
@@ -132,6 +133,7 @@ await app.register(registrarRutasReportes,   { prefix: "/api/reportes" });
 await app.register(registrarRutasGuardarropa, { prefix: "/api/guardarropa" });
 await app.register(registrarRutasStock,       { prefix: "/api/stock" });
 await app.register(registrarRutasPersonal,    { prefix: "/api/personal" });
+await app.register(registrarRutasCliente,     { prefix: "/api/cliente" });
 await app.register(registrarRutasAuth, { prefix: "/api/staff" });
 
 // ── Socket.io handlers ───────────────────────────────────────
