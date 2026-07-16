@@ -14,9 +14,11 @@ export default defineConfig({
     host: true, // Para acceso desde otros dispositivos en la red local
   },
   build: {
-    // En Vercel, output va a la raíz del monorepo donde Turbo detection lo busca
+    // En Vercel (VERCEL=1 pasa via globalPassThroughEnv en turbo.json),
+    // el output va a la raíz del monorepo donde Turbo detection lo busca.
+    // En local sigue en apps/web/dist.
     outDir: process.env["VERCEL"] ? "../../dist" : "dist",
-    emptyOutDir: true,
-    sourcemap: false, // Desactivado en prod para reducir tamaño
+    emptyOutDir: false, // false: Vite 6 no puede vaciar dirs fuera del root
+    sourcemap: false,
   },
 });
