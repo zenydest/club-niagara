@@ -86,22 +86,24 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
     const local = await prisma.local.findUnique({ where: { id: localId } });
     if (!local) return reply.status(404).send({ error: "Local no encontrado" });
 
-    // Crear usuario en Better Auth
-    const respAuth = await auth.api.signUpEmail({
-      body: {
-        email,
-        password,
-        name: `${nombre} ${apellido}`,
-      },
-      headers: new Headers({ "content-type": "application/json" }),
-    });
-
-    if (!respAuth.ok) {
-      const err = await respAuth.json().catch(() => ({ message: "Error al registrar" })) as { message?: string };
-      return reply.status(400).send({ error: err.message ?? "El email ya está registrado" });
+    // Crear usuario en Better Auth (auth.api.* devuelve objeto tipado, no Response)
+    let datosAuth: { token: string | null; user: { id: string } };
+    try {
+      datosAuth = await auth.api.signUpEmail({
+        body: {
+          email,
+          password,
+          name: `${nombre} ${apellido}`,
+        },
+        headers: new Headers({ "content-type": "application/json" }),
+      }) as { token: string | null; user: { id: string } };
+    } catch {
+      return reply.status(400).send({ error: "El email ya está registrado" });
     }
 
-    const datosAuth = await respAuth.json() as { token: string; user: { id: string } };
+    if (!datosAuth.token) {
+      return reply.status(400).send({ error: "Verificá tu email para activar la cuenta" });
+    }
 
     // Crear perfil de cliente
     const cliente = await prisma.cliente.create({
@@ -139,17 +141,16 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
     }
     const { email, password } = body.data;
 
-    // Autenticar con Better Auth
-    const respAuth = await auth.api.signInEmail({
-      body: { email, password },
-      headers: new Headers({ "content-type": "application/json" }),
-    });
-
-    if (!respAuth.ok) {
+    // Autenticar con Better Auth (auth.api.* devuelve objeto tipado, no Response)
+    let datosAuth: { token: string; user: { id: string } };
+    try {
+      datosAuth = await auth.api.signInEmail({
+        body: { email, password },
+        headers: new Headers({ "content-type": "application/json" }),
+      }) as { token: string; user: { id: string } };
+    } catch {
       return reply.status(401).send({ error: "Credenciales inválidas" });
     }
-
-    const datosAuth = await respAuth.json() as { token: string; user: { id: string } };
 
     // Buscar perfil de cliente en este local
     const cliente = await prisma.cliente.findUnique({
