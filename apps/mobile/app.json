@@ -5,39 +5,30 @@
     "version": "1.0.0",
     "scheme": "noxa",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#08080F"
-    },
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.niagara.noxa"
     },
     "android": {
-      "package": "com.niagara.noxa",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#08080F"
-      }
+      "package": "com.niagara.noxa"
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#08080F",
-          "image": "./assets/splash.png",
-          "resizeMode": "contain"
-        }
-      ]
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "79813e95-42ec-4616-ae17-98666c61aa80"
+      }
     }
   }
 }
