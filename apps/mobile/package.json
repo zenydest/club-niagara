@@ -1,6 +1,7 @@
 {
     "name":  "@niagara/mobile",
     "version":  "0.0.1",
+    "packageManager": "pnpm@10.11.0",
     "main":  "expo-router/entry",
     "scripts":  {
                     "start":  "expo start",
