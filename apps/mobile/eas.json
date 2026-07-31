@@ -15,12 +15,20 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://club-niagara-api.onrender.com",
+        "EXPO_PUBLIC_LOCAL_ID": "821a4e8f-5b68-489d-afa3-bf2b62a9d0f8"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://club-niagara-api.onrender.com",
+        "EXPO_PUBLIC_LOCAL_ID": "821a4e8f-5b68-489d-afa3-bf2b62a9d0f8"
       }
     }
   },

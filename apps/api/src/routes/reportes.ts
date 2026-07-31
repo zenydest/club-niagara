@@ -40,18 +40,93 @@ function parsearRangoFechas(desde?: string, hasta?: string): { gte: Date; lte: D
   return { gte, lte };
 }
 
-/** Normaliza todos los Decimal del objeto a Number */
-function normDecimal<T extends Record<string, unknown>>(obj: T): T {
-  const result: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    result[k] = typeof v === "object" && v !== null && "toNumber" in v ? Number(v) : v;
-  }
-  return result as T;
-}
-
 // ── Rutas ────────────────────────────────────────────────────────
 
 export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
+
+  /**
+   * GET /api/reportes/por-cajero — recaudación de cada cajero.
+   *
+   * Es lo que se mira desde la oficina para ver cómo va cada puesto de la
+   * barra. Agrupa por staff y desglosa por método de pago, porque el efectivo
+   * es lo único que después hay que contar a mano contra la caja física.
+   */
+  app.get("/por-cajero", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const { eventoId, desde, hasta } = req.query as {
+      eventoId?: string;
+      desde?: string;
+      hasta?: string;
+    };
+
+    const rango = parsearRangoFechas(desde, hasta);
+
+    const ventas = await prisma.venta.findMany({
+      where: {
+        localId,
+        ...(eventoId && { eventoId }),
+        createdAt: { gte: rango.gte, lte: rango.lte },
+      },
+      select: {
+        staffId: true,
+        metodoPago: true,
+        total: true,
+        barraId: true,
+        staff: { select: { nombre: true, apellido: true, rol: true } },
+        barra: { select: { nombre: true } },
+      },
+    });
+
+    interface FilaCajero {
+      staffId: string;
+      nombre: string;
+      rol: string;
+      barra: string | null;
+      cantidadVentas: number;
+      total: number;
+      porMetodo: Record<string, { cantidad: number; monto: number }>;
+    }
+
+    const porCajero = new Map<string, FilaCajero>();
+
+    for (const v of ventas) {
+      let fila = porCajero.get(v.staffId);
+      if (!fila) {
+        fila = {
+          staffId: v.staffId,
+          nombre: `${v.staff.nombre} ${v.staff.apellido}`,
+          rol: v.staff.rol,
+          barra: v.barra?.nombre ?? null,
+          cantidadVentas: 0,
+          total: 0,
+          porMetodo: {},
+        };
+        porCajero.set(v.staffId, fila);
+      }
+
+      const monto = Number(v.total);
+      fila.cantidadVentas += 1;
+      fila.total += monto;
+
+      const metodo = (fila.porMetodo[v.metodoPago] ??= { cantidad: 0, monto: 0 });
+      metodo.cantidad += 1;
+      metodo.monto += monto;
+    }
+
+    const cajeros = [...porCajero.values()].sort((a, b) => b.total - a.total);
+
+    return {
+      cajeros,
+      totalGeneral: cajeros.reduce((sum, c) => sum + c.total, 0),
+      desde: rango.gte.toISOString(),
+      hasta: rango.lte.toISOString(),
+    };
+  });
 
   // ══════════════════════════════════════════════════════════════
   // RESUMEN DE KPIs

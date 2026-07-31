@@ -24,6 +24,7 @@ import { registrarRutasBarras } from "./routes/barras.js";
 import { registrarRutasEntradas } from "./routes/entradas.js";
 import { registrarRutasCashless } from "./routes/cashless.js";
 import { registrarRutasMP } from "./routes/mp.js";
+import { registrarRutasPoint } from "./routes/point.js";
 import { registrarRutasVip } from "./routes/vip.js";
 import { registrarRutasReportes } from "./routes/reportes.js";
 import { registrarRutasGuardarropa } from "./routes/guardarropa.js";
@@ -51,10 +52,11 @@ export const io = new SocketServer(httpServer, {
 const app = Fastify({
   logger: {
     level: process.env["NODE_ENV"] === "production" ? "warn" : "info",
-    transport:
-      process.env["NODE_ENV"] !== "production"
-        ? { target: "pino-pretty", options: { colorize: true } }
-        : undefined,
+    // pino-pretty solo en desarrollo. Se usa spread condicional porque la
+    // opción `transport` no admite un `undefined` explícito.
+    ...(process.env["NODE_ENV"] !== "production" && {
+      transport: { target: "pino-pretty", options: { colorize: true } },
+    }),
   },
   serverFactory: (handler) => {
     // Socket.io ya escucha en httpServer para /socket.io/*
@@ -89,7 +91,7 @@ app.get("/health", async () => ({ status: "ok", ts: new Date().toISOString() }))
 app.all("/api/auth/*", async (req, reply) => {
   // Convertir request de Node.js a Web API Request para Better Auth
   const protocol = "https";
-  const host = req.headers["host"] ?? "localhost";
+  const host = req.headers.host ?? "localhost";
   const url = `${protocol}://${host}${req.url}`;
 
   const headers = new Headers();
@@ -99,11 +101,13 @@ app.all("/api/auth/*", async (req, reply) => {
     }
   }
 
+  // GET y HEAD no llevan body; `RequestInit.body` no admite un `undefined`
+  // explícito, así que la clave se omite en vez de mandarla vacía.
   const hasBody = req.method !== "GET" && req.method !== "HEAD";
   const webRequest = new Request(url, {
     method: req.method,
     headers,
-    body: hasBody ? JSON.stringify(req.body) : undefined,
+    ...(hasBody && { body: JSON.stringify(req.body) }),
   });
 
   const response = await auth.handler(webRequest);
@@ -128,6 +132,7 @@ await app.register(registrarRutasBarras, { prefix: "/api/barras" });
 await app.register(registrarRutasEntradas, { prefix: "/api/entradas" });
 await app.register(registrarRutasCashless, { prefix: "/api/cashless" });
 await app.register(registrarRutasMP, { prefix: "/api/mp" });
+await app.register(registrarRutasPoint, { prefix: "/api/point" });
 await app.register(registrarRutasVip, { prefix: "/api/vip" });
 await app.register(registrarRutasReportes,   { prefix: "/api/reportes" });
 await app.register(registrarRutasGuardarropa, { prefix: "/api/guardarropa" });

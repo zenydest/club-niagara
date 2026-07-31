@@ -29,7 +29,7 @@ export function VIPPage() {
 
   const {
     mesas, reservas,
-    cargando, cargandoReservas, procesando, error, errorOperacion,
+    cargando, cargandoReservas, error, errorOperacion,
     cargarMesas, cargarReservas, limpiarError,
   } = useVipStore();
 
@@ -52,7 +52,7 @@ export function VIPPage() {
       </div>
 
       {/* Error global */}
-      {(error || errorOperacion) && (
+      {(error ?? errorOperacion) && (
         <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-danger">{error ?? errorOperacion}</p>
           <button onClick={limpiarError} className="text-danger hover:opacity-70 ml-4">✕</button>
@@ -517,10 +517,12 @@ function ListaReservas({ reservas, cargando, mesas }: ListaReservasProps) {
     if (filtroEstado !== "todas" && r.estado !== filtroEstado) return false;
     if (busqueda) {
       const q = busqueda.toLowerCase();
+      // Ver nota en GuardarropaPage: `|| ` es lo correcto para "alguna
+      // coincidencia"; el `?? false` solo normaliza el opcional a boolean.
       return (
         r.clienteNombre.toLowerCase().includes(q) ||
-        r.clienteTelefono?.toLowerCase().includes(q) ||
-        r.mesaVip?.numero.toLowerCase().includes(q)
+        (r.clienteTelefono?.toLowerCase().includes(q) ?? false) ||
+        (r.mesaVip?.numero.toLowerCase().includes(q) ?? false)
       );
     }
     return true;
@@ -840,7 +842,7 @@ function Campo({ label, required, children }: { label: string; required?: boolea
 function Skeleton() {
   return (
     <div className="flex flex-col gap-4">
-      {[...Array(3)].map((_, i) => (
+      {Array.from({ length: 3 }, (_, i) => (
         <div key={i} className="h-20 bg-surface rounded-xl border border-border animate-pulse" />
       ))}
     </div>

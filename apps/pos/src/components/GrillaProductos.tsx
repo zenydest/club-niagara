@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { cn } from "@niagara/ui";
 import { usePosStore } from "@/stores/posStore";
-import type { Producto } from "@niagara/core";
+import type { ProductoPos } from "@/types";
 
 interface GrillaProductosProps {
-  productos: Producto[];
+  productos: ProductoPos[];
 }
 
 /**
@@ -60,9 +60,9 @@ export function GrillaProductos({ productos }: GrillaProductosProps) {
               onClick={() => agregarProducto(producto)}
               className="btn-producto group"
             >
-              {producto.imagen_url ? (
+              {producto.imagenUrl ? (
                 <img
-                  src={producto.imagen_url}
+                  src={producto.imagenUrl}
                   alt={producto.nombre}
                   className="w-10 h-10 object-cover rounded-lg"
                 />

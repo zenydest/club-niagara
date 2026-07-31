@@ -6,12 +6,13 @@
 
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
-import type { Producto, VentaItem, MetodoPago } from "@niagara/core";
+import type { MetodoPago } from "@niagara/core";
 import { guardarVentaLocal } from "../db/localDb";
 import { useAuthStore } from "./authPosStore";
+import type { ProductoPos, VentaItemPos, EstadoSyncPos } from "../types";
 
 interface ItemCarrito {
-  producto: Producto;
+  producto: ProductoPos;
   cantidad: number;
   subtotal: number;
 }
@@ -25,18 +26,22 @@ interface PosState {
   // Sync
   ventasPendientes: number;
   estadoConexion: "online" | "offline";
-  estadoSync: "sincronizado" | "sincronizando" | "pendiente" | "error";
+  estadoSync: EstadoSyncPos;
 
   // Acciones del carrito
-  agregarProducto: (producto: Producto) => void;
+  agregarProducto: (producto: ProductoPos) => void;
   quitarProducto: (productoId: string) => void;
   actualizarCantidad: (productoId: string, cantidad: number) => void;
   limpiarCarrito: () => void;
 
   // Acciones de venta
+  //
+  // `ventaId` se puede pasar desde afuera para los cobros con terminal Point:
+  // ahí el id se genera *antes* de cobrar, porque se usa como referencia de la
+  // orden en MP y tiene que coincidir con la venta que se registra después.
   cobrarVenta: (
     metodoPago: MetodoPago,
-    descuento?: number
+    opciones?: { descuento?: number; ventaId?: string }
   ) => Promise<{ ok: boolean; ventaId?: string; error?: string }>;
 
   // Configuración
@@ -55,7 +60,7 @@ export const usePosStore = create<PosState>()((set, get) => ({
   estadoConexion: navigator.onLine ? "online" : "offline",
   estadoSync: "sincronizado",
 
-  agregarProducto: (producto: Producto) => {
+  agregarProducto: (producto: ProductoPos) => {
     set((state) => {
       const existente = state.carrito.find((i) => i.producto.id === producto.id);
 
@@ -97,20 +102,31 @@ export const usePosStore = create<PosState>()((set, get) => ({
 
   limpiarCarrito: () => set({ carrito: [] }),
 
-  cobrarVenta: async (metodoPago: MetodoPago, descuento = 0) => {
+  cobrarVenta: async (metodoPago: MetodoPago, opciones = {}) => {
+    const { descuento = 0 } = opciones;
     const state = get();
     const staff = useAuthStore.getState().staff;
 
     if (!staff) return { ok: false, error: "Sin sesión activa" };
     if (state.carrito.length === 0) return { ok: false, error: "El carrito está vacío" };
 
-    const total = state.carrito.reduce((sum, i) => sum + i.subtotal, 0) - descuento;
+    const bruto = state.carrito.reduce((sum, i) => sum + i.subtotal, 0);
 
-    // UUID generado en el cliente — clave para offline-first
-    const ventaId = uuidv4();
+    // La API valida `total` con z.number().nonnegative(): si dejáramos pasar un
+    // total negativo, la venta se guardaría local y después el sync la
+    // rechazaría para siempre. Mejor frenarla acá.
+    if (descuento > bruto) {
+      return { ok: false, error: "El descuento no puede superar el total" };
+    }
+
+    const total = bruto - descuento;
+
+    // UUID generado en el cliente — clave para offline-first.
+    // Si viene de afuera es porque ya se usó como referencia del cobro en MP.
+    const ventaId = opciones.ventaId ?? uuidv4();
     const ahora = new Date().toISOString();
 
-    // camelCase (Prisma) en vez de snake_case (Supabase)
+    // camelCase — mismo formato que acepta `ventaSchema` en POST /api/ventas/sync
     const venta = {
       id: ventaId,
       localId: staff.localId,
@@ -122,10 +138,9 @@ export const usePosStore = create<PosState>()((set, get) => ({
       descuento,
       nota: null,
       createdAt: ahora,
-      synced: "pending" as const,
     };
 
-    const items: VentaItem[] = state.carrito.map((item) => ({
+    const items: VentaItemPos[] = state.carrito.map((item) => ({
       id: uuidv4(),
       ventaId,
       localId: staff.localId,

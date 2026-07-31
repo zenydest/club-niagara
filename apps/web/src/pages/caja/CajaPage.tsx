@@ -234,12 +234,15 @@ function ModalPago({
   const saldoCashlessSuficiente =
     tarjetaConsultada ? tarjetaConsultada.saldo >= total : false;
 
+  // `!procesandoCashless` evita el doble débito: sin eso, un segundo clic
+  // mientras el cobro está en vuelo vuelve a descontar saldo de la tarjeta.
   const puedeConfirmar =
-    metodoPago === "efectivo"
+    !procesandoCashless &&
+    (metodoPago === "efectivo"
       ? montoCobrado >= total
       : metodoPago === "cashless"
         ? saldoCashlessSuficiente
-        : true; // tarjeta, qr_mp, cortesia siempre habilitados
+        : true); // tarjeta, qr_mp, cortesia siempre habilitados
 
   const handleConfirmar = async () => {
     // Si es cashless: primero debitar saldo de la tarjeta

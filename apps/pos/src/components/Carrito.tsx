@@ -1,6 +1,9 @@
 import React, { useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 import { cn } from "@niagara/ui";
 import { usePosStore, selectTotal, selectCantidadItems } from "@/stores/posStore";
+import { useCobroPointStore } from "@/stores/cobroPointStore";
+import { ModalCobroPoint } from "@/components/ModalCobroPoint";
 import type { MetodoPago } from "@niagara/core";
 import { METODO_PAGO_LABELS } from "@niagara/core";
 
@@ -30,22 +33,72 @@ export function Carrito() {
   const total = usePosStore(selectTotal);
   const cantidadItems = usePosStore(selectCantidadItems);
 
+  const { cobrar: cobrarConPoint, terminalId } = useCobroPointStore();
+
   const [cobrando, setCobrando] = useState(false);
   const [ultimaVenta, setUltimaVenta] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [montoEnCobro, setMontoEnCobro] = useState<number | null>(null);
 
   const formatearPesos = (monto: number) =>
     new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(monto);
 
+  const registrarExito = (ventaId: string) => {
+    setUltimaVenta(ventaId.slice(0, 8).toUpperCase());
+    setTimeout(() => setUltimaVenta(null), 4000);
+  };
+
+  /**
+   * Tarjeta va por la terminal Point: primero se cobra y solo si el pago se
+   * aprueba se registra la venta. El id se genera acá porque se usa como
+   * referencia de la orden en MP y tiene que coincidir con la venta.
+   */
+  const handleCobrarConTerminal = async () => {
+    if (!terminalId) {
+      setError("Elegí una terminal antes de cobrar con tarjeta");
+      return;
+    }
+
+    const ventaId = uuidv4();
+    setError(null);
+    setCobrando(true);
+    setMontoEnCobro(total);
+
+    const cobro = await cobrarConPoint({
+      ventaId,
+      monto: total,
+      descripcion: `Club Niágara · ${cantidadItems} ítem${cantidadItems > 1 ? "s" : ""}`,
+    });
+
+    if (cobro.ok) {
+      // El cobro ya entró: la venta se registra con el mismo id, y si falla
+      // queda en la cola offline para reintentarse.
+      const resultado = await cobrarVenta("tarjeta", { ventaId });
+      if (resultado.ok) {
+        registrarExito(ventaId);
+      } else {
+        setError(
+          `El pago se aprobó pero la venta no se registró: ${resultado.error ?? "error desconocido"}`
+        );
+      }
+    }
+
+    setCobrando(false);
+  };
+
   const handleCobrar = async (metodoPago: MetodoPago) => {
+    if (metodoPago === "tarjeta") {
+      await handleCobrarConTerminal();
+      return;
+    }
+
     setCobrando(true);
     setError(null);
 
     const resultado = await cobrarVenta(metodoPago);
 
     if (resultado.ok && resultado.ventaId) {
-      setUltimaVenta(resultado.ventaId.slice(0, 8).toUpperCase());
-      setTimeout(() => setUltimaVenta(null), 4000);
+      registrarExito(resultado.ventaId);
     } else {
       setError(resultado.error ?? "Error al procesar la venta");
     }
@@ -55,6 +108,10 @@ export function Carrito() {
 
   return (
     <div className="flex flex-col h-full">
+      {montoEnCobro !== null && (
+        <ModalCobroPoint monto={montoEnCobro} onCerrar={() => setMontoEnCobro(null)} />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 h-14 border-b border-border">
         <span className="font-bold text-text-primary">

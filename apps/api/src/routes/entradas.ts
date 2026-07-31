@@ -15,9 +15,9 @@
  */
 
 import type { FastifyPluginAsync } from "fastify";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
-import type { MetodoPago, TipoEntrada } from "@niagara/db";
 import { io } from "../index.js";
 
 // ── Schemas ──────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
         localId,
         eventoId: body.data.eventoId,
         nombre: body.data.nombre,
-        tipo: body.data.tipo as TipoEntrada,
+        tipo: body.data.tipo,
         precio: body.data.precio,
         cantidadTotal: body.data.cantidadTotal ?? null,
       },
@@ -120,7 +120,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       where: { id, localId },
       data: {
         ...(body.data.nombre && { nombre: body.data.nombre }),
-        ...(body.data.tipo && { tipo: body.data.tipo as TipoEntrada }),
+        ...(body.data.tipo && { tipo: body.data.tipo }),
         ...(body.data.precio !== undefined && { precio: body.data.precio }),
         ...(body.data.cantidadTotal !== undefined && { cantidadTotal: body.data.cantidadTotal }),
       },
@@ -180,7 +180,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       include: { _count: { select: { entradasVendidas: true } } },
     });
 
-    if (!tipo || !tipo.activo) {
+    if (!tipo?.activo) {
       return reply.status(404).send({ error: "Tipo de entrada no encontrado" });
     }
 
@@ -207,7 +207,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
             clienteEmail: clienteEmail ?? null,
             clienteTelefono: clienteTelefono ?? null,
             precioPagado,
-            metodoPago: metodoPago as MetodoPago,
+            metodoPago: metodoPago,
             rrppId: rrppId ?? null,
           },
         })
@@ -288,7 +288,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       },
     });
 
-    if (!entrada || entrada.localId !== localId) {
+    if (entrada?.localId !== localId) {
       return reply.status(404).send({ error: "Entrada no encontrada" });
     }
 
@@ -297,25 +297,146 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
     };
   });
 
+  /**
+   * POST /api/entradas/validar — escanear un QR en la puerta.
+   *
+   * Quema la entrada de forma **atómica**: el `updateMany` con
+   * `usada: false` en el WHERE hace que la base decida el ganador. Antes esto
+   * eran dos operaciones (leer y después marcar), así que dos porteros
+   * escaneando el mismo QR al mismo tiempo dejaban entrar a los dos.
+   *
+   * Además registra el ingreso y actualiza el aforo, para que escanear sea una
+   * sola acción y no dos pantallas distintas.
+   */
+  app.post("/validar", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["portero", "admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const schema = z.object({
+      qrCode: z.string().min(1).max(200),
+      /** Si se manda, se valida que la entrada sea de ese evento */
+      eventoId: z.string().uuid().optional(),
+      /** Registrar el ingreso además de quemar el QR */
+      registrarAcceso: z.boolean().default(true),
+    });
+
+    const body = schema.safeParse(req.body);
+    if (!body.success) {
+      return reply.status(400).send({ error: body.error.flatten() });
+    }
+
+    const { qrCode, eventoId, registrarAcceso } = body.data;
+
+    const entrada = await prisma.entradaVendida.findUnique({
+      where: { qrCode },
+      include: {
+        entradaTipo: { select: { nombre: true, tipo: true } },
+        evento: { select: { id: true, nombre: true, estado: true } },
+      },
+    });
+
+    // Los desenlaces de negocio van con 200 y un `resultado`: que una entrada
+    // esté quemada no es un error de la request, es la respuesta. Reservamos
+    // los 4xx para permisos y payloads inválidos.
+    if (entrada?.localId !== localId) {
+      return { resultado: "no_encontrada", entrada: null };
+    }
+
+    if (eventoId && entrada.eventoId !== eventoId) {
+      return {
+        resultado: "otro_evento",
+        entrada: { ...entrada, precioPagado: Number(entrada.precioPagado) },
+      };
+    }
+
+    // Acá se define quién gana: solo una request puede pasar de false a true.
+    const quemada = await prisma.entradaVendida.updateMany({
+      where: { id: entrada.id, localId, usada: false },
+      data: { usada: true },
+    });
+
+    if (quemada.count === 0) {
+      return {
+        resultado: "ya_usada",
+        entrada: { ...entrada, precioPagado: Number(entrada.precioPagado), usada: true },
+      };
+    }
+
+    if (registrarAcceso) {
+      await prisma.acceso.create({
+        data: {
+          // `Acceso.id` no tiene default: normalmente lo genera el cliente para
+          // que la cola offline sea idempotente. Acá el origen es el servidor,
+          // así que lo generamos nosotros.
+          id: randomUUID(),
+          localId,
+          eventoId: entrada.eventoId,
+          staffId: staffActual.id,
+          entradaVendidaId: entrada.id,
+          tipo: "ingreso",
+          metodo: "qr",
+          createdAt: new Date(),
+          synced: "synced",
+        },
+      });
+
+      const [ingresos, egresos] = await Promise.all([
+        prisma.acceso.count({
+          where: { localId, eventoId: entrada.eventoId, tipo: "ingreso" },
+        }),
+        prisma.acceso.count({
+          where: { localId, eventoId: entrada.eventoId, tipo: "egreso" },
+        }),
+      ]);
+
+      const aforoActual = Math.max(0, ingresos - egresos);
+
+      io.to(`local:${localId}`).emit("aforo:actualizado", {
+        eventoId: entrada.eventoId,
+        aforoActual,
+      });
+
+      // Alimenta el feed de accesos del dashboard, que hasta ahora nunca
+      // recibía nada porque la API no emitía este evento.
+      io.to(`local:${localId}`).emit("acceso:nuevo", {
+        eventoId: entrada.eventoId,
+        tipo: "ingreso",
+        metodo: "qr",
+        clienteNombre: entrada.clienteNombre,
+        entradaTipo: entrada.entradaTipo.nombre,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    return {
+      resultado: "ok",
+      entrada: { ...entrada, precioPagado: Number(entrada.precioPagado), usada: true },
+    };
+  });
+
   // PATCH /api/entradas/vendidas/:id/usar — check-in manual
   app.patch("/vendidas/:id/usar", async (req, reply) => {
     const { localId } = req;
     const { id } = req.params as { id: string };
 
-    const entrada = await prisma.entradaVendida.findUnique({
-      where: { id, localId },
+    // Mismo quemado atómico que en /validar: un solo UPDATE condicionado.
+    const quemada = await prisma.entradaVendida.updateMany({
+      where: { id, localId, usada: false },
+      data: { usada: true },
     });
 
-    if (!entrada) {
-      return reply.status(404).send({ error: "Entrada no encontrada" });
-    }
-    if (entrada.usada) {
-      return reply.status(409).send({ error: "Entrada ya fue utilizada" });
+    if (quemada.count === 0) {
+      const existe = await prisma.entradaVendida.findFirst({ where: { id, localId } });
+      return existe
+        ? reply.status(409).send({ error: "Entrada ya fue utilizada" })
+        : reply.status(404).send({ error: "Entrada no encontrada" });
     }
 
-    const actualizada = await prisma.entradaVendida.update({
-      where: { id },
-      data: { usada: true },
+    const actualizada = await prisma.entradaVendida.findFirstOrThrow({
+      where: { id, localId },
     });
 
     return { entrada: { ...actualizada, precioPagado: Number(actualizada.precioPagado) } };

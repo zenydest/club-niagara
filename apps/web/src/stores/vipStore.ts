@@ -225,7 +225,7 @@ export const useVipStore = create<VipState>((set, get) => ({
         reservas: [data.reserva, ...s.reservas],
         // Actualizar estado de mesa si corresponde
         mesas: datos.mesaVipId
-          ? s.mesas.map((m) => m.id === datos.mesaVipId ? { ...m, estado: "reservada" as EstadoMesa } : m)
+          ? s.mesas.map((m) => m.id === datos.mesaVipId ? { ...m, estado: "reservada" } : m)
           : s.mesas,
         procesando: false,
       }));
@@ -264,7 +264,7 @@ export const useVipStore = create<VipState>((set, get) => ({
         return {
           reservas: s.reservas.map((r) => (r.id === id ? data.reserva : r)),
           mesas: liberarMesa
-            ? s.mesas.map((m) => m.id === reservaAnterior?.mesaVipId ? { ...m, estado: "libre" as EstadoMesa } : m)
+            ? s.mesas.map((m) => m.id === reservaAnterior?.mesaVipId ? { ...m, estado: "libre" } : m)
             : s.mesas,
           procesando: false,
         };
@@ -286,7 +286,7 @@ export const useVipStore = create<VipState>((set, get) => ({
         reservas: s.reservas.filter((r) => r.id !== id),
         // Liberar mesa si tenía
         mesas: reserva?.mesaVipId
-          ? s.mesas.map((m) => m.id === reserva.mesaVipId ? { ...m, estado: "libre" as EstadoMesa } : m)
+          ? s.mesas.map((m) => m.id === reserva.mesaVipId ? { ...m, estado: "libre" } : m)
           : s.mesas,
         procesando: false,
       }));

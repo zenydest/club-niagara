@@ -2,16 +2,17 @@ import React, { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@niagara/ui";
 import { useAuthStore } from "@/stores/authPosStore";
-import { usePosStore, selectTotal, selectCantidadItems } from "@/stores/posStore";
+import { usePosStore } from "@/stores/posStore";
+import { useCobroPointStore } from "@/stores/cobroPointStore";
 import { GrillaProductos } from "@/components/GrillaProductos";
 import { Carrito } from "@/components/Carrito";
 import {
   iniciarSyncEngine,
   detenerSyncEngine,
-  cachearProductosDeSupabase,
+  cachearProductosDesdeAPI,
 } from "@/sync/syncEngine";
 import { obtenerProductosLocales } from "@/db/localDb";
-import type { Producto } from "@niagara/core";
+import type { ProductoPos } from "@/types";
 
 /**
  * Layout principal del POS.
@@ -29,40 +30,64 @@ export function PosLayout() {
     setEstadoSync,
   } = usePosStore();
 
-  // Inicializar sync engine al montar
+  const { terminales, terminalId, cargarTerminales, setTerminal } = useCobroPointStore();
+
+  const localId = staff?.localId;
+
+  // Las terminales Point se cargan una vez al abrir la caja. Si hay una sola
+  // usable, el store la selecciona sola.
   useEffect(() => {
+    if (localId) void cargarTerminales();
+  }, [localId, cargarTerminales]);
+
+  // Inicializar sync engine al montar.
+  // Depende del localId: sin él las ventas se sincronizarían sin tenant.
+  useEffect(() => {
+    if (!localId) return;
+
     iniciarSyncEngine({
-      onEstadoCambia: (estado, pendientes) => {
-        setEstadoSync(estado);
-        setVentasPendientes(pendientes);
+      localId,
+      cbs: {
+        onEstadoCambia: (estado, pendientes) => {
+          setEstadoSync(estado);
+          setVentasPendientes(pendientes);
+        },
+        onVentaSincronizada: (ventaId) => {
+          // El contador de pendientes ya se actualiza vía onEstadoCambia;
+          // acá solo dejamos rastro para depurar la cola offline.
+          console.info("[POS] Venta sincronizada:", ventaId.slice(0, 8));
+        },
+        onError: (err) => console.warn("[POS] Sync error:", err),
       },
-      onVentaSincronizada: () => {},
-      onError: (err) => console.warn("Sync error:", err),
     });
 
-    window.addEventListener("online", () => setEstadoConexion("online"));
-    window.addEventListener("offline", () => setEstadoConexion("offline"));
+    const marcarOnline = () => setEstadoConexion("online");
+    const marcarOffline = () => setEstadoConexion("offline");
+    window.addEventListener("online", marcarOnline);
+    window.addEventListener("offline", marcarOffline);
 
     return () => {
       detenerSyncEngine();
+      window.removeEventListener("online", marcarOnline);
+      window.removeEventListener("offline", marcarOffline);
     };
-  }, [setEstadoSync, setVentasPendientes, setEstadoConexion]);
+  }, [localId, setEstadoSync, setVentasPendientes, setEstadoConexion]);
 
-  // Cargar productos (desde cache local o Supabase si hay conexión)
-  const { data: productos = [] } = useQuery<Producto[]>({
-    queryKey: ["productos-pos", staff?.local_id],
+  // Cargar productos (cache local, refrescado desde la API si hay conexión)
+  const { data: productos = [] } = useQuery<ProductoPos[]>({
+    queryKey: ["productos-pos", localId],
     queryFn: async () => {
-      if (!staff) return [];
+      if (!localId) return [];
 
-      // Intentar cachear desde Supabase si hay internet
+      // Refrescar el cache si hay internet; si falla, seguimos con el cache viejo
       if (navigator.onLine) {
-        await cachearProductosDeSupabase(staff.local_id);
+        await cachearProductosDesdeAPI(localId);
       }
 
-      // Siempre retornar del cache local
-      return obtenerProductosLocales(staff.local_id);
+      // Siempre retornar del cache local — la caja tiene que vender offline
+      return obtenerProductosLocales(localId);
     },
-    enabled: !!staff,
+    enabled: !!localId,
     staleTime: 1000 * 60 * 10, // 10 minutos
   });
 
@@ -96,9 +121,48 @@ export function PosLayout() {
               {estadoConexion === "online" ? "Online" : "Offline"}
             </div>
 
-            {ventasPendientes > 0 && (
-              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-semibold">
-                ⏳ {ventasPendientes} pendiente{ventasPendientes > 1 ? "s" : ""}
+            {/* Terminal Point en uso. Si hay más de una, el cajero elige. */}
+            {terminales.length > 1 ? (
+              <select
+                value={terminalId ?? ""}
+                onChange={(e) => setTerminal(e.target.value || null)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-semibold bg-surface-2 border",
+                  terminalId ? "border-border text-text-secondary" : "border-warning text-warning"
+                )}
+              >
+                <option value="">Elegir terminal…</option>
+                {terminales.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              terminales.length === 1 && (
+                <div className="px-3 py-1 rounded-full bg-surface-2 border border-border text-xs font-semibold text-text-secondary">
+                  💳 {terminales[0]?.nombre}
+                </div>
+              )
+            )}
+
+            {estadoSync === "sincronizando" && (
+              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-purple/10 text-purple text-xs font-semibold">
+                ↻ Sincronizando
+              </div>
+            )}
+
+            {ventasPendientes > 0 && estadoSync !== "sincronizando" && (
+              <div
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold",
+                  estadoSync === "error"
+                    ? "bg-danger/10 text-danger"
+                    : "bg-warning/10 text-warning"
+                )}
+              >
+                {estadoSync === "error" ? "⚠" : "⏳"} {ventasPendientes} pendiente
+                {ventasPendientes > 1 ? "s" : ""}
               </div>
             )}
 

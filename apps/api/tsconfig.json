@@ -1,9 +1,10 @@
 {
-  "extends": "@niagara/config/typescript/base.json",
+  "extends": "@niagara/config/typescript/base",
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "bundler",
     "target": "ES2022",
+    "types": ["node"],
     "outDir": "./dist",
     "rootDir": "./src",
     "emitDecoratorMetadata": false,

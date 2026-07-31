@@ -48,7 +48,7 @@ function crearVentana() {
   });
 }
 
-app.whenReady().then(() => {
+void app.whenReady().then(() => {
   crearVentana();
 
   app.on("activate", () => {

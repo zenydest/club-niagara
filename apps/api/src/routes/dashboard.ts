@@ -76,7 +76,7 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
     const { eventoId } = req.query as { eventoId?: string };
 
     // Ventas agrupadas por hora — filtro opcional de eventoId con cast nullable
-    const resultado = await prisma.$queryRaw<Array<{ hora: Date; total: number; cantidad: number }>>`
+    const resultado = await prisma.$queryRaw<{ hora: Date; total: number; cantidad: number }[]>`
       SELECT
         DATE_TRUNC('hour', "created_at") AS hora,
         SUM(total)::float AS total,

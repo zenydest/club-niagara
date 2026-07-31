@@ -62,8 +62,19 @@ export const registrarRutasProductos: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: body.error.flatten() });
     }
 
+    const { nombre, categoria, precio, descripcion, costo, imagenUrl } = body.data;
+
     const producto = await prisma.producto.create({
-      data: { localId, ...body.data },
+      data: {
+        localId,
+        nombre,
+        categoria,
+        precio,
+        // Columnas nullable: Prisma espera `null`, no `undefined`
+        descripcion: descripcion ?? null,
+        costo: costo ?? null,
+        imagenUrl: imagenUrl ?? null,
+      },
     });
 
     return reply.status(201).send({ producto });
@@ -83,9 +94,20 @@ export const registrarRutasProductos: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: body.error.flatten() });
     }
 
+    const d = body.data;
+
+    // En un PATCH, omitir un campo y mandarlo como `undefined` no es lo mismo
+    // para Prisma, así que solo se incluyen las claves realmente enviadas.
     const producto = await prisma.producto.update({
       where: { id, localId },
-      data: body.data,
+      data: {
+        ...(d.nombre !== undefined && { nombre: d.nombre }),
+        ...(d.categoria !== undefined && { categoria: d.categoria }),
+        ...(d.precio !== undefined && { precio: d.precio }),
+        ...(d.descripcion !== undefined && { descripcion: d.descripcion }),
+        ...(d.costo !== undefined && { costo: d.costo }),
+        ...(d.imagenUrl !== undefined && { imagenUrl: d.imagenUrl }),
+      },
     });
 
     return { producto };

@@ -309,10 +309,31 @@ export const useReportesStore = create<ReportesState>((set, get) => ({
 
 // ── Constantes de UI ───────────────────────────────────────────────
 
-export const METODO_PAGO_CONFIG: Record<string, { label: string; icono: string; color: string }> = {
+export interface MetodoPagoConfig {
+  label: string;
+  icono: string;
+  color: string;
+}
+
+export const METODO_PAGO_CONFIG: Record<string, MetodoPagoConfig> = {
   efectivo:  { label: "Efectivo",   icono: "💵", color: "text-green-400" },
   tarjeta:   { label: "Tarjeta",    icono: "💳", color: "text-blue-400" },
   cashless:  { label: "Cashless",   icono: "🪙", color: "text-accent" },
   qr_mp:     { label: "QR / MP",    icono: "📱", color: "text-purple-400" },
   cortesia:  { label: "Cortesía",   icono: "🎁", color: "text-text-secondary" },
 };
+
+/**
+ * Config por defecto para métodos de pago que la API devuelva y el front todavía
+ * no conozca. Evita que un método nuevo rompa la pantalla de reportes.
+ */
+export const METODO_PAGO_DEFAULT: MetodoPagoConfig = {
+  label: "Otro",
+  icono: "❓",
+  color: "text-text-secondary",
+};
+
+/** Buscar la config de un método de pago, con fallback seguro */
+export function configMetodoPago(metodo: string): MetodoPagoConfig {
+  return METODO_PAGO_CONFIG[metodo] ?? METODO_PAGO_DEFAULT;
+}

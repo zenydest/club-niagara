@@ -148,7 +148,7 @@ export const useCajaStore = create<CajaState>((set, get) => ({
       }));
       localStorage.setItem(KEY_PRODUCTOS, JSON.stringify(productos));
       set({ productos, cargandoProductos: false });
-    } catch (err) {
+    } catch {
       // Si falla la red, usa el caché
       const cacheados = leerProductosCacheados();
       set({
@@ -302,7 +302,7 @@ export const useCajaStore = create<CajaState>((set, get) => ({
 
       guardarCola(nuevaCola);
       set({ cola: nuevaCola, sincronizando: false });
-    } catch (err) {
+    } catch {
       set({ sincronizando: false, errorSync: "Error al sincronizar ventas" });
     }
   },

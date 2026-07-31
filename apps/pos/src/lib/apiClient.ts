@@ -3,11 +3,14 @@
  * Idéntico al de apps/web — extrae el localId del store del POS.
  */
 
-const BASE_URL = import.meta.env["VITE_API_URL"] ?? "http://localhost:3001";
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
+// `localId?: string | undefined` y no `localId?: string`: con
+// exactOptionalPropertyTypes activado, omitir la propiedad y pasarla como
+// undefined son cosas distintas, y los helpers de abajo la pasan explícitamente.
 async function request<T>(
   path: string,
-  options: RequestInit & { localId?: string } = {}
+  options: RequestInit & { localId?: string | undefined } = {}
 ): Promise<T> {
   const { localId, ...fetchOptions } = options;
 
@@ -27,8 +30,9 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((error as { error?: string }).error ?? `HTTP ${res.status}`);
+    // `res.json()` devuelve `any`; el cast explícito evita propagarlo.
+    const cuerpo = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(cuerpo?.error ?? res.statusText ?? `HTTP ${res.status}`);
   }
 
   if (res.status === 204) return undefined as T;

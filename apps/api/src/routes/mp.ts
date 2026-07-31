@@ -71,7 +71,7 @@ async function crearPreferenciaMP(monto: number, descripcion: string, referencia
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({})) as unknown;
+    const err = await response.json().catch(() => ({}));
     throw new Error(`Error MP: ${JSON.stringify(err)}`);
   }
 

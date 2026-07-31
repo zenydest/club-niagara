@@ -32,6 +32,19 @@ interface AccesoFeed {
   tipo: "ingreso" | "egreso";
   metodo: string;
   createdAt: string;
+  clienteNombre?: string | null;
+  entradaTipo?: string;
+}
+
+/** Recaudación de un cajero, tal como la devuelve GET /reportes/por-cajero */
+interface RecaudacionCajero {
+  staffId: string;
+  nombre: string;
+  rol: string;
+  barra: string | null;
+  cantidadVentas: number;
+  total: number;
+  porMetodo: Record<string, { cantidad: number; monto: number }>;
 }
 
 /**
@@ -72,9 +85,10 @@ export function DashboardPage() {
       }
     };
 
-    // Nueva venta → refrescar KPIs
+    // Nueva venta → refrescar KPIs y la recaudación por cajero
     const onVentaNueva = () => {
       void queryClient.invalidateQueries({ queryKey: ["dashboard-kpis", localId] });
+      void queryClient.invalidateQueries({ queryKey: ["recaudacion-cajeros", localId] });
     };
 
     // Cambio de estado de evento → refrescar todo
@@ -82,16 +96,55 @@ export function DashboardPage() {
       void queryClient.invalidateQueries({ queryKey: ["dashboard-kpis", localId] });
     };
 
+    // Ingreso en la puerta → al feed. Se cortan en 20 para no acumular
+    // memoria durante una noche entera.
+    const onAccesoNuevo = (data: {
+      tipo: "ingreso" | "egreso";
+      metodo: string;
+      clienteNombre: string | null;
+      entradaTipo?: string;
+      createdAt: string;
+    }) => {
+      setFeedAccesos((previos) =>
+        [
+          {
+            id: `${data.createdAt}-${Math.random().toString(36).slice(2, 8)}`,
+            tipo: data.tipo,
+            metodo: data.metodo,
+            createdAt: data.createdAt,
+            clienteNombre: data.clienteNombre,
+            ...(data.entradaTipo !== undefined && { entradaTipo: data.entradaTipo }),
+          },
+          ...previos,
+        ].slice(0, 20)
+      );
+    };
+
     socket.on("aforo:actualizado", onAforoActualizado);
     socket.on("venta:nueva", onVentaNueva);
     socket.on("evento:estado_cambiado", onEstadoCambiado);
+    socket.on("acceso:nuevo", onAccesoNuevo);
 
     return () => {
       socket.off("aforo:actualizado", onAforoActualizado);
       socket.off("venta:nueva", onVentaNueva);
       socket.off("evento:estado_cambiado", onEstadoCambiado);
+      socket.off("acceso:nuevo", onAccesoNuevo);
     };
   }, [localId, kpisData?.evento?.id, queryClient]);
+
+  // Recaudación por cajero — es lo que se mira desde la oficina para saber
+  // cómo va cada puesto de la barra.
+  const { data: recaudacion } = useQuery({
+    queryKey: ["recaudacion-cajeros", localId],
+    queryFn: () =>
+      api.get<{ cajeros: RecaudacionCajero[]; totalGeneral: number }>(
+        `/reportes/por-cajero${kpisData?.evento?.id ? `?eventoId=${kpisData.evento.id}` : ""}`,
+        localId
+      ),
+    enabled: !!localId,
+    refetchInterval: 60_000,
+  });
 
   // Formatear moneda ARS
   const formatPesos = (monto: number) =>
@@ -218,6 +271,69 @@ export function DashboardPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Recaudación por cajero — lo que se mira desde la oficina */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-text-secondary">
+              Recaudación por cajero
+            </h3>
+            {recaudacion && recaudacion.cajeros.length > 0 && (
+              <span className="text-xs font-bold text-lime">
+                {formatPesos(recaudacion.totalGeneral)}
+              </span>
+            )}
+          </div>
+
+          {!recaudacion || recaudacion.cajeros.length === 0 ? (
+            <p className="text-text-muted text-sm">Sin ventas registradas todavía</p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {recaudacion.cajeros.map((c) => {
+                const efectivo = c.porMetodo["efectivo"]?.monto ?? 0;
+                const porcentaje =
+                  recaudacion.totalGeneral > 0
+                    ? (c.total / recaudacion.totalGeneral) * 100
+                    : 0;
+
+                return (
+                  <li key={c.staffId} className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-text-primary truncate">
+                          {c.nombre}
+                        </p>
+                        <p className="text-xs text-text-muted">
+                          {c.barra ?? "Sin barra"} · {c.cantidadVentas} venta
+                          {c.cantidadVentas === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold text-text-primary">
+                          {formatPesos(c.total)}
+                        </p>
+                        {/* El efectivo se destaca porque es lo único que
+                            después hay que contar contra la caja física. */}
+                        {efectivo > 0 && (
+                          <p className="text-xs text-warning">
+                            {formatPesos(efectivo)} en efectivo
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-lime transition-all duration-500"
+                        style={{ width: `${porcentaje}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         {/* Feed de últimos accesos (en tiempo real via Socket.io) */}

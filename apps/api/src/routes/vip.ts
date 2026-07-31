@@ -20,7 +20,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
-import type { EstadoMesa, EstadoReserva } from "@niagara/db";
+import type { EstadoReserva } from "@niagara/db";
 import { io } from "../index.js";
 
 // ── Schemas ──────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ export const registrarRutasVip: FastifyPluginAsync = async (app) => {
 
     const mesa = await prisma.mesaVip.update({
       where: { id, localId },
-      data: { estado: body.data.estado as EstadoMesa },
+      data: { estado: body.data.estado },
     });
 
     io.to(`local:${localId}`).emit("vip:mesa_actualizada", mesa);
@@ -336,7 +336,7 @@ export const registrarRutasVip: FastifyPluginAsync = async (app) => {
 
     const reserva = await prisma.reserva.update({
       where: { id, localId },
-      data: { estado: body.data.estado as EstadoReserva },
+      data: { estado: body.data.estado },
     });
 
     // Si se cancela o completa, liberar la mesa

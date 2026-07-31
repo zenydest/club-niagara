@@ -48,8 +48,12 @@ export const STOCK_ALERTA_PORCENTAJE = 20;
 /** Porcentaje de aforo para activar alerta roja */
 export const AFORO_ALERTA_PORCENTAJE = 90;
 
-/** Versión del esquema de base de datos local (offline) */
-export const DB_SCHEMA_VERSION = 1;
+/**
+ * Versión del esquema de base de datos local (offline).
+ * v2: índices de IndexedDB migrados de snake_case a camelCase para que
+ *     coincidan con las claves que devuelve la API.
+ */
+export const DB_SCHEMA_VERSION = 2;
 
 /** Métodos de pago con etiquetas */
 export const METODO_PAGO_LABELS: Record<string, string> = {

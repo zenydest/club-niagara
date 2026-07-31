@@ -12,16 +12,15 @@ import {
   obtenerVentasPendientes,
   marcarVentaSincronizada,
   marcarVentaConError,
+  contarVentasPendientes,
   cachearProductos,
 } from "../db/localDb";
 import { api } from "../lib/apiClient";
 import { SYNC_RETRY_INTERVAL_MS } from "@niagara/core";
-import type { Producto } from "@niagara/core";
+import type { ProductoPos, EstadoSyncPos } from "../types";
 
-type EstadoSync = "sincronizado" | "sincronizando" | "pendiente" | "sin_conexion" | "error";
-
-interface SyncCallbacks {
-  onEstadoCambia: (estado: EstadoSync, pendientes: number) => void;
+export interface SyncCallbacks {
+  onEstadoCambia: (estado: EstadoSyncPos, pendientes: number) => void;
   onVentaSincronizada: (ventaId: string) => void;
   onError: (error: string) => void;
 }
@@ -30,15 +29,22 @@ let intervaloSync: ReturnType<typeof setInterval> | null = null;
 let localId: string | null = null;
 let callbacks: SyncCallbacks | null = null;
 
+// Handlers con referencia estable para poder desregistrarlos al detener
+const onOnline = () => void sincronizarAhora();
+const onOffline = () => {
+  void contarVentasPendientes().then((n) => callbacks?.onEstadoCambia("sin_conexion", n));
+};
+
 /** Inicializar el motor de sync */
 export function iniciarSyncEngine(config: { localId: string; cbs: SyncCallbacks }) {
+  // Idempotente: si ya estaba corriendo, lo reiniciamos con la nueva config
+  detenerSyncEngine();
+
   localId = config.localId;
   callbacks = config.cbs;
 
-  window.addEventListener("online", () => void sincronizarAhora());
-  window.addEventListener("offline", () => {
-    callbacks?.onEstadoCambia("sin_conexion", 0);
-  });
+  window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
 
   intervaloSync = setInterval(() => {
     if (navigator.onLine) void sincronizarAhora();
@@ -47,9 +53,16 @@ export function iniciarSyncEngine(config: { localId: string; cbs: SyncCallbacks 
   if (navigator.onLine) void sincronizarAhora();
 }
 
-/** Detener el motor de sync */
+/** Detener el motor de sync y limpiar listeners */
 export function detenerSyncEngine() {
-  if (intervaloSync) clearInterval(intervaloSync);
+  if (intervaloSync) {
+    clearInterval(intervaloSync);
+    intervaloSync = null;
+  }
+  window.removeEventListener("online", onOnline);
+  window.removeEventListener("offline", onOffline);
+  callbacks = null;
+  localId = null;
 }
 
 /** Enviar batch de ventas pendientes a la API */
@@ -64,10 +77,15 @@ export async function sincronizarAhora(): Promise<void> {
   callbacks?.onEstadoCambia("sincronizando", pendientes.length);
 
   try {
-    type SyncResponse = {
-      resultados: Array<{ id: string; ok: boolean; error?: string }>;
+    interface SyncResultado {
+      id: string;
+      ok: boolean;
+      error?: string;
+    }
+    interface SyncResponse {
+      resultados: SyncResultado[];
       exitosas: number;
-    };
+    }
 
     const res = await api.post<SyncResponse>(
       "/ventas/sync",
@@ -98,7 +116,7 @@ export async function sincronizarAhora(): Promise<void> {
 /** Cachear productos desde la API en IndexedDB */
 export async function cachearProductosDesdeAPI(lid: string): Promise<void> {
   try {
-    const data = await api.get<{ productos: Producto[] }>("/productos", lid);
+    const data = await api.get<{ productos: ProductoPos[] }>("/productos", lid);
     if (data.productos) {
       await cachearProductos(data.productos);
     }

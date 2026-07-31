@@ -112,7 +112,7 @@ function getLocalId() {
 
 // ── Store ─────────────────────────────────────────────────────────
 
-export const useStockStore = create<StockState>((set, get) => ({
+export const useStockStore = create<StockState>((set) => ({
   depositos: [],
   productos: [],
   movimientos: [],
@@ -250,10 +250,33 @@ export const useStockStore = create<StockState>((set, get) => ({
 
 // ── Constantes de UI ───────────────────────────────────────────────
 
-export const TIPO_MOVIMIENTO_CONFIG: Record<string, { label: string; icono: string; color: string; signo: string }> = {
+export interface TipoMovimientoConfig {
+  label: string;
+  icono: string;
+  color: string;
+  signo: string;
+}
+
+export const TIPO_MOVIMIENTO_CONFIG: Record<string, TipoMovimientoConfig> = {
   ingreso:      { label: "Ingreso",      icono: "📦", color: "text-green-400", signo: "+" },
   egreso_venta: { label: "Venta",        icono: "🛒", color: "text-blue-400",  signo: "-" },
   egreso_merma: { label: "Merma/Baja",   icono: "🗑️", color: "text-danger",   signo: "-" },
   ajuste:       { label: "Ajuste",       icono: "✏️", color: "text-yellow-400", signo: "±" },
   transferencia:{ label: "Transferencia",icono: "↔️", color: "text-purple-400", signo: "~" },
 };
+
+/**
+ * Config por defecto para tipos de movimiento que la API devuelva y el front
+ * todavía no conozca. Evita que un tipo nuevo rompa la pantalla de stock.
+ */
+export const TIPO_MOVIMIENTO_DEFAULT: TipoMovimientoConfig = {
+  label: "Movimiento",
+  icono: "❓",
+  color: "text-text-secondary",
+  signo: "~",
+};
+
+/** Buscar la config de un tipo de movimiento, con fallback seguro */
+export function configTipoMovimiento(tipo: string): TipoMovimientoConfig {
+  return TIPO_MOVIMIENTO_CONFIG[tipo] ?? TIPO_MOVIMIENTO_DEFAULT;
+}

@@ -45,16 +45,20 @@ export function iniciarSocketIO(io: Server) {
       return;
     }
 
+    // Copia a const: TypeScript no mantiene el narrowing de un `let` dentro de
+    // los closures de abajo, y por eso antes hacía falta un `userId!`.
+    const usuarioId = userId;
+
     // Unirse al room del local
     socket.on("join:local", async (data: { localId: string }) => {
       const { localId } = data;
 
       // Verificar que el usuario tiene staff en ese local
       const staff = await prisma.staff.findUnique({
-        where: { localId_userId: { localId, userId: userId! } },
+        where: { localId_userId: { localId, userId: usuarioId } },
       });
 
-      if (!staff || !staff.activo) {
+      if (!staff?.activo) {
         socket.emit("error", { mensaje: "Sin acceso a este local" });
         return;
       }

@@ -9,7 +9,10 @@ services:
     name: club-niagara-api
     runtime: node
     region: oregon
-    plan: free          # cambiá a "starter" o superior en producción
+    # OJO con el plan free: el servicio se apaga tras 15 min sin tráfico y el
+    # siguiente request tarda 30-60s en responder. Para una demo con el cliente
+    # eso se ve como "la app está rota". Para mostrarla, subí a "starter".
+    plan: free
 
     # Render clona el repo y corre estos comandos desde la raíz
     buildCommand: |
@@ -18,6 +21,13 @@ services:
       pnpm --filter @niagara/db db:generate
       pnpm --filter @niagara/api build
     startCommand: node apps/api/dist/index.js
+
+    # Sincroniza el schema con la DB antes de arrancar. El proyecto usa
+    # `prisma db push` (no hay carpeta migrations/). Sin este paso el primer
+    # deploy levanta con la base vacía y toda query falla.
+    # Si más adelante agregás migraciones, cambiá a:
+    #   pnpm --filter @niagara/db exec prisma migrate deploy
+    preDeployCommand: pnpm --filter @niagara/db exec prisma db push --skip-generate
 
     # Health check — Render reinicia el servicio si falla
     healthCheckPath: /health
@@ -37,4 +47,13 @@ services:
       - key: BETTER_AUTH_URL
         sync: false          # ej: https://club-niagara-api.onrender.com
       - key: FRONTEND_URLS
-        sync: false          # ej: https://club-niagara.vercel.app
+        sync: false          # ej: https://club-niagara.vercel.app (coma-separado)
+      # Mercado Pago — opcionales. Sin MP_ACCESS_TOKEN la API arranca igual y
+      # solo queda deshabilitado el cobro con terminales Point.
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      # Firma de los webhooks de MP. Sin esto el endpoint acepta notificaciones
+      # de cualquier origen: alguien podría marcar cobros como aprobados.
+      # Obligatorio antes de cobrar de verdad.
+      - key: MP_WEBHOOK_SECRET
+        sync: false

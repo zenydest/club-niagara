@@ -77,11 +77,12 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
       data: {
         localId,
         nombre: body.data.nombre,
-        descripcion: body.data.descripcion,
+        // Columnas nullable: Prisma espera `null`, no `undefined`
+        descripcion: body.data.descripcion ?? null,
         fechaInicio: new Date(body.data.fechaInicio),
-        fechaFin: body.data.fechaFin ? new Date(body.data.fechaFin) : undefined,
+        fechaFin: body.data.fechaFin ? new Date(body.data.fechaFin) : null,
         capacidad: body.data.capacidad,
-        imagenUrl: body.data.imagenUrl,
+        imagenUrl: body.data.imagenUrl ?? null,
       },
     });
 
@@ -138,7 +139,7 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
 
     const evento = await prisma.evento.update({
       where: { id, localId },
-      data: { estado: body.data.estado as EstadoEvento },
+      data: { estado: body.data.estado },
     });
 
     // Notificar en tiempo real a todos los clientes del local

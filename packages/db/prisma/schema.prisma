@@ -191,6 +191,8 @@ model Local {
   comisionesRrpp   ComisionRrpp[]
   cortesCaja       CorteCaja[]
   clientes         Cliente[]
+  terminales       Terminal[]
+  ordenesPoint     OrdenPoint[]
 
   @@map("locales")
 }
@@ -272,8 +274,80 @@ model Barra {
   local      Local       @relation(fields: [localId], references: [id], onDelete: Cascade)
   ventas     Venta[]
   cortesCaja CorteCaja[]
+  terminales Terminal[]
 
   @@map("barras")
+}
+
+// ============================================================
+// TERMINALES MERCADO PAGO POINT
+// ============================================================
+
+/// Terminal Point Smart asociada a una barra o a la puerta.
+///
+/// El `id` es el identificador que devuelve MP en GET /terminals/v1/list, con
+/// formato "TIPO__SERIE" (ej: "NEWLAND_N950__N950NCB801293324"). No se genera
+/// acá: se importa desde MP.
+///
+/// Cada punto de venta de MP admite una sola terminal en modo PDV, así que la
+/// relación con `posId` es 1 a 1 del lado de Mercado Pago.
+model Terminal {
+  id       String @id // terminal_id de MP, "TIPO__SERIE"
+  localId  String @map("local_id")
+  barraId  String? @map("barra_id") // null = terminal de puerta/boletería
+  nombre   String // alias interno: "Barra 1", "Puerta"
+  posId    String  @map("pos_id")
+  storeId  String  @map("store_id")
+
+  /// PDV = integrada por API (solo tarjetas). STANDALONE = cobro manual.
+  operatingMode String  @default("UNDEFINED") @map("operating_mode")
+  activa        Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  local   Local          @relation(fields: [localId], references: [id], onDelete: Cascade)
+  barra   Barra?         @relation(fields: [barraId], references: [id], onDelete: SetNull)
+  ordenes OrdenPoint[]
+
+  @@index([localId])
+  @@map("terminales")
+}
+
+/// Orden de cobro enviada a una terminal Point.
+///
+/// Existe como tabla propia y no como campos en `Venta` porque el ciclo de vida
+/// es distinto: la orden se crea *antes* de que exista la venta (hay que cobrar
+/// primero) y puede terminar cancelada, expirada o rechazada sin generar venta.
+model OrdenPoint {
+  /// id que devuelve MP (ORD...).
+  id         String @id
+  localId    String @map("local_id")
+  terminalId String @map("terminal_id")
+
+  /// external_reference que mandamos a MP. Es el id de la venta que se va a
+  /// crear si el cobro sale bien, así el webhook sabe qué cerrar.
+  referencia String @unique
+
+  /// transactions.payments[0].id de MP (PAY...). Llega al crear la orden.
+  mpPaymentId String? @map("mp_payment_id")
+
+  monto  Decimal @db.Decimal(10, 2)
+  /// created | at_terminal | processed | canceled | expired | refunded ...
+  estado String  @default("created")
+  estadoDetalle String? @map("estado_detalle")
+
+  /// Payload crudo de la última notificación, para poder auditar y depurar.
+  ultimaNotificacion Json? @map("ultima_notificacion")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  local    Local    @relation(fields: [localId], references: [id], onDelete: Cascade)
+  terminal Terminal @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+
+  @@index([localId, estado])
+  @@map("ordenes_point")
 }
 
 // ============================================================

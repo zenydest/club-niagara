@@ -37,9 +37,9 @@ function QRPlaceholder({ valor, tamaño = 180 }: { valor: string; tamaño?: numb
       {/* Grid simulado de QR */}
       <svg viewBox="0 0 100 100" width={tamaño - 16} height={tamaño - 16}>
         {/* Esquinas */}
-        {[
+        {([
           [5, 5], [65, 5], [5, 65],
-        ].map(([x, y], i) => (
+        ] as const).map(([x, y], i) => (
           <g key={i}>
             <rect x={x} y={y} width={30} height={30} rx={3} fill="#1a1a2e" />
             <rect x={x + 5} y={y + 5} width={20} height={20} rx={2} fill="white" />

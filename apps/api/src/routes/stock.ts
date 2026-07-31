@@ -22,31 +22,14 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
 
-// ── Helper: stock actual por (productoId, depositoId) ─────────────
+// ── Stock actual por (productoId, depositoId) ─────────────────────
 // ingreso → +cantidad | egreso_* → -cantidad | ajuste → +cantidad (firmado) | transferencia → ignorado
-type StockRow = { producto_id: string; deposito_id: string; stock: number };
-
-async function calcularStockNivel(localId: string, depositoId?: string): Promise<StockRow[]> {
-  const rows = await prisma.$queryRaw<StockRow[]>`
-    SELECT
-      producto_id,
-      deposito_id,
-      SUM(
-        CASE
-          WHEN tipo = 'ingreso'     THEN cantidad
-          WHEN tipo = 'egreso_venta'  THEN -cantidad
-          WHEN tipo = 'egreso_merma'  THEN -cantidad
-          WHEN tipo = 'ajuste'      THEN cantidad
-          ELSE 0
-        END
-      )::float AS stock
-    FROM stock_movimientos
-    WHERE local_id = ${localId}
-      ${depositoId ? prisma.$queryRaw`AND deposito_id = ${depositoId}` : prisma.$queryRaw``}
-    GROUP BY producto_id, deposito_id
-  `;
-  return rows;
-}
+//
+// NOTA: existía acá un helper `calcularStockNivel` que nadie llamaba — la misma
+// consulta está duplicada inline más abajo (líneas ~95 y ~166). Se eliminó
+// porque además tenía el SQL mal armado: interpolaba `prisma.$queryRaw` dentro
+// del template en vez de `Prisma.sql`, así que nunca habría funcionado.
+// Pendiente: unificar las dos copias que sí están en uso.
 
 export const registrarRutasStock: FastifyPluginAsync = async (app) => {
 
@@ -130,8 +113,12 @@ export const registrarRutasStock: FastifyPluginAsync = async (app) => {
     // Construir índice de stock: productoId → Map<depositoId, stock>
     const stockIndex = new Map<string, Map<string, number>>();
     for (const row of stockRows) {
-      if (!stockIndex.has(row.producto_id)) stockIndex.set(row.producto_id, new Map());
-      stockIndex.get(row.producto_id)!.set(row.deposito_id, row.stock);
+      let porDeposito = stockIndex.get(row.producto_id);
+      if (!porDeposito) {
+        porDeposito = new Map<string, number>();
+        stockIndex.set(row.producto_id, porDeposito);
+      }
+      porDeposito.set(row.deposito_id, row.stock);
     }
 
     // Armar respuesta
@@ -226,8 +213,15 @@ export const registrarRutasStock: FastifyPluginAsync = async (app) => {
       ...(productoId && { productoId }),
       ...(depositoId && { depositoId }),
       ...(tipo && { tipo: tipo as never }),
+      // Se arman con spread condicional en vez de `: undefined`: pasarle
+      // `undefined` explícito a un filtro de Prisma no es lo mismo que omitirlo.
       ...(fechaDesde || fechaHasta
-        ? { createdAt: { gte: fechaDesde ? new Date(fechaDesde) : undefined, lte: fechaHasta ? new Date(fechaHasta) : undefined } }
+        ? {
+            createdAt: {
+              ...(fechaDesde && { gte: new Date(fechaDesde) }),
+              ...(fechaHasta && { lte: new Date(fechaHasta) }),
+            },
+          }
         : {}),
     };
 

@@ -41,6 +41,27 @@ export interface AccesoOffline {
   createdAt: string;
 }
 
+/** Entrada tal como la devuelve POST /api/entradas/validar */
+export interface EntradaValidada {
+  id: string;
+  qrCode: string;
+  clienteNombre: string | null;
+  usada: boolean;
+  entradaTipo?: { nombre: string; tipo: string };
+  evento?: { id: string; nombre: string; estado: string };
+}
+
+/**
+ * Resultado de escanear un QR.
+ * `no_encontrada` y `ya_usada` son los dos casos que importan en la puerta:
+ * el primero es un código inventado, el segundo un intento de reingreso.
+ */
+export interface ResultadoValidacion {
+  resultado: "ok" | "ya_usada" | "no_encontrada" | "otro_evento" | "sin_conexion" | "error";
+  entrada: EntradaValidada | null;
+  mensaje?: string;
+}
+
 interface PorteriaState {
   // Datos
   eventosActivos: EventoActivo[];
@@ -58,6 +79,7 @@ interface PorteriaState {
   cargarEventos: () => Promise<void>;
   seleccionarEvento: (evento: EventoActivo) => Promise<void>;
   registrarAcceso: (tipo: "ingreso" | "egreso") => Promise<void>;
+  validarQR: (qrCode: string) => Promise<ResultadoValidacion>;
   sincronizarCola: () => Promise<void>;
   setOnline: (online: boolean) => void;
 }
@@ -114,8 +136,9 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
       set({ eventosActivos: data.eventos });
 
       // Si hay un solo evento, seleccionarlo automáticamente
-      if (data.eventos.length === 1 && !get().eventoSeleccionado) {
-        await get().seleccionarEvento(data.eventos[0]!);
+      const [unicoEvento] = data.eventos;
+      if (unicoEvento && data.eventos.length === 1 && !get().eventoSeleccionado) {
+        await get().seleccionarEvento(unicoEvento);
       }
     } catch (err) {
       set({ error: (err as Error).message });
@@ -152,8 +175,66 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
       });
     }
 
-    // Unirse a la sala socket del local para actualizaciones en tiempo real
-    socket.emit("join:local", { localId: staff.localId, rol: staff.rol });
+    // Unirse a la sala socket del local para actualizaciones en tiempo real.
+    // No se manda el rol: el servidor lo resuelve consultando el staff del
+    // usuario autenticado, que es lo correcto — un rol enviado por el cliente
+    // no sería confiable para decidir a qué rooms suscribirlo.
+    socket.emit("join:local", { localId: staff.localId });
+  },
+
+  /**
+   * Valida un QR contra la API. El quemado es atómico del lado del servidor,
+   * así que dos porteros escaneando el mismo código no pueden pasar los dos.
+   *
+   * A diferencia del ingreso manual, esto **no funciona offline**: no se puede
+   * saber si una entrada ya se usó sin consultar. Cuando no hay conexión, el
+   * portero tiene que usar el ingreso manual, que sí tiene cola offline.
+   */
+  validarQR: async (qrCode) => {
+    const { staff } = useAuthStore.getState();
+    const { eventoSeleccionado, online } = get();
+
+    if (!staff) {
+      return { resultado: "error", entrada: null, mensaje: "Sin sesión" };
+    }
+
+    if (!online) {
+      return {
+        resultado: "sin_conexion",
+        entrada: null,
+        mensaje: "Sin conexión: usá el ingreso manual",
+      };
+    }
+
+    try {
+      const res = await api.post<{
+        resultado: ResultadoValidacion["resultado"];
+        entrada: EntradaValidada | null;
+      }>(
+        "/entradas/validar",
+        {
+          qrCode,
+          ...(eventoSeleccionado && { eventoId: eventoSeleccionado.id }),
+        },
+        staff.localId
+      );
+
+      // El aforo lo actualiza el evento de socket, pero se refresca igual por
+      // las dudas de que el websocket esté caído.
+      if (res.resultado === "ok" && eventoSeleccionado) {
+        void get().seleccionarEvento(eventoSeleccionado);
+      }
+
+      // La API devuelve 200 con el `resultado` también para los desenlaces
+      // negativos, así que acá no hace falta interpretar códigos HTTP.
+      return { resultado: res.resultado, entrada: res.entrada };
+    } catch (err) {
+      return {
+        resultado: "error",
+        entrada: null,
+        mensaje: err instanceof Error ? err.message : "Error al validar",
+      };
+    }
   },
 
   registrarAcceso: async (tipo) => {

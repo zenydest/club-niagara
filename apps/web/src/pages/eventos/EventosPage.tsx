@@ -345,7 +345,7 @@ function TabTipos({ evento }: { evento: Evento }) {
                   </p>
                   {t.cantidadTotal && (
                     <div className="mt-1.5 h-1.5 bg-surface rounded-full overflow-hidden w-40">
-                      <div className={cn("h-full rounded-full transition-all", pct! >= 90 ? "bg-danger" : pct! >= 70 ? "bg-yellow-400" : "bg-lime")} style={{ width: `${pct}%` }} />
+                      <div className={cn("h-full rounded-full transition-all", (pct ?? 0) >= 90 ? "bg-danger" : (pct ?? 0) >= 70 ? "bg-yellow-400" : "bg-lime")} style={{ width: `${pct}%` }} />
                     </div>
                   )}
                 </div>

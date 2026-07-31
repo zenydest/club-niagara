@@ -14,6 +14,31 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@niagara/db";
 
+const SECRETO_DEV = "dev-secret-cambiar-en-produccion";
+
+/**
+ * El secreto firma las cookies de sesión. Con el valor de desarrollo —que está
+ * en el repo y es público— cualquiera puede fabricar una sesión válida y
+ * entrar como admin.
+ *
+ * Antes esto caía en el default en silencio: si alguien se olvidaba de cargar
+ * la variable en Render, la API arrancaba igual y parecía funcionar. Ahora
+ * revienta al arrancar, que es la única forma de que no pase inadvertido.
+ */
+function resolverSecreto(): string {
+  const secreto = process.env["BETTER_AUTH_SECRET"];
+
+  if (process.env["NODE_ENV"] === "production" && (!secreto || secreto === SECRETO_DEV)) {
+    throw new Error(
+      "BETTER_AUTH_SECRET no está configurado. En producción es obligatorio: " +
+        "sin él las sesiones se firman con un secreto público. " +
+        "Generá uno con: openssl rand -base64 32"
+    );
+  }
+
+  return secreto ?? SECRETO_DEV;
+}
+
 export const auth = betterAuth({
   // Adapter Prisma — usa las tablas User, Session, Account, Verification
   database: prismaAdapter(prisma, {
@@ -22,7 +47,7 @@ export const auth = betterAuth({
 
   // URL base del API (para generar links de verificación de email, etc.)
   baseURL: process.env["BETTER_AUTH_URL"] ?? "http://localhost:3001",
-  secret: process.env["BETTER_AUTH_SECRET"] ?? "dev-secret-cambiar-en-produccion",
+  secret: resolverSecreto(),
 
   // Autenticación con email/password
   emailAndPassword: {

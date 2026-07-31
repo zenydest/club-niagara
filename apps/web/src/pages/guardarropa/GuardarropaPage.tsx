@@ -50,10 +50,13 @@ export function GuardarropaPage() {
     if (!activo) return false;
     if (!busqueda) return true;
     const q = busqueda.toLowerCase();
+    // El `?? false` convierte el `boolean | undefined` que devuelve el
+    // encadenamiento opcional en un boolean. Se mantiene `||` a propósito:
+    // acá se busca "alguna coincidencia", que no es lo que hace `??`.
     return (
       String(t.numeroTicket).includes(q) ||
-      t.clienteNombre?.toLowerCase().includes(q) ||
-      t.descripcion?.toLowerCase().includes(q)
+      (t.clienteNombre?.toLowerCase().includes(q) ?? false) ||
+      (t.descripcion?.toLowerCase().includes(q) ?? false)
     );
   });
 
@@ -410,7 +413,7 @@ function ModalRegistrar({ siguienteNumero, onRegistrar, onCerrar, procesando }: 
 function Skeleton() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-      {[...Array(8)].map((_, i) => (
+      {Array.from({ length: 8 }, (_, i) => (
         <div key={i} className="h-36 bg-surface rounded-2xl border border-border animate-pulse" />
       ))}
     </div>

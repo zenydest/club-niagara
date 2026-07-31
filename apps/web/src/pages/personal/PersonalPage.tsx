@@ -10,6 +10,7 @@ import {
   ROL_CONFIG,
   type StaffMiembro,
   type RolStaff,
+  type ComisionRrpp,
 } from "@/stores/personalStore";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -411,7 +412,10 @@ function TabComisiones({ esAdmin }: { esAdmin: boolean }) {
 // ── Tarjeta de comisión ───────────────────────────────────────────
 
 function TarjetaComision({ comision: c, onPagar, procesando, esAdmin }: {
-  comision: ReturnType<typeof usePersonalStore>["comisiones"][0];
+  // `ReturnType<typeof usePersonalStore>` resuelve a `unknown` (zustand tiene
+  // sobrecargas para la versión con selector), así que el tipo del store se
+  // importa directo.
+  comision: ComisionRrpp;
   onPagar: () => void;
   procesando: boolean;
   esAdmin: boolean;
@@ -556,7 +560,7 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 function Skeleton() {
   return (
     <div className="flex flex-col gap-3">
-      {[...Array(4)].map((_, i) => (
+      {Array.from({ length: 4 }, (_, i) => (
         <div key={i} className="h-16 bg-surface rounded-xl border border-border animate-pulse" />
       ))}
     </div>

@@ -18,13 +18,27 @@
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^build"]
     },
     "type-check": {
       "dependsOn": ["^build"]
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
     "db:generate": {
       "cache": false
+    },
+    "@niagara/db#build": {
+      "dependsOn": ["^build", "db:generate"],
+      "outputs": ["dist/**"]
+    },
+    "@niagara/db#type-check": {
+      "dependsOn": ["^build", "db:generate"]
+    },
+    "@niagara/db#lint": {
+      "dependsOn": ["^build", "db:generate"]
     },
     "db:migrate": {
       "cache": false

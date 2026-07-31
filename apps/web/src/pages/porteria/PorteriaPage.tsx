@@ -9,10 +9,90 @@
  * Diseñado para tablet/celular del portero en penumbra.
  */
 
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { usePorteriaStore } from "@/stores/porteriaStore";
-import type { EventoActivo } from "@/stores/porteriaStore";
+import type { EventoActivo, ResultadoValidacion } from "@/stores/porteriaStore";
+import { EscanerQR } from "@/components/EscanerQR";
 import { cn } from "@niagara/ui";
+
+// ── Subcomponente: escaneo de entradas ──────────────────────────
+
+/** Cuánto queda el resultado en pantalla antes de volver a escanear */
+const MS_MOSTRAR_RESULTADO = 2200;
+
+const RESULTADO_CONFIG: Record<
+  ResultadoValidacion["resultado"],
+  { titulo: string; icono: string; clase: string }
+> = {
+  ok: { titulo: "Adelante", icono: "✓", clase: "bg-success text-white" },
+  ya_usada: { titulo: "Ya usada", icono: "✕", clase: "bg-danger text-white" },
+  no_encontrada: { titulo: "QR inválido", icono: "✕", clase: "bg-danger text-white" },
+  otro_evento: { titulo: "Otro evento", icono: "!", clase: "bg-warning text-background" },
+  sin_conexion: { titulo: "Sin conexión", icono: "!", clase: "bg-warning text-background" },
+  error: { titulo: "Error", icono: "!", clase: "bg-danger text-white" },
+};
+
+function PanelEscaneo() {
+  const { validarQR } = usePorteriaStore();
+  const [ultimo, setUltimo] = useState<ResultadoValidacion | null>(null);
+  const [validando, setValidando] = useState(false);
+
+  const manejarLectura = useCallback(
+    async (codigo: string) => {
+      if (validando) return;
+      setValidando(true);
+
+      const resultado = await validarQR(codigo);
+      setUltimo(resultado);
+
+      // Se deja el resultado un momento en pantalla y recién ahí se vuelve a
+      // habilitar la lectura, para que el portero alcance a verlo.
+      setTimeout(() => {
+        setUltimo(null);
+        setValidando(false);
+      }, MS_MOSTRAR_RESULTADO);
+    },
+    [validarQR, validando]
+  );
+
+  const cfg = ultimo ? RESULTADO_CONFIG[ultimo.resultado] : null;
+
+  return (
+    <div className="flex flex-col gap-4 px-4 py-4">
+      <div className="relative">
+        <EscanerQR onLeer={(c) => void manejarLectura(c)} pausado={validando} />
+
+        {/* El resultado tapa la cámara entero: en la puerta se mira de reojo */}
+        {cfg && (
+          <div
+            className={cn(
+              "absolute inset-0 rounded-2xl flex flex-col items-center justify-center gap-2",
+              cfg.clase
+            )}
+          >
+            <span className="text-6xl font-black">{cfg.icono}</span>
+            <span className="text-2xl font-black">{cfg.titulo}</span>
+            {ultimo?.entrada?.clienteNombre && (
+              <span className="text-sm opacity-90">{ultimo.entrada.clienteNombre}</span>
+            )}
+            {ultimo?.entrada?.entradaTipo && (
+              <span className="text-xs opacity-75">
+                {ultimo.entrada.entradaTipo.nombre}
+              </span>
+            )}
+            {ultimo?.mensaje && !ultimo.entrada && (
+              <span className="text-xs opacity-90 px-6 text-center">{ultimo.mensaje}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-text-muted text-center">
+        Apuntá al QR de la entrada. El escaneo es automático.
+      </p>
+    </div>
+  );
+}
 
 // ── Subcomponente: selector de evento ───────────────────────────
 function SelectorEvento({
@@ -96,6 +176,10 @@ function PantallaAforo() {
     seleccionarEvento,
   } = usePorteriaStore();
 
+  // El modo manual sigue siendo el default: funciona offline y no depende de
+  // permisos de cámara, así que es el que nunca falla.
+  const [modo, setModo] = useState<"manual" | "escaner">("manual");
+
   if (!aforo || !eventoSeleccionado) return null;
 
   const porcentaje = Math.min(100, (aforo.aforoActual / aforo.capacidad) * 100);
@@ -124,7 +208,7 @@ function PantallaAforo() {
           </p>
         </div>
         <button
-          onClick={() => seleccionarEvento(eventoSeleccionado)}
+          onClick={() => void seleccionarEvento(eventoSeleccionado)}
           className="text-xs text-text-muted hover:text-text-secondary transition-colors px-2 py-1 rounded-lg hover:bg-surface-2"
         >
           Cambiar
@@ -174,6 +258,26 @@ function PantallaAforo() {
           {error}
         </div>
       )}
+
+      {/* Selector de modo */}
+      <div className="px-4 pt-3 grid grid-cols-2 gap-2">
+        {(["manual", "escaner"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setModo(m)}
+            className={cn(
+              "py-2 rounded-xl text-sm font-bold transition-all",
+              modo === m
+                ? "bg-surface-2 text-text-primary border border-purple/40"
+                : "text-text-muted border border-transparent hover:text-text-secondary"
+            )}
+          >
+            {m === "manual" ? "Manual" : "Escanear QR"}
+          </button>
+        ))}
+      </div>
+
+      {modo === "escaner" && <PanelEscaneo />}
 
       {/* Contador de aforo — ocupa la mayor parte de la pantalla */}
       <div className="flex-1 flex flex-col items-center justify-center gap-6 px-4 py-8">

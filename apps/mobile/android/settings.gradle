@@ -1,0 +1,37 @@
+pluginManagement {
+  // public-hoist-pattern en .npmrc raíz hace que pnpm cree symlinks para estos
+  // paquetes en node_modules/ del monorepo. Subimos 3 niveles desde android/.
+  def monorepoRoot = rootDir.parentFile.parentFile.parentFile
+
+  // canonicalPath resuelve el symlink al path real en .pnpm (igual que lo hace
+  // expoAutolinking.reactNativeGradlePlugin en la línea final del archivo)
+  def reactNativeGradlePlugin = new File(monorepoRoot, "node_modules/@react-native/gradle-plugin").canonicalPath
+  includeBuild(reactNativeGradlePlugin)
+
+  // canonicalPath resuelve el symlink hoisted al path real en .pnpm, para que
+  // coincida con la ruta que expo-autolinking-settings resuelve internamente
+  // y Gradle pueda deduplicar la inclusión sin error de "mismo build path".
+  def expoPluginsPath = new File(monorepoRoot, "node_modules/expo-modules-autolinking/android/expo-gradle-plugin").canonicalPath
+  includeBuild(expoPluginsPath)
+}
+
+plugins {
+  id("com.facebook.react.settings")
+  id("expo-autolinking-settings")
+}
+
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+  if (System.getenv('EXPO_USE_COMMUNITY_AUTOLINKING') == '1') {
+    ex.autolinkLibrariesFromCommand()
+  } else {
+    ex.autolinkLibrariesFromCommand(expoAutolinking.rnConfigCommand)
+  }
+}
+expoAutolinking.useExpoModules()
+
+rootProject.name = 'NOXA'
+
+expoAutolinking.useExpoVersionCatalog()
+
+include ':app'
+includeBuild(expoAutolinking.reactNativeGradlePlugin)

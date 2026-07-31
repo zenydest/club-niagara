@@ -109,7 +109,7 @@ function getLocalId(): string | undefined {
 
 // ── Store ─────────────────────────────────────────────────────────
 
-export const useCashlessStore = create<CashlessState>((set, get) => ({
+export const useCashlessStore = create<CashlessState>((set) => ({
   tarjetas: [],
   cargando: false,
   error: null,
@@ -294,7 +294,7 @@ export const useCashlessStore = create<CashlessState>((set, get) => ({
       );
       set({ preferenciaMP: data, cargandoQR: false });
       return data;
-    } catch (err) {
+    } catch {
       set({ cargandoQR: false });
       return null;
     }

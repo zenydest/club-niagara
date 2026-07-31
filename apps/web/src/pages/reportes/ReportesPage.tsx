@@ -13,8 +13,10 @@ import { cn } from "@niagara/ui";
 import {
   useReportesStore,
   METODO_PAGO_CONFIG,
+  configMetodoPago,
   type CorteCaja,
   type VentaReporte,
+  type ResumenKPI,
 } from "@/stores/reportesStore";
 
 // ── Tipos locales ─────────────────────────────────────────────────
@@ -218,7 +220,7 @@ function TabResumen() {
         <h3 className="text-sm font-semibold text-text-secondary mb-4">Ventas por método de pago</h3>
         <div className="flex flex-col gap-3">
           {Object.entries(ventas.porMetodo).map(([metodo, datos]) => {
-            const cfg = METODO_PAGO_CONFIG[metodo];
+            const cfg = configMetodoPago(metodo);
             const porcentaje = ventas.total > 0 ? (datos.monto / ventas.total) * 100 : 0;
             return (
               <div key={metodo} className="flex items-center gap-3">
@@ -290,7 +292,12 @@ function GraficoVentasPorHora({ datos }: { datos: { hora: number; total: number;
   // Mostrar solo horas con actividad + contexto
   const horasConActividad = datos
     .map((d, i) => ({ ...d, i }))
-    .filter((d) => d.total > 0 || datos[d.i - 1]?.total > 0 || datos[d.i + 1]?.total > 0);
+    .filter(
+      (d) =>
+        d.total > 0 ||
+        (datos[d.i - 1]?.total ?? 0) > 0 ||
+        (datos[d.i + 1]?.total ?? 0) > 0
+    );
 
   if (horasConActividad.length === 0) return null;
 
@@ -464,7 +471,7 @@ function TarjetaVenta({ venta, expandida, onToggle }: {
   expandida: boolean;
   onToggle: () => void;
 }) {
-  const cfg = METODO_PAGO_CONFIG[venta.metodoPago];
+  const cfg = configMetodoPago(venta.metodoPago);
 
   return (
     <div className="bg-surface rounded-xl border border-border overflow-hidden">
@@ -723,7 +730,9 @@ function TarjetaCorte({ corte, onCerrar, procesando }: {
 // ── Modal nuevo corte ─────────────────────────────────────────────
 
 function ModalNuevoCorte({ resumen, onCrear, onCancelar }: {
-  resumen: ReturnType<typeof useReportesStore>["resumen"];
+  // `ReturnType<typeof useReportesStore>` resuelve a `unknown` (zustand tiene
+  // sobrecargas para la versión con selector), así que el tipo se importa directo.
+  resumen: ResumenKPI | null;
   onCrear: (datos: { nota?: string }) => Promise<void>;
   onCancelar: () => void;
 }) {
@@ -877,7 +886,7 @@ function SkeletonKPIs() {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
+        {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="h-24 bg-surface rounded-2xl border border-border animate-pulse" />
         ))}
       </div>
@@ -889,7 +898,7 @@ function SkeletonKPIs() {
 function Skeleton() {
   return (
     <div className="flex flex-col gap-3">
-      {[...Array(3)].map((_, i) => (
+      {Array.from({ length: 3 }, (_, i) => (
         <div key={i} className="h-16 bg-surface rounded-xl border border-border animate-pulse" />
       ))}
     </div>

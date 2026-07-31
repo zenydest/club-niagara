@@ -8,6 +8,7 @@ import { cn } from "@niagara/ui";
 import {
   useStockStore,
   TIPO_MOVIMIENTO_CONFIG,
+  configTipoMovimiento,
   type ProductoStock,
   type StockMovimiento,
 } from "@/stores/stockStore";
@@ -16,9 +17,6 @@ type Tab = "inventario" | "movimientos" | "alertas";
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function formatPeso(n: number) {
-  return `$${n.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
 function formatFecha(iso: string) {
   return new Date(iso).toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
@@ -354,7 +352,7 @@ function ModalMovimiento({ producto, onCerrar }: { producto: ProductoStock; onCe
     if (ok) onCerrar();
   };
 
-  const cfg = TIPO_MOVIMIENTO_CONFIG[tipo];
+  const cfg = configTipoMovimiento(tipo);
 
   return (
     <Modal titulo={`Movimiento — ${producto.nombre}`} onCerrar={onCerrar}>
@@ -378,7 +376,7 @@ function ModalMovimiento({ producto, onCerrar }: { producto: ProductoStock; onCe
           <label className="text-xs font-medium text-text-secondary">Tipo de movimiento</label>
           <div className="grid grid-cols-3 gap-2">
             {(["ingreso", "egreso_merma", "ajuste"] as const).map((t) => {
-              const c = TIPO_MOVIMIENTO_CONFIG[t];
+              const c = configTipoMovimiento(t);
               return (
                 <button
                   key={t}
@@ -521,7 +519,7 @@ function TabMovimientos() {
 }
 
 function FilaMovimiento({ movimiento: m }: { movimiento: StockMovimiento }) {
-  const cfg = TIPO_MOVIMIENTO_CONFIG[m.tipo];
+  const cfg = configTipoMovimiento(m.tipo);
   const esIngreso = m.tipo === "ingreso" || (m.tipo === "ajuste" && m.cantidad > 0);
   const stockNuevo = m.cantidadAnterior + (esIngreso ? m.cantidad : -m.cantidad);
 
@@ -602,7 +600,7 @@ function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () =>
 function Skeleton() {
   return (
     <div className="flex flex-col gap-3">
-      {[...Array(5)].map((_, i) => (
+      {Array.from({ length: 5 }, (_, i) => (
         <div key={i} className="h-16 bg-surface rounded-xl border border-border animate-pulse" />
       ))}
     </div>

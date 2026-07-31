@@ -96,7 +96,7 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
           name: `${nombre} ${apellido}`,
         },
         headers: new Headers({ "content-type": "application/json" }),
-      }) as { token: string | null; user: { id: string } };
+      });
     } catch {
       return reply.status(400).send({ error: "El email ya está registrado" });
     }
@@ -112,7 +112,8 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
         userId: datosAuth.user.id,
         nombre,
         apellido,
-        telefono,
+        // Columna nullable: Prisma espera `null`, no `undefined`
+        telefono: telefono ?? null,
       },
     });
 
@@ -147,7 +148,7 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
       datosAuth = await auth.api.signInEmail({
         body: { email, password },
         headers: new Headers({ "content-type": "application/json" }),
-      }) as { token: string; user: { id: string } };
+      });
     } catch {
       return reply.status(401).send({ error: "Credenciales inválidas" });
     }

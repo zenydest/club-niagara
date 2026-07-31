@@ -4,13 +4,16 @@ import { LoginPosPag } from "@/pages/LoginPosPag";
 import { PosLayout } from "@/layouts/PosLayout";
 
 export function App() {
-  const { sesion, cargando, inicializar } = useAuthStore();
+  const { usuario, staff, cargando, inicializar } = useAuthStore();
 
   useEffect(() => {
     void inicializar();
   }, [inicializar]);
 
-  if (cargando && !sesion) {
+  // Hay sesión de caja cuando el usuario está autenticado Y tiene perfil de staff
+  const sesionActiva = !!usuario && !!staff;
+
+  if (cargando && !sesionActiva) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -31,7 +34,7 @@ export function App() {
     );
   }
 
-  if (!sesion) return <LoginPosPag />;
+  if (!sesionActiva) return <LoginPosPag />;
 
   return <PosLayout />;
 }

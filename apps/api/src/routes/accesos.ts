@@ -7,13 +7,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
-import type { TipoAcceso, MetodoAcceso } from "@niagara/db";
 import { io } from "../index.js";
 import { accesosSchema } from "@niagara/core";
 
 export const registrarRutasAccesos: FastifyPluginAsync = async (app) => {
   // GET /api/accesos/eventos-activos — eventos en vivo o preventa del local
-  app.get("/eventos-activos", async (req, reply) => {
+  app.get("/eventos-activos", async (req) => {
     const { localId } = req;
 
     const eventos = await prisma.evento.findMany({
@@ -93,8 +92,8 @@ export const registrarRutasAccesos: FastifyPluginAsync = async (app) => {
             localId,
             eventoId: a.eventoId,
             staffId: staffActual.id,
-            tipo: a.tipo as TipoAcceso,
-            metodo: (a.metodo ?? "manual") as MetodoAcceso,
+            tipo: a.tipo,
+            metodo: (a.metodo ?? "manual"),
             createdAt: new Date(a.createdAt),
             synced: "synced",
           },
@@ -156,8 +155,8 @@ export const registrarRutasAccesos: FastifyPluginAsync = async (app) => {
         localId,
         eventoId: a.eventoId,
         staffId: staffActual.id,
-        tipo: a.tipo as TipoAcceso,
-        metodo: (a.metodo ?? "manual") as MetodoAcceso,
+        tipo: a.tipo,
+        metodo: (a.metodo ?? "manual"),
         createdAt: new Date(a.createdAt),
         synced: "synced",
       },

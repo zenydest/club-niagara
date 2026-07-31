@@ -16,7 +16,20 @@ declare module "fastify" {
   }
 }
 
-const RUTAS_PUBLICAS = ["/health", "/api/auth/"];
+/**
+ * Rutas que no llevan sesión.
+ *
+ * Los webhooks de Mercado Pago tienen que estar acá: MP no manda cookies, así
+ * que con el plugin activo recibía 401 y las notificaciones de pago nunca
+ * llegaban. Su autenticación es la firma HMAC del header `x-signature`, que se
+ * valida dentro de cada handler.
+ */
+const RUTAS_PUBLICAS = [
+  "/health",
+  "/api/auth/",
+  "/api/mp/webhook",
+  "/api/point/webhook",
+];
 
 /** Convierte IncomingHttpHeaders de Node.js a Web API Headers */
 function toWebHeaders(incoming: Record<string, string | string[] | undefined>): Headers {
@@ -69,7 +82,7 @@ const tenantPlugin: FastifyPluginAsync = async (app) => {
       where: { localId_userId: { localId, userId: session.user.id } },
     });
 
-    if (!staff || !staff.activo) {
+    if (!staff?.activo) {
       return reply.status(403).send({ error: "Sin permisos para este local" });
     }
 

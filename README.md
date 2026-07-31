@@ -1,148 +1,123 @@
-# Club Niágara — Sistema de gestión para boliches
+# Club Niágara / NOXA — Sistema de gestión para boliches
 
-> Cloud-first · Offline-first · Tiempo real
+> Cloud-first · Offline-first · Tiempo real · Multi-tenant
 
-## Apps
+Sistema de gestión para boliches/discotecas: control de aforo, caja/POS, cashless,
+boletería, VIP, reportes y app para el cliente final. La caja vende aunque se corte
+internet y sincroniza sola al volver.
 
-| App | Puerto | Descripción |
-|-----|--------|-------------|
-| `apps/web` | 5173 | Panel admin (dueño/encargado) — web + Electron |
-| `apps/pos` | 5174 | Caja offline-first (cajeros) — web + Electron |
+## Monorepo
 
-## Requisitos previos
+Turborepo + pnpm, todo en TypeScript estricto.
+
+| Paquete | Descripción |
+|---------|-------------|
+| `apps/api` | Backend — Fastify + Prisma + PostgreSQL + Better Auth + Socket.io (tiempo real) |
+| `apps/web` | Panel admin — React 18 + Vite + TanStack Router/Query + Zustand (+ Electron) |
+| `apps/pos` | Caja POS offline-first — React + Vite + SQLite/IndexedDB (`idb`) + cola de sync |
+| `apps/mobile` | App del cliente final — Expo (React Native) + expo-router + NativeWind |
+| `packages/core` | Tipos + schemas Zod + constantes compartidas |
+| `packages/db` | Cliente Prisma + schema (PostgreSQL) |
+| `packages/ui` | Design system (tema oscuro de boliche) |
+| `packages/config` | TS config, ESLint y Tailwind preset compartidos |
+
+> Nota de arquitectura: el proyecto arrancó pensando en Supabase pero migró a
+> **Fastify + Prisma + PostgreSQL (Render)** con **Better Auth**. La sincronización
+> en tiempo real es vía **Socket.io**, y el offline de la caja usa **IndexedDB (`idb`)**
+> con una cola de sync propia.
+
+## Diseño
+
+Tema oscuro de boliche: fondo casi negro `#08080F`, acento verde lima `#C2FF00` y
+púrpura `#7B3FFF`. KPIs grandes, mobile-first, legible en penumbra. Los tokens viven
+en `packages/core` (`NIAGARA_COLORS`) y en los presets de Tailwind.
+
+## Requisitos
 
 - Node.js ≥ 20
-- pnpm ≥ 9
-- Cuenta en [Supabase](https://supabase.com) (tier gratuito alcanza para dev)
-- Supabase CLI: `npm i -g supabase`
+- pnpm ≥ 10 (`corepack enable`)
+- PostgreSQL (local o Render)
 
-## Setup inicial
-
-### 1. Instalar dependencias
+## Setup
 
 ```bash
-cd noxa
 pnpm install
+
+# Variables de entorno (ver .env.example en la raíz y en cada app)
+cp .env.example apps/api/.env      # DATABASE_URL, BETTER_AUTH_*, FRONTEND_URLS, MP_ACCESS_TOKEN
+cp apps/web/.env.example apps/web/.env      # VITE_API_URL
+cp apps/pos/.env.example apps/pos/.env      # VITE_API_URL
+cp apps/mobile/.env.example apps/mobile/.env  # EXPO_PUBLIC_API_URL, EXPO_PUBLIC_LOCAL_ID
+
+# Base de datos: generar cliente + sincronizar schema + seed
+pnpm --filter @niagara/db db:generate
+pnpm --filter @niagara/db db:push
+pnpm --filter @niagara/db db:seed
 ```
 
-### 2. Configurar Supabase
+## Desarrollo
 
 ```bash
-# Inicializar Supabase en el proyecto
-supabase init
+pnpm dev            # todo el monorepo
+pnpm dev:api        # solo la API      (http://localhost:3001)
+pnpm dev:web        # solo el web admin (http://localhost:5173)
+pnpm dev:pos        # solo la caja POS  (http://localhost:5174)
 
-# Vincular a tu proyecto (obtenés el ref en Supabase Dashboard → Settings → General)
-supabase link --project-ref TU_REF_AQUI
-
-# Aplicar migraciones (crea todas las tablas + RLS)
-supabase db push
-
-# Opcional: aplicar seeds de datos de prueba
-psql "postgresql://postgres:TU_PASSWORD@db.TU_REF.supabase.co:5432/postgres" \
-  -f supabase/migrations/00004_seeds.sql
+# App móvil
+cd apps/mobile && pnpm start
 ```
 
-### 3. Variables de entorno
-
-Crear `.env` en `apps/web/` y `apps/pos/` (copiá de `.env.example` en la raíz):
-
-```env
-VITE_SUPABASE_URL=https://TU_REF.supabase.co
-VITE_SUPABASE_ANON_KEY=tu_anon_key
-```
-
-Los valores los encontrás en **Supabase → Settings → API**.
-
-### 4. Crear el primer usuario admin
-
-En Supabase Dashboard → Authentication → Users → Add User:
-- Email: `admin@tuboliche.com`
-- Password: `Admin1234!`
-
-Luego en el SQL Editor de Supabase:
-```sql
--- Reemplazá el UUID con el del usuario que creaste
-insert into staff (local_id, user_id, nombre, apellido, email, rol)
-values (
-  '00000000-0000-0000-0000-000000000001', -- local del seed
-  (select id from auth.users where email = 'admin@tuboliche.com'),
-  'Admin',
-  'Club Niágara',
-  'admin@tuboliche.com',
-  'admin'
-);
-```
-
-## Levantar en desarrollo
+## Calidad
 
 ```bash
-# Levantar todo
-pnpm dev
-
-# Solo el web admin
-pnpm dev:web
-
-# Solo el POS
-pnpm dev:pos
+pnpm lint           # ESLint en todo el monorepo
+pnpm type-check     # tsc --noEmit
+pnpm test           # Vitest (unit tests de packages/core)
+pnpm build          # build de producción vía turbo
 ```
 
-## Build para producción
+CI: cada push/PR corre lint + type-check + build + test (ver `.github/workflows/ci.yml`).
+
+## Build de escritorio (Electron)
 
 ```bash
-# Build web (para Vercel u otro hosting)
-pnpm --filter @niagara/web build
-
-# Build POS
-pnpm --filter @niagara/pos build
+pnpm --filter @niagara/web build:electron   # instalador admin (.exe)
+pnpm --filter @niagara/pos build:electron   # instalador caja  (.exe)
 ```
 
-## Empaquetar como app de Windows (Electron)
+## Deploy
 
-```bash
-# App admin Windows
-pnpm --filter @niagara/web build:electron
+Ver **[DEPLOY.md](./DEPLOY.md)** — API + Postgres en Render, web en Vercel, móvil con EAS.
 
-# App caja Windows
-pnpm --filter @niagara/pos build:electron
-```
-
-Los instaladores `.exe` quedan en `apps/web/release/admin/` y `apps/pos/release/pos/`.
-
-## Regenerar tipos de Supabase
-
-Después de hacer cambios en la DB:
-
-```bash
-pnpm db:types
-```
-
-## Estructura del proyecto
+## Estructura
 
 ```
-noxa/
+club-niagara/
 ├── apps/
+│   ├── api/          # Fastify + Prisma + Socket.io
 │   ├── web/          # Panel admin (React + Vite + Electron)
-│   └── pos/          # Caja POS offline-first (React + Vite + Electron + PWA)
+│   ├── pos/          # Caja POS offline-first (React + Vite + idb)
+│   └── mobile/       # App cliente (Expo + expo-router + NativeWind)
 ├── packages/
-│   ├── core/         # Tipos TypeScript + Zod schemas + constantes
-│   ├── db/           # Cliente Supabase + tipos generados
-│   ├── ui/           # Design system (Button, KpiCard, Badge, Input)
-│   └── config/       # TS config, ESLint, Tailwind preset
-├── supabase/
-│   ├── migrations/   # 00001_init_schema + 00002_rls + 00003_realtime + 00004_seeds
-│   └── config.toml
+│   ├── core/         # Tipos + Zod schemas + constantes
+│   ├── db/           # Prisma client + schema.prisma
+│   ├── ui/           # Design system
+│   └── config/       # TS / ESLint / Tailwind compartidos
+├── render.yaml       # Blueprint de deploy de la API + DB
+├── vercel.json       # Deploy de la web
+├── DEPLOY.md
 └── turbo.json
 ```
 
-## Módulos siguientes
+## Módulos
 
 1. ✅ Scaffolding + DB + Auth + Dashboard
-2. ⬜ Portería offline (control de aforo)
-3. ⬜ Módulo de caja completo (con stock)
-4. ⬜ Cashless + Mercado Pago
-5. ⬜ Eventos + Boletería + QR
-6. ⬜ VIP + Reservas
-7. ⬜ Reportes + Corte de caja
-8. ⬜ Guardarropa + Stock + Personal
-9. ⬜ App del cliente final
-10. ⬜ Deploy (Vercel + EAS + Supabase)
+2. ✅ Portería (offline, control de aforo)
+3. ✅ Caja/POS (offline)
+4. ✅ Cashless (tarjeta/QR + Mercado Pago)
+5. ✅ Eventos + Boletería
+6. ✅ VIP + Reservas
+7. ✅ Reportes + Corte de caja
+8. ✅ Guardarropa + Stock + Personal
+9. ✅ App del cliente final (Expo)
+10. 🚧 En curso — Pulido + tests + deploy (Render + Vercel + EAS)

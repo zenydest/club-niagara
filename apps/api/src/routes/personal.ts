@@ -17,12 +17,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
-import type { RolStaff } from "@niagara/db";
 import { auth } from "../lib/auth.js";
-
-// ── Constantes ────────────────────────────────────────────────────
-
-const ROLES_VALIDOS: RolStaff[] = ["admin", "encargado", "cajero", "portero", "rrpp", "barman"];
 
 export const registrarRutasPersonal: FastifyPluginAsync = async (app) => {
 
@@ -110,7 +105,7 @@ export const registrarRutasPersonal: FastifyPluginAsync = async (app) => {
         nombre: body.data.nombre,
         apellido: body.data.apellido,
         email: body.data.email,
-        rol: body.data.rol as RolStaff,
+        rol: body.data.rol,
         activo: true,
       },
       include: {
@@ -161,7 +156,7 @@ export const registrarRutasPersonal: FastifyPluginAsync = async (app) => {
       data: {
         ...(body.data.nombre && { nombre: body.data.nombre }),
         ...(body.data.apellido && { apellido: body.data.apellido }),
-        ...(body.data.rol && { rol: body.data.rol as RolStaff }),
+        ...(body.data.rol && { rol: body.data.rol }),
       },
       include: { user: { select: { email: true } } },
     });

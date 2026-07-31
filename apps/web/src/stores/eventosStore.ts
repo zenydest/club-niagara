@@ -134,7 +134,7 @@ function getLocalId(): string | undefined {
 
 // ── Store ─────────────────────────────────────────────────────────
 
-export const useEventosStore = create<EventosState>((set, get) => ({
+export const useEventosStore = create<EventosState>((set) => ({
   eventos: [],
   eventoActual: null,
   cargando: false,

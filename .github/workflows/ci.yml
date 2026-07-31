@@ -1,0 +1,58 @@
+# ============================================================
+# CI — Club Niágara / NOXA
+# Corre en cada push a main y en cada Pull Request.
+# Valida: lint + type-check + build + tests unitarios.
+# ============================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela runs anteriores del mismo branch si llega uno nuevo
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint · Type-check · Build · Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      # El turbo.json ya declara db:generate como dependencia de
+      # @niagara/db#build y #type-check, así que no hace falta un paso suelto.
+
+      # @niagara/mobile ya no define un script `build` genérico: sus builds son
+      # `build:android` / `build:ios` vía EAS, que requieren auth y corren
+      # aparte. Turbo simplemente lo saltea, sin filtros.
+      - name: Lint
+        run: pnpm turbo lint
+
+      - name: Type-check
+        run: pnpm turbo type-check
+
+      - name: Build
+        run: pnpm turbo build
+
+      - name: Tests
+        run: pnpm test

@@ -1,5 +1,9 @@
 export { prisma } from "./client.js";
 
+// El namespace `Prisma` trae los tipos de entrada (InputJsonValue, filtros,
+// etc.) que hacen falta al armar queries desde la API.
+export { Prisma } from "@prisma/client";
+
 // Re-exportar tipos de Prisma para que las apps no importen directamente de @prisma/client
 export type {
   Local,
@@ -7,6 +11,8 @@ export type {
   Evento,
   Barra,
   Producto,
+  Terminal,
+  OrdenPoint,
   Deposito,
   StockMovimiento,
   Venta,

@@ -7,7 +7,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
-import type { MetodoPago } from "@niagara/db";
 import { io } from "../index.js";
 import { ventaSchema } from "@niagara/core";
 
@@ -77,7 +76,7 @@ export const registrarRutasVentas: FastifyPluginAsync = async (app) => {
             eventoId: v.eventoId ?? null,
             barraId: v.barraId ?? null,
             staffId: staffActual.id,
-            metodoPago: v.metodoPago as MetodoPago,
+            metodoPago: v.metodoPago,
             total: v.total,
             descuento: v.descuento ?? 0,
             nota: v.nota ?? null,
@@ -98,9 +97,14 @@ export const registrarRutasVentas: FastifyPluginAsync = async (app) => {
         resultados.push({ id: v.id, ok: true });
 
         // Emitir a dashboard en tiempo real
+        // `staffId` y `barraId` son necesarios para la recaudación por cajero:
+        // sin ellos el dashboard sabe cuánto se vendió pero no quién vendió.
         io.to(`local:${localId}`).emit("venta:nueva", {
           localId,
           eventoId: v.eventoId,
+          barraId: v.barraId ?? null,
+          staffId: staffActual.id,
+          staffNombre: `${staffActual.nombre} ${staffActual.apellido}`,
           total: v.total,
           metodoPago: v.metodoPago,
         });
@@ -135,7 +139,7 @@ export const registrarRutasVentas: FastifyPluginAsync = async (app) => {
         eventoId: v.eventoId ?? null,
         barraId: v.barraId ?? null,
         staffId: staffActual.id,
-        metodoPago: v.metodoPago as MetodoPago,
+        metodoPago: v.metodoPago,
         total: v.total,
         descuento: v.descuento ?? 0,
         nota: v.nota ?? null,
@@ -157,6 +161,9 @@ export const registrarRutasVentas: FastifyPluginAsync = async (app) => {
     io.to(`local:${localId}`).emit("venta:nueva", {
       localId,
       eventoId: v.eventoId,
+      barraId: v.barraId ?? null,
+      staffId: staffActual.id,
+      staffNombre: `${staffActual.nombre} ${staffActual.apellido}`,
       total: v.total,
       metodoPago: v.metodoPago,
     });

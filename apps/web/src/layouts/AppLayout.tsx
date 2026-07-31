@@ -12,9 +12,21 @@ import { ReportesPage } from "@/pages/reportes/ReportesPage";
 import { GuardarropaPage } from "@/pages/guardarropa/GuardarropaPage";
 import { StockPage } from "@/pages/stock/StockPage";
 import { PersonalPage } from "@/pages/personal/PersonalPage";
+import { TerminalesPage } from "@/pages/terminales/TerminalesPage";
 import { ROL_LABELS } from "@niagara/core";
 
-type Pagina = "dashboard" | "porteria" | "caja" | "cashless" | "eventos" | "reservas" | "reportes" | "guardarropa" | "stock" | "staff";
+type Pagina =
+  | "dashboard"
+  | "porteria"
+  | "caja"
+  | "cashless"
+  | "eventos"
+  | "reservas"
+  | "reportes"
+  | "guardarropa"
+  | "stock"
+  | "terminales"
+  | "staff";
 
 /**
  * Layout principal de la app.
@@ -46,6 +58,8 @@ export function AppLayout() {
         return <GuardarropaPage />;
       case "stock":
         return <StockPage />;
+      case "terminales":
+        return <TerminalesPage />;
       case "staff":
         return <PersonalPage />;
       default:

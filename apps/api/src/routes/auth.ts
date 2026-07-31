@@ -7,7 +7,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
-import type { RolStaff } from "@niagara/db";
 import { auth } from "../lib/auth.js";
 
 const crearStaffSchema = z.object({
@@ -81,7 +80,7 @@ export const registrarRutasAuth: FastifyPluginAsync = async (app) => {
         nombre,
         apellido,
         email,
-        rol: rol as RolStaff,
+        rol: rol,
       },
     });
 
@@ -110,7 +109,7 @@ export const registrarRutasAuth: FastifyPluginAsync = async (app) => {
     const staff = await prisma.staff.update({
       where: { id: staffId, localId },
       data: {
-        ...(body.data.rol && { rol: body.data.rol as RolStaff }),
+        ...(body.data.rol && { rol: body.data.rol }),
         ...(body.data.activo !== undefined && { activo: body.data.activo }),
       },
     });

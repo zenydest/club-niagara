@@ -14,7 +14,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
-import type { MetodoPago } from "@niagara/db";
 import { io } from "../index.js";
 
 // ── Schemas ──────────────────────────────────────────────────────
@@ -216,7 +215,7 @@ export const registrarRutasCashless: FastifyPluginAsync = async (app) => {
           tarjetaId: tarjeta.id,
           staffId: staffActual.id,
           monto,
-          metodoPago: metodoPago as MetodoPago,
+          metodoPago: metodoPago,
           mpPaymentId: mpPaymentId ?? null,
           createdAt: new Date(),
         },
