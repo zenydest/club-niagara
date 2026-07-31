@@ -60,6 +60,35 @@ async function upsertAuthUser(email: string, password: string, name: string) {
  */
 const LOCAL_ID_DEMO = "821a4e8f-5b68-489d-afa3-bf2b62a9d0f8";
 
+/**
+ * Genera un UUID v4 válido, fijo y reproducible para los datos de demo.
+ *
+ * Los ids **tienen que ser UUID**: los schemas de la API validan con
+ * `z.string().uuid()`. Antes el seed usaba ids legibles como "evt-demo-001" o
+ * "prod-001", y eso hacía que toda operación sobre datos sembrados fallara con
+ * 400 — vender una entrada, registrar una venta, consultar stock. El dato se
+ * veía bien en pantalla porque leerlo funciona; lo que fallaba era escribir.
+ *
+ * Se mantienen fijos (y no `@default(uuid())`) para que recrear la base no
+ * invalide lo que ya esté apuntando a ellos.
+ *
+ * @param prefijo 8 caracteres hexadecimales que identifican la entidad
+ * @param n       contador dentro de esa entidad
+ */
+function idDemo(prefijo: string, n: number): string {
+  return `${prefijo}-0000-4000-8000-${String(n).padStart(12, "0")}`;
+}
+
+const ID = {
+  evento:   (n: number) => idDemo("e5e70000", n),
+  tipo:     (n: number) => idDemo("e7d00000", n),
+  barra:    (n: number) => idDemo("ba110000", n),
+  deposito: (n: number) => idDemo("de900000", n),
+  producto: (n: number) => idDemo("9c0d0000", n),
+  tarjeta:  (n: number) => idDemo("ca8d0000", n),
+  mesa:     (n: number) => idDemo("4e5a0000", n),
+};
+
 async function main() {
   console.log("🌱 Iniciando seed de Club Niágara...");
 
@@ -113,10 +142,10 @@ async function main() {
   mañana.setHours(22, 0, 0, 0);
 
   const evento = await prisma.evento.upsert({
-    where: { id: "evt-demo-001" },
+    where: { id: ID.evento(1) },
     update: { estado: EstadoEvento.en_vivo },
     create: {
-      id: "evt-demo-001",
+      id: ID.evento(1),
       localId: local.id,
       nombre: "Noche de Prueba",
       descripcion: "Evento de demostración del sistema",
@@ -129,10 +158,10 @@ async function main() {
 
   // ── Tipos de entrada ───────────────────────────────────────
   await prisma.entradaTipo.upsert({
-    where: { id: "et-general-001" },
+    where: { id: ID.tipo(1) },
     update: {},
     create: {
-      id: "et-general-001",
+      id: ID.tipo(1),
       eventoId: evento.id,
       localId: local.id,
       nombre: "General",
@@ -143,10 +172,10 @@ async function main() {
   });
 
   await prisma.entradaTipo.upsert({
-    where: { id: "et-vip-001" },
+    where: { id: ID.tipo(2) },
     update: {},
     create: {
-      id: "et-vip-001",
+      id: ID.tipo(2),
       eventoId: evento.id,
       localId: local.id,
       nombre: "VIP",
@@ -159,10 +188,10 @@ async function main() {
 
   // ── Barras ─────────────────────────────────────────────────
   await prisma.barra.upsert({
-    where: { id: "barra-main-001" },
+    where: { id: ID.barra(1) },
     update: {},
     create: {
-      id: "barra-main-001",
+      id: ID.barra(1),
       localId: local.id,
       nombre: "Barra Principal",
       descripcion: "Barra central del club",
@@ -170,10 +199,10 @@ async function main() {
   });
 
   await prisma.barra.upsert({
-    where: { id: "barra-vip-001" },
+    where: { id: ID.barra(2) },
     update: {},
     create: {
-      id: "barra-vip-001",
+      id: ID.barra(2),
       localId: local.id,
       nombre: "Barra VIP",
       descripcion: "Zona exclusiva VIP",
@@ -183,10 +212,10 @@ async function main() {
 
   // ── Depósito ───────────────────────────────────────────────
   const deposito = await prisma.deposito.upsert({
-    where: { id: "dep-principal-001" },
+    where: { id: ID.deposito(1) },
     update: {},
     create: {
-      id: "dep-principal-001",
+      id: ID.deposito(1),
       localId: local.id,
       nombre: "Depósito Principal",
       esPrincipal: true,
@@ -210,10 +239,10 @@ async function main() {
 
   for (const [i, p] of productos.entries()) {
     await prisma.producto.upsert({
-      where: { id: `prod-00${i + 1}` },
+      where: { id: ID.producto(i + 1) },
       update: {},
       create: {
-        id: `prod-00${i + 1}`,
+        id: ID.producto(i + 1),
         localId: local.id,
         nombre: p.nombre,
         categoria: p.categoria,
@@ -251,9 +280,9 @@ async function main() {
 
   // ── Tarjetas cashless de demo ──────────────────────────────
   const tarjetasDemo = [
-    { id: "tarjeta-demo-001", codigo: "PULSERA-001", clienteNombre: "Juan Pérez", saldo: 5000 },
-    { id: "tarjeta-demo-002", codigo: "PULSERA-002", clienteNombre: "María García", saldo: 12000 },
-    { id: "tarjeta-demo-003", codigo: "PULSERA-003", clienteNombre: "Carlos López", saldo: 0 },
+    { id: ID.tarjeta(1), codigo: "PULSERA-001", clienteNombre: "Juan Pérez", saldo: 5000 },
+    { id: ID.tarjeta(2), codigo: "PULSERA-002", clienteNombre: "María García", saldo: 12000 },
+    { id: ID.tarjeta(3), codigo: "PULSERA-003", clienteNombre: "Carlos López", saldo: 0 },
   ];
 
   for (const t of tarjetasDemo) {
@@ -275,12 +304,12 @@ async function main() {
 
   // ── Mesas VIP de demo ──────────────────────────────────────
   const mesasDemo = [
-    { id: "mesa-demo-01", numero: "1",  sector: "Terraza",  capacidad: 6,  posX: 20, posY: 25 },
-    { id: "mesa-demo-02", numero: "2",  sector: "Terraza",  capacidad: 6,  posX: 45, posY: 25 },
-    { id: "mesa-demo-03", numero: "3",  sector: "Terraza",  capacidad: 4,  posX: 70, posY: 25 },
-    { id: "mesa-demo-04", numero: "A1", sector: "Interior", capacidad: 8,  posX: 20, posY: 60 },
-    { id: "mesa-demo-05", numero: "A2", sector: "Interior", capacidad: 8,  posX: 45, posY: 60 },
-    { id: "mesa-demo-06", numero: "A3", sector: "Interior", capacidad: 10, posX: 70, posY: 60 },
+    { id: ID.mesa(1), numero: "1",  sector: "Terraza",  capacidad: 6,  posX: 20, posY: 25 },
+    { id: ID.mesa(2), numero: "2",  sector: "Terraza",  capacidad: 6,  posX: 45, posY: 25 },
+    { id: ID.mesa(3), numero: "3",  sector: "Terraza",  capacidad: 4,  posX: 70, posY: 25 },
+    { id: ID.mesa(4), numero: "A1", sector: "Interior", capacidad: 8,  posX: 20, posY: 60 },
+    { id: ID.mesa(5), numero: "A2", sector: "Interior", capacidad: 8,  posX: 45, posY: 60 },
+    { id: ID.mesa(6), numero: "A3", sector: "Interior", capacidad: 10, posX: 70, posY: 60 },
   ];
 
   for (const m of mesasDemo) {
