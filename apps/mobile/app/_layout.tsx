@@ -77,7 +77,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <StatusBar style="light" backgroundColor="#08080F" />
+        <StatusBar style="light" backgroundColor="#06060F" />
         <AuthGuard />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />

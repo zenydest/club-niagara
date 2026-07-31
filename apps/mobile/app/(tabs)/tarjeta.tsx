@@ -115,13 +115,13 @@ export default function TarjetaScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor="#C2FF00"
+            tintColor="#1E50FF"
           />
         }
       >
         {isLoading && (
           <View className="items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#C2FF00" />
+            <ActivityIndicator size="large" color="#1E50FF" />
           </View>
         )}
 

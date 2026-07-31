@@ -1,6 +1,8 @@
 {
   "expo": {
-    "name": "NOXA",
+    "name": "Club Niágara",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#06060F",
     "slug": "noxa-club",
     "version": "1.0.0",
     "scheme": "noxa",

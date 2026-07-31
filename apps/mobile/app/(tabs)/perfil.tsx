@@ -65,7 +65,7 @@ export default function PerfilScreen() {
       <ScrollView className="flex-1 px-5">
         {isLoading && (
           <View className="items-center py-10">
-            <ActivityIndicator color="#C2FF00" />
+            <ActivityIndicator color="#1E50FF" />
           </View>
         )}
 

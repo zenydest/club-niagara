@@ -4,7 +4,7 @@
 
 import React from "react";
 import {
-  View, Text, ScrollView, RefreshControl, ActivityIndicator,
+  View, Text, ScrollView, RefreshControl, ActivityIndicator, Image,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,9 +22,19 @@ export default function EventosScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg">
       {/* Header */}
-      <View className="px-5 pt-4 pb-3">
-        <Text className="text-lima text-xs font-bold tracking-widest uppercase">NOXA</Text>
-        <Text className="text-white text-2xl font-black mt-0.5">Próximos eventos</Text>
+      <View className="px-5 pt-4 pb-3 flex-row items-center gap-3">
+        <Image
+          source={require("../../assets/logo.png")}
+          className="w-11 h-11"
+          resizeMode="contain"
+          accessibilityLabel="Club Niágara"
+        />
+        <View>
+          <Text className="text-azul text-xs font-bold tracking-widest uppercase">
+            Club Niágara
+          </Text>
+          <Text className="text-white text-2xl font-black mt-0.5">Próximos eventos</Text>
+        </View>
       </View>
 
       {/* Contenido */}
@@ -34,13 +44,13 @@ export default function EventosScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor="#C2FF00"
+            tintColor="#1E50FF"
           />
         }
       >
         {isLoading && (
           <View className="items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#C2FF00" />
+            <ActivityIndicator size="large" color="#1E50FF" />
           </View>
         )}
 

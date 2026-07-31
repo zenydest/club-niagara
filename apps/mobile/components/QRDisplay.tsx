@@ -29,7 +29,7 @@ export const QRDisplay: React.FC<Props> = ({
       <QRCode
         value={value}
         size={size}
-        color="#08080F"
+        color="#06060F"
         backgroundColor="white"
       />
     </View>

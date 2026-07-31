@@ -4,7 +4,7 @@
 
 import React, { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity,
+  View, Text, TextInput, TouchableOpacity, Image,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
 } from "react-native";
 import { useRouter, Link } from "expo-router";
@@ -38,13 +38,16 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View className="flex-1 px-6 justify-center">
-          {/* Logo / título */}
+          {/* Logo */}
           <View className="items-center mb-12">
-            <View className="w-20 h-20 rounded-full bg-lima items-center justify-center mb-4">
-              <Text className="text-bg text-4xl font-black">N</Text>
-            </View>
-            <Text className="text-white text-3xl font-black">NOXA</Text>
-            <Text className="text-muted text-sm mt-1">Tu entrada al after</Text>
+            <Image
+              source={require("../../assets/logo.png")}
+              className="w-56 h-56"
+              resizeMode="contain"
+              // El logo ya trae el nombre, así que no se repite en texto.
+              accessibilityLabel="Club Niágara"
+            />
+            <Text className="text-muted text-sm -mt-4">Tu entrada al after</Text>
           </View>
 
           {/* Error */}
@@ -90,7 +93,7 @@ export default function LoginScreen() {
             className="bg-lima rounded-xl py-4 items-center mt-6 active:opacity-80"
           >
             {isLoading ? (
-              <ActivityIndicator color="#08080F" />
+              <ActivityIndicator color="#06060F" />
             ) : (
               <Text className="text-bg font-black text-base">Entrar</Text>
             )}

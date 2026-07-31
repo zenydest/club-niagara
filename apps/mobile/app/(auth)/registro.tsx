@@ -163,7 +163,7 @@ export default function RegistroScreen() {
             className="bg-lima rounded-xl py-4 items-center mt-6 active:opacity-80"
           >
             {isLoading ? (
-              <ActivityIndicator color="#08080F" />
+              <ActivityIndicator color="#06060F" />
             ) : (
               <Text className="text-bg font-black text-base">Crear cuenta</Text>
             )}
