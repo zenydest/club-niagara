@@ -2,6 +2,14 @@
 node_modules/
 .pnpm-store/
 
+# Este repo usa pnpm. Un package-lock.json o yarn.lock sueltos hacen que las
+# plataformas de build detecten el gestor equivocado: EAS eligió npm por un
+# package-lock.json de la raíz, npm ignora pnpm-workspace.yaml, y terminó
+# instalando solo las dos dependencias del root. El build fallaba con
+# "The expo package was not found".
+package-lock.json
+yarn.lock
+
 # Build outputs
 dist/
 build/
