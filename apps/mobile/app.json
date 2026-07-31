@@ -3,6 +3,7 @@
     "name": "Club Niágara",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#06060F",
+    "icon": "./assets/logo.png",
     "slug": "noxa-club",
     "version": "1.0.0",
     "scheme": "noxa",
@@ -17,7 +18,11 @@
       "bundleIdentifier": "com.niagara.noxa"
     },
     "android": {
-      "package": "com.niagara.noxa"
+      "package": "com.niagara.noxa",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#06060F"
+      }
     },
     "plugins": [
       "expo-router",

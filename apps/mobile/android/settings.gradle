@@ -29,7 +29,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
-rootProject.name = 'NOXA'
+rootProject.name = 'Club Niágara'
 
 expoAutolinking.useExpoVersionCatalog()
 
