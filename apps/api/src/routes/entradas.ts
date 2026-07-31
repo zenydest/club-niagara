@@ -195,6 +195,20 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       }
     }
 
+    // Vincular la entrada con la cuenta de la app, si el email corresponde a un
+    // cliente registrado.
+    //
+    // Sin esto, la app del cliente nunca muestra las entradas vendidas desde el
+    // panel: GET /api/cliente/entradas filtra por `clienteId`, y acá solo se
+    // guardaba `clienteEmail`, que es texto suelto. El email vive en la tabla
+    // User (Better Auth), por eso se busca a través de la relación.
+    const clienteVinculado = clienteEmail
+      ? await prisma.cliente.findFirst({
+          where: { localId, user: { email: clienteEmail } },
+          select: { id: true },
+        })
+      : null;
+
     // Crear las entradas (una por cantidad)
     const entradas = await Promise.all(
       Array.from({ length: cantidad }).map(() =>
@@ -203,6 +217,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
             localId,
             eventoId,
             entradaTipoId,
+            clienteId: clienteVinculado?.id ?? null,
             clienteNombre,
             clienteEmail: clienteEmail ?? null,
             clienteTelefono: clienteTelefono ?? null,
@@ -232,6 +247,9 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       entradas: entradas.map((e) => ({ ...e, precioPagado: Number(e.precioPagado) })),
       cantidad,
       total: precioPagado * cantidad,
+      // Le permite al panel avisar si la entrada le va a aparecer al cliente en
+      // la app o si quedó solo como registro interno.
+      vinculadaACuenta: Boolean(clienteVinculado),
     });
   });
 

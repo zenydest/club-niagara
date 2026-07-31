@@ -12,6 +12,36 @@
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
+/**
+ * Convierte el `error` de la API en un mensaje legible.
+ *
+ * Cuando falla una validación, la API responde con el resultado de
+ * `zodError.flatten()`, que es un objeto. Al meterlo directo en `new Error(...)`
+ * el mensaje quedaba en "[object Object]" y el usuario no tenía forma de saber
+ * qué campo estaba mal.
+ */
+function mensajeDeError(error: unknown, res: Response): string {
+  if (typeof error === "string" && error) return error;
+
+  if (typeof error === "object" && error !== null) {
+    const flatten = error as {
+      formErrors?: string[];
+      fieldErrors?: Record<string, string[] | undefined>;
+    };
+
+    const porCampo = Object.entries(flatten.fieldErrors ?? {})
+      .map(([campo, mensajes]) => `${campo}: ${mensajes?.join(", ") ?? "inválido"}`)
+      .join(" · ");
+
+    const generales = flatten.formErrors?.join(" · ") ?? "";
+    const combinado = [generales, porCampo].filter(Boolean).join(" · ");
+
+    if (combinado) return combinado;
+  }
+
+  return res.statusText || `HTTP ${res.status}`;
+}
+
 // `localId?: string | undefined` y no `localId?: string`: con
 // exactOptionalPropertyTypes activado, omitir la propiedad y pasarla como
 // undefined son cosas distintas, y los helpers de abajo la pasan explícitamente.
@@ -38,8 +68,8 @@ async function request<T>(
 
   if (!res.ok) {
     // `res.json()` devuelve `any`; el cast explícito evita propagarlo.
-    const cuerpo = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(cuerpo?.error ?? res.statusText ?? `HTTP ${res.status}`);
+    const cuerpo = (await res.json().catch(() => null)) as { error?: unknown } | null;
+    throw new Error(mensajeDeError(cuerpo?.error, res));
   }
 
   // 204 No Content
