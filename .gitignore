@@ -28,6 +28,9 @@ release/
 packages/db/prisma/dev.db
 packages/db/prisma/migrations/
 
+# Expo — estado local del dispositivo y del dev server
+.expo/
+
 # Editor
 .vscode/
 .idea/
