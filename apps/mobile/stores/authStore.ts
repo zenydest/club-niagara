@@ -44,13 +44,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   error:           null,
 
   inicializar: (savedToken, clienteData) => {
-    if (savedToken) {
-      set({
-        token:           savedToken,
-        cliente:         clienteData ?? null,
-        isAuthenticated: true,
-      });
-    }
+    // El caso `null` también tiene que limpiar el estado: se llama cuando el
+    // token guardado resultó inválido o expirado. Antes el `if` lo ignoraba y
+    // la sesión quedaba marcada como activa con un token que ya no servía.
+    set(
+      savedToken
+        ? {
+            token:           savedToken,
+            cliente:         clienteData ?? null,
+            isAuthenticated: true,
+          }
+        : { token: null, cliente: null, isAuthenticated: false }
+    );
   },
 
   login: async (email, password) => {
