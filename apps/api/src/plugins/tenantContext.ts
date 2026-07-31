@@ -29,6 +29,11 @@ const RUTAS_PUBLICAS = [
   "/api/auth/",
   "/api/mp/webhook",
   "/api/point/webhook",
+  // La app del cliente final no usa sesión de staff: se autentica con Bearer
+  // token y resuelve el local con el header x-local-id, todo dentro de
+  // routes/cliente.ts. Con el plugin activo, registro y login devolvían 401 y
+  // la app móvil no podía ni crear una cuenta.
+  "/api/cliente/",
 ];
 
 /** Convierte IncomingHttpHeaders de Node.js a Web API Headers */

@@ -54,14 +54,26 @@ async function upsertAuthUser(email: string, password: string, name: string) {
   return result.user;
 }
 
+/**
+ * Id del local de demo. Tiene que coincidir con `EXPO_PUBLIC_LOCAL_ID` en
+ * apps/mobile/eas.json y en apps/mobile/.env.example.
+ */
+const LOCAL_ID_DEMO = "821a4e8f-5b68-489d-afa3-bf2b62a9d0f8";
+
 async function main() {
   console.log("🌱 Iniciando seed de Club Niágara...");
 
   // ── Local ──────────────────────────────────────────────────
+  //
+  // El id va fijo y no autogenerado a propósito: la app móvil manda el local
+  // en el header `x-local-id`, y ese valor está compilado dentro del build
+  // (eas.json → EXPO_PUBLIC_LOCAL_ID). Si el seed generara un UUID nuevo en
+  // cada base, cada vez que se recrea la base habría que rebuildear la app.
   const local = await prisma.local.upsert({
     where: { slug: "club-niagara-demo" },
     update: {},
     create: {
+      id: LOCAL_ID_DEMO,
       nombre: "Club Niágara",
       slug: "club-niagara-demo",
       direccion: "Av. Corrientes 1234",

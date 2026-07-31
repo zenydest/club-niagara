@@ -8,7 +8,10 @@ services:
   - type: web
     name: club-niagara-api
     runtime: node
-    region: oregon
+    # La base y la API tienen que estar en la MISMA región para poder usar la
+    # Internal URL, que no sale a internet. Los servicios del proyecto están en
+    # Virginia.
+    region: virginia
     # OJO con el plan free: el servicio se apaga tras 15 min sin tráfico y el
     # siguiente request tarda 30-60s en responder. Para una demo con el cliente
     # eso se ve como "la app está rota". Para mostrarla, subí a "starter".
@@ -23,8 +26,18 @@ services:
     startCommand: node apps/api/dist/index.js
 
     # Sincroniza el schema con la DB antes de arrancar. El proyecto usa
-    # `prisma db push` (no hay carpeta migrations/). Sin este paso el primer
-    # deploy levanta con la base vacía y toda query falla.
+    # `prisma db push` (no hay carpeta migrations/).
+    #
+    # ⚠️  OJO: preDeployCommand SOLO funciona en instancias pagas. Con el plan
+    # free Render lo ignora en silencio, la base queda vacía y todas las
+    # queries fallan con "table does not exist".
+    #
+    # Mientras la API esté en free, hay que correr el push a mano después de
+    # crear o cambiar la base, usando la External URL:
+    #   $env:DATABASE_URL="postgresql://...External URL..."
+    #   pnpm --filter @niagara/db exec prisma db push
+    #   pnpm --filter @niagara/db db:seed
+    #
     # Si más adelante agregás migraciones, cambiá a:
     #   pnpm --filter @niagara/db exec prisma migrate deploy
     preDeployCommand: pnpm --filter @niagara/db exec prisma db push --skip-generate

@@ -66,9 +66,25 @@ Flujo de un deploy: `pnpm install` → `prisma generate` → build de core/db/ap
 **`prisma db push`** (crea/actualiza tablas) → `node apps/api/dist/index.js`.
 El health check pega a `/health`.
 
-### Seed inicial (primer deploy)
+### Crear las tablas (obligatorio con el plan free)
 
-Con la base ya creada, cargá el local + admin corriendo el seed contra la DB de producción:
+**`preDeployCommand` solo funciona en instancias pagas.** Con el plan free
+Render lo ignora sin avisar: el deploy sale verde, la API arranca, y todas las
+queries fallan con `The table public.X does not exist`.
+
+Así que mientras la API esté en free, el `db push` va a mano después de crear o
+cambiar la base, usando la **External URL**:
+
+```bash
+$env:DATABASE_URL="postgresql://...External URL de Render..."
+pnpm --filter @niagara/db exec prisma db push
+```
+
+Hay que repetirlo cada vez que cambie el schema de Prisma.
+
+### Seed inicial
+
+Con las tablas ya creadas, cargá el local + admin:
 
 ```bash
 # PowerShell (Windows)
