@@ -9,6 +9,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/lib/apiClient";
+import { usePreventScreenCapture } from "expo-screen-capture";
 import { QREntradaRotativo } from "@/components/QREntradaRotativo";
 import type { EntradaConQR } from "@/lib/apiClient";
 
@@ -109,6 +110,17 @@ function EntradaItem({ entrada }: { entrada: EntradaConQR }) {
 }
 
 export default function EntradasScreen() {
+  // Bloquea capturas mientras esta pantalla está montada.
+  //
+  // En Android usa FLAG_SECURE, que impide la captura a nivel sistema y además
+  // muestra la vista en blanco en el conmutador de apps. En iOS, desde SDK 54,
+  // Expo logra el mismo efecto y la captura sale negra.
+  //
+  // Se aplica solo acá y en la tarjeta —las pantallas con QR— y no en toda la
+  // app: bloquear el perfil o el listado de eventos molestaría al usuario sin
+  // aportar seguridad.
+  usePreventScreenCapture();
+
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: ["entradas"],
     queryFn:  () => api.entradas(),

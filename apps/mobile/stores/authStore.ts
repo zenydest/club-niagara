@@ -14,6 +14,15 @@ interface AuthState {
   isLoading:       boolean;
   error:           string | null;
 
+  /**
+   * Si ya terminó la verificación del token guardado.
+   *
+   * Distinto de `isAuthenticated`: al arrancar los dos son false, pero eso no
+   * significa "no hay sesión" sino "todavía no sé". El layout lo usa para no
+   * mostrar la app antes de saberlo, y el guard para no redirigir de más.
+   */
+  verificada:      boolean;
+
   /** Carga inicial — llamar en el _layout raíz */
   inicializar: (savedToken: string | null, clienteData?: ClienteInfo) => void;
 
@@ -42,6 +51,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading:       false,
   error:           null,
+  verificada:      false,
 
   inicializar: (savedToken, clienteData) => {
     // El caso `null` también tiene que limpiar el estado: se llama cuando el
@@ -53,8 +63,9 @@ export const useAuthStore = create<AuthState>((set) => ({
             token:           savedToken,
             cliente:         clienteData ?? null,
             isAuthenticated: true,
+            verificada:      true,
           }
-        : { token: null, cliente: null, isAuthenticated: false }
+        : { token: null, cliente: null, isAuthenticated: false, verificada: true }
     );
   },
 

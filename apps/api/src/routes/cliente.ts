@@ -342,6 +342,12 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
       tipoEntrada:  e.entradaTipo,
     }));
 
-    return { entradas: resultado };
+    return {
+      entradas: resultado,
+      // Reloj del servidor. La app calcula su desfasaje contra este valor y
+      // genera el código rotativo con la hora corregida. Sin esto, un celular
+      // con la hora mal puesta mostraría códigos que la puerta rechaza siempre.
+      serverTime: Date.now(),
+    };
   });
 };

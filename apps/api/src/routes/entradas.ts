@@ -376,6 +376,12 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       };
     }
 
+    // Entrada emitida antes del código rotativo: se valida solo por `qrCode`,
+    // así que una captura vieja sirve igual. No se rechaza —dejar gente afuera
+    // por una migración sería peor— pero se avisa en la puerta para que el
+    // portero sepa que ese QR no tiene protección contra capturas.
+    const sinCodigoRotativo = !entrada.qrSecret;
+
     // El código rotativo se verifica ANTES de quemar. Al revés, un código
     // vencido quemaría una entrada legítima y dejaría al dueño afuera.
     if (entrada.qrSecret) {
@@ -455,6 +461,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
 
     return {
       resultado: "ok",
+      sinCodigoRotativo,
       entrada: { ...entrada, precioPagado: Number(entrada.precioPagado), usada: true },
     };
   });

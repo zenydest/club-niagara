@@ -7,6 +7,7 @@
 
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
+import { sincronizarConServidor } from "./relojServidor";
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
@@ -156,7 +157,22 @@ export const api = {
   cashless: () =>
     request<{ tarjetas: TarjetaCashless[] }>("/api/cliente/cashless"),
 
-  /** Entradas compradas con QR */
-  entradas: () =>
-    request<{ entradas: EntradaConQR[] }>("/api/cliente/entradas"),
+  /**
+   * Entradas compradas con QR.
+   *
+   * Aprovecha la respuesta para sincronizar el reloj con el servidor: el código
+   * rotativo depende de la hora, y el reloj del celular puede estar desfasado.
+   */
+  entradas: async () => {
+    const enviadoEn = Date.now();
+    const res = await request<{ entradas: EntradaConQR[]; serverTime?: number }>(
+      "/api/cliente/entradas"
+    );
+
+    if (res.serverTime) {
+      sincronizarConServidor(res.serverTime, enviadoEn);
+    }
+
+    return res;
+  },
 };

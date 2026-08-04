@@ -3,7 +3,8 @@
  */
 
 import "../global.css";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
+import { View, StyleSheet } from "react-native";
 import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -12,12 +13,13 @@ import * as SplashScreen from "expo-splash-screen";
 import { leerToken, api } from "@/lib/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 import { queryClient } from "@/lib/queryClient";
+import { PantallaCarga } from "@/components/PantallaCarga";
 
 // Mantener el splash hasta que terminemos de verificar la sesión
 SplashScreen.preventAutoHideAsync();
 
 function AuthGuard() {
-  const { isAuthenticated, inicializar } = useAuthStore();
+  const { isAuthenticated, inicializar, verificada } = useAuthStore();
   const router   = useRouter();
   const segments = useSegments();
 
@@ -25,10 +27,6 @@ function AuthGuard() {
   // montarse y cualquier navegación tira
   // "Attempted to navigate before mounting the Root Layout component".
   const navegadorRaiz = useRootNavigationState();
-
-  // No se puede redirigir antes de saber si hay sesión: sin esto, el primer
-  // render mandaba a login incluso teniendo un token válido guardado.
-  const [sesionVerificada, setSesionVerificada] = useState(false);
 
   useEffect(() => {
     const verificar = async () => {
@@ -50,17 +48,16 @@ function AuthGuard() {
       } catch {
         // Token inválido o expirado
         inicializar(null);
-      } finally {
-        setSesionVerificada(true);
-        await SplashScreen.hideAsync();
       }
+      // `inicializar` deja `verificada` en true en cualquier caso, así que no
+      // hace falta un flag aparte acá.
     };
     void verificar();
   }, [inicializar]);
 
   useEffect(() => {
     if (!navegadorRaiz?.key) return;
-    if (!sesionVerificada) return;
+    if (!verificada) return;
 
     const enAuth = segments[0] === "(auth)";
     if (isAuthenticated && enAuth) {
@@ -68,21 +65,41 @@ function AuthGuard() {
     } else if (!isAuthenticated && !enAuth) {
       router.replace("/(auth)/login");
     }
-  }, [navegadorRaiz?.key, sesionVerificada, isAuthenticated, segments, router]);
+  }, [navegadorRaiz?.key, verificada, isAuthenticated, segments, router]);
 
   return null;
 }
 
 export default function RootLayout() {
+  const verificada = useAuthStore((s) => s.verificada);
+
+  // El splash nativo se oculta apenas monta el layout, no al terminar de
+  // verificar: así toma el relevo la pantalla animada en vez de quedarse una
+  // imagen estática todo el tiempo que dure la llamada a la API.
+  useEffect(() => {
+    void SplashScreen.hideAsync();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <StatusBar style="light" backgroundColor="#06060F" />
         <AuthGuard />
+
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
         </Stack>
+
+        {/* La carga va SUPERPUESTA, no en lugar del Stack.
+            Si se desmontara el navegador, AuthGuard intentaría redirigir sobre
+            un árbol que no existe y volvería el crash de
+            "Attempted to navigate before mounting the Root Layout". */}
+        {!verificada && (
+          <View style={StyleSheet.absoluteFill}>
+            <PantallaCarga />
+          </View>
+        )}
       </QueryClientProvider>
     </SafeAreaProvider>
   );

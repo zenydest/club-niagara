@@ -20,6 +20,7 @@ import {
   ventanaActual,
   type PayloadQR,
 } from "@niagara/core";
+import { ahoraServidor } from "@/lib/relojServidor";
 import { QRDisplay } from "./QRDisplay";
 
 interface Props {
@@ -40,7 +41,8 @@ export function QREntradaRotativo({
   size = 220,
 }: Props) {
   const [payload, setPayload] = useState<string>("");
-  const [restantes, setRestantes] = useState(() => segundosRestantes());
+  // Todo el cálculo usa la hora del servidor, no la del dispositivo.
+  const [restantes, setRestantes] = useState(() => segundosRestantes(ahoraServidor()));
 
   useEffect(() => {
     let activo = true;
@@ -52,7 +54,7 @@ export function QREntradaRotativo({
         // Mismo cálculo que hace el servidor: SHA-256 de "<ventana>:<secreto>".
         const hash = await Crypto.digestStringAsync(
           Crypto.CryptoDigestAlgorithm.SHA256,
-          materialParaHash(ventanaActual(), qrSecret)
+          materialParaHash(ventanaActual(ahoraServidor()), qrSecret)
         );
         base.codigo = codigoDesdeHash(hash);
       }
@@ -65,7 +67,7 @@ export function QREntradaRotativo({
     // Un tick por segundo: actualiza el contador y, al cruzar de ventana,
     // recalcula el código.
     const tick = setInterval(() => {
-      const quedan = segundosRestantes();
+      const quedan = segundosRestantes(ahoraServidor());
       setRestantes(quedan);
       if (quedan === QR_VENTANA_SEGUNDOS) void construir();
     }, 1000);

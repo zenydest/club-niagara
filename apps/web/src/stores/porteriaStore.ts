@@ -68,6 +68,12 @@ export interface ResultadoValidacion {
     | "error";
   entrada: EntradaValidada | null;
   mensaje?: string;
+  /**
+   * La entrada se emitió antes del código rotativo y se validó solo por su QR
+   * fijo. Sirve para que el portero sepa que ese código no está protegido
+   * contra capturas de pantalla.
+   */
+  sinCodigoRotativo?: boolean;
 }
 
 interface PorteriaState {
@@ -231,6 +237,7 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
       const res = await api.post<{
         resultado: ResultadoValidacion["resultado"];
         entrada: EntradaValidada | null;
+        sinCodigoRotativo?: boolean;
       }>(
         "/entradas/validar",
         {
@@ -249,7 +256,13 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
 
       // La API devuelve 200 con el `resultado` también para los desenlaces
       // negativos, así que acá no hace falta interpretar códigos HTTP.
-      return { resultado: res.resultado, entrada: res.entrada };
+      return {
+        resultado: res.resultado,
+        entrada: res.entrada,
+        ...(res.sinCodigoRotativo !== undefined && {
+          sinCodigoRotativo: res.sinCodigoRotativo,
+        }),
+      };
     } catch (err) {
       return {
         resultado: "error",

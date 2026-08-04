@@ -86,6 +86,14 @@ function PanelEscaneo() {
             {ultimo?.mensaje && !ultimo.entrada && (
               <span className="text-xs opacity-90 px-6 text-center">{ultimo.mensaje}</span>
             )}
+
+            {/* Entrada vieja: pasó sin código rotativo, o sea que una captura
+                de pantalla habría funcionado igual. */}
+            {ultimo?.sinCodigoRotativo && (
+              <span className="mt-2 px-3 py-1 rounded-full bg-black/30 text-xs font-semibold">
+                ⚠ QR sin código rotativo
+              </span>
+            )}
           </div>
         )}
       </div>

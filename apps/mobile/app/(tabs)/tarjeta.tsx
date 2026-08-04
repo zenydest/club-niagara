@@ -10,6 +10,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Constants from "expo-constants";
+import { usePreventScreenCapture } from "expo-screen-capture";
 import { api } from "@/lib/apiClient";
 import { QRDisplay } from "@/components/QRDisplay";
 import type { TarjetaCashless } from "@/lib/apiClient";
@@ -95,6 +96,10 @@ function TarjetaItem({ tarjeta }: { tarjeta: TarjetaCashless }) {
 }
 
 export default function TarjetaScreen() {
+  // El QR de la tarjeta cashless da acceso al saldo, así que se protege igual
+  // que el de las entradas. Ver la nota en entradas.tsx.
+  usePreventScreenCapture();
+
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: ["cashless"],
     queryFn:  () => api.cashless(),

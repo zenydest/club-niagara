@@ -26,14 +26,18 @@
  */
 
 /** Duración de cada ventana, en segundos. */
-export const QR_VENTANA_SEGUNDOS = 30;
+export const QR_VENTANA_SEGUNDOS = 15;
 
 /**
  * Cuántas ventanas hacia atrás y hacia adelante se aceptan al validar.
  *
- * Cubre dos cosas reales: el reloj del celular desfasado respecto del servidor,
- * y el tiempo entre que el portero apunta la cámara y el server procesa. Con 1
- * la tolerancia efectiva es de 30 a 90 segundos.
+ * Con la ventana de 15s y tolerancia 1, un código vive entre 15 y 30 segundos.
+ *
+ * Esta tolerancia cubre **solo** la latencia entre que se genera el QR y el
+ * servidor lo procesa: la app corrige su reloj contra el del servidor
+ * (`serverTime` en la respuesta de entradas), así que el desfasaje del
+ * dispositivo ya no entra en la ecuación. Sin esa corrección habría que dejar
+ * una tolerancia mucho más ancha y el código duraría demasiado.
  */
 export const QR_TOLERANCIA_VENTANAS = 1;
 
