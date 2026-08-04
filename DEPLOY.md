@@ -169,6 +169,50 @@ Los perfiles `preview` y `production` de `eas.json` ya inyectan
 `EXPO_PUBLIC_API_URL` y `EXPO_PUBLIC_LOCAL_ID`. El `projectId` de EAS está en
 `app.json → extra.eas`.
 
+### Actualizaciones por aire (EAS Update)
+
+Los cambios que son **solo de JavaScript** —pantallas, colores, textos, lógica—
+no necesitan un build nuevo:
+
+```bash
+cd apps/mobile
+eas update --branch preview --message "Qué cambió"
+```
+
+Tarda segundos, no consume cuota de builds, y le llega al usuario la próxima vez
+que abre la app.
+
+**Necesitan `eas build`, no update:** agregar o quitar cualquier dependencia
+nativa (`expo-*`, `react-native-*`), tocar el ícono, el splash, los permisos o
+el `app.json`.
+
+#### La regla del `version`
+
+El `runtimeVersion` usa la política **`appVersion`**: un update solo se aplica a
+builds cuyo `version` del `app.json` coincida.
+
+> **Cuando cambies algo nativo, subí el `version` antes de buildear.**
+> Si no lo hacés, un update de JS puede caer sobre un APK viejo que no tiene el
+> módulo nativo nuevo, y la app va a crashear en el celular del cliente.
+
+Ejemplo: agregás `expo-camera` → `version` pasa de `1.0.0` a `1.1.0` → build.
+Los APK en `1.0.0` dejan de recibir updates, que es exactamente lo que se busca.
+
+#### Por qué no se usa la política `fingerprint`
+
+Sería la ideal —calcula un hash de todo lo nativo y se actualiza sola— pero **no
+funciona en este proyecto**. El fingerprint hashea rutas de archivos, y pnpm
+trunca los nombres de directorio en Windows por el límite de 260 caracteres:
+
+```
+Local (Windows):  .pnpm/expo@54.0.36_@babel+core@7._86e641faf.../
+EAS (Linux):      .pnpm/expo@54.0.36_@babel+core@7.29.7_@expo+metro-runtime@4.0.1_..._86e641faf.../
+```
+
+Las rutas nunca coinciden, así que el hash tampoco, y `eas update` falla siempre
+con *"Runtime version mismatch"*. Si el proyecto se moviera a Linux o macOS,
+`fingerprint` volvería a ser viable.
+
 ---
 
 ## Orden recomendado
