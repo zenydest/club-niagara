@@ -17,9 +17,7 @@
       "url": "https://u.expo.dev/79813e95-42ec-4616-ae17-98666c61aa80",
       "fallbackToCacheTimeout": 0
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.niagara.noxa"

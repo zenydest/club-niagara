@@ -186,32 +186,44 @@ que abre la app.
 nativa (`expo-*`, `react-native-*`), tocar el ícono, el splash, los permisos o
 el `app.json`.
 
-#### La regla del `version`
+#### La regla del `runtimeVersion`
 
-El `runtimeVersion` usa la política **`appVersion`**: un update solo se aplica a
-builds cuyo `version` del `app.json` coincida.
+En `app.json` está fijo como un string:
 
-> **Cuando cambies algo nativo, subí el `version` antes de buildear.**
+```json
+"runtimeVersion": "1.0.0"
+```
+
+Un update solo se aplica a builds con **ese mismo valor**.
+
+> **Cuando cambies algo nativo, subí el `runtimeVersion` antes de buildear.**
 > Si no lo hacés, un update de JS puede caer sobre un APK viejo que no tiene el
 > módulo nativo nuevo, y la app va a crashear en el celular del cliente.
 
-Ejemplo: agregás `expo-camera` → `version` pasa de `1.0.0` a `1.1.0` → build.
-Los APK en `1.0.0` dejan de recibir updates, que es exactamente lo que se busca.
+Ejemplo: agregás `expo-camera` → `runtimeVersion` pasa a `"1.1.0"` → prebuild →
+build. Los APK en `1.0.0` dejan de recibir updates, que es exactamente lo que se
+busca.
 
-#### Por qué no se usa la política `fingerprint`
+Después de cambiarlo hay que correr `npx expo prebuild --platform android`: el
+valor se escribe en los recursos nativos, y `expo-updates` lo lee de ahí.
 
-Sería la ideal —calcula un hash de todo lo nativo y se actualiza sola— pero **no
-funciona en este proyecto**. El fingerprint hashea rutas de archivos, y pnpm
-trunca los nombres de directorio en Windows por el límite de 260 caracteres:
+#### Por qué es un valor fijo y no una política
+
+Las políticas (`appVersion`, `fingerprint`) **no se soportan en bare workflow**,
+y este proyecto lo es porque versiona la carpeta `android/`. EAS lo rechaza con
+*"runtime version policies are not supported"*.
+
+Y aunque se soportaran, `fingerprint` tampoco serviría: hashea rutas de archivos
+y pnpm trunca los nombres de directorio en Windows por el límite de 260
+caracteres, así que el hash local nunca coincide con el de EAS (Linux):
 
 ```
 Local (Windows):  .pnpm/expo@54.0.36_@babel+core@7._86e641faf.../
 EAS (Linux):      .pnpm/expo@54.0.36_@babel+core@7.29.7_@expo+metro-runtime@4.0.1_..._86e641faf.../
 ```
 
-Las rutas nunca coinciden, así que el hash tampoco, y `eas update` falla siempre
-con *"Runtime version mismatch"*. Si el proyecto se moviera a Linux o macOS,
-`fingerprint` volvería a ser viable.
+El costo de tenerlo fijo es acordarse de subirlo. La ventaja es que es
+predecible y no depende del sistema operativo de quien buildea.
 
 ---
 
