@@ -547,6 +547,16 @@ model EntradaVendida {
   entradaTipoId   String     @map("entrada_tipo_id")
   clienteId       String?    @map("cliente_id")
   qrCode          String     @unique @default(uuid()) @map("qr_code")
+
+  /// Secreto para el código rotativo del QR.
+  ///
+  /// El QR ya no muestra solo el `qrCode` fijo: incluye un código derivado de
+  /// este secreto y de la ventana de tiempo actual, que cambia cada 30s. Así
+  /// una captura de pantalla deja de servir enseguida.
+  ///
+  /// Es nullable por las entradas emitidas antes de esta función: esas se
+  /// siguen validando solo por `qrCode`.
+  qrSecret        String?    @map("qr_secret")
   clienteNombre   String?    @map("cliente_nombre")
   clienteEmail    String?    @map("cliente_email")
   clienteTelefono String?    @map("cliente_telefono")

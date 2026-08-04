@@ -28,6 +28,9 @@ const RESULTADO_CONFIG: Record<
   ya_usada: { titulo: "Ya usada", icono: "✕", clase: "bg-danger text-white" },
   no_encontrada: { titulo: "QR inválido", icono: "✕", clase: "bg-danger text-white" },
   otro_evento: { titulo: "Otro evento", icono: "!", clase: "bg-warning text-background" },
+  // Casi siempre es una captura de pantalla vieja: el código ya rotó.
+  codigo_vencido: { titulo: "Código vencido", icono: "✕", clase: "bg-danger text-white" },
+  codigo_faltante: { titulo: "Pedí el QR de la app", icono: "!", clase: "bg-warning text-background" },
   sin_conexion: { titulo: "Sin conexión", icono: "!", clase: "bg-warning text-background" },
   error: { titulo: "Error", icono: "!", clase: "bg-danger text-white" },
 };

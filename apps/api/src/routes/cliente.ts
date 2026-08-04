@@ -324,11 +324,17 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
       },
     });
 
-    // El QR codifica: { tipo: "entrada", id: qrCode, localId }
+    // El QR ya no se arma acá: lo genera la app en el momento, porque incluye
+    // un código rotativo que cambia cada 30 segundos.
+    //
+    // Por eso viaja el `qrSecret`. Solo se entrega al dueño autenticado de la
+    // entrada: no aparece en ningún endpoint del panel ni en el listado de
+    // vendidas, así que ni el staff puede reconstruir el código de un cliente.
     const resultado = entradas.map((e) => ({
       id:           e.id,
       qrCode:       e.qrCode,
-      qrPayload:    JSON.stringify({ tipo: "entrada", id: e.qrCode, localId }),
+      qrSecret:     e.qrSecret,
+      localId,
       usada:        e.usada,
       precioPagado: e.precioPagado,
       createdAt:    e.createdAt,

@@ -200,6 +200,92 @@ El backend de validación **ya está completo y correcto**:
 
 ---
 
+---
+
+## Consultas del cliente (segunda ronda)
+
+### «¿Hace falta homologación o permisos especiales de Mercado Pago?»
+
+**No.** La salida a producción de Point es **autogestionada**, sin certificación
+ni aprobación previa. El checklist oficial es:
+
+1. Activar las credenciales de producción desde *Tus integraciones* — se
+   completa rubro, se aceptan los términos y un reCAPTCHA. Es inmediato.
+2. Recrear tienda y punto de venta con el token de producción.
+3. Re-asociar la terminal a la cuenta real desde la app del celular.
+4. Poner cada terminal en modo PDV.
+5. Configurar la URL de webhooks de producción.
+
+No hay revisión humana, no hay homologación, no hay programa de partners
+obligatorio.
+
+**Decisión tomada: integración propia.** Es un solo boliche, no un producto para
+revender, así que se usa directamente la cuenta de Mercado Pago del local.
+
+Eso descarta el modelo «para terceros» con OAuth, que habría sumado un flujo de
+autorización y un token que vence cada 180 días y hay que renovar o el sistema
+deja de cobrar. Nada de eso aplica acá.
+
+Lo que queda es simplemente:
+
+1. El **dueño del boliche** entra a *Tus integraciones* en su cuenta de MP y
+   crea la aplicación.
+2. Activa las credenciales de producción.
+3. Ese access token se carga en Render como `MP_ACCESS_TOKEN`.
+
+> **El token es sensible.** Permite operar sobre los cobros de la cuenta. No
+> debería viajar por WhatsApp ni quedar en el repo: lo ideal es que el dueño lo
+> pegue directo en el panel de Render, o que lo rote desde MP una vez terminada
+> la configuración.
+
+Si en algún momento el proyecto sí se vendiera a otros locales, ahí sí habría
+que migrar a OAuth. Migrar después cuesta más que arrancar así, pero para un
+local único sería sobreingeniería.
+
+### «¿Se puede cargar un menú de combos en el POS?»
+
+**No dentro del dispositivo.** Revisada la documentación completa de Point, el
+único tipo de acción que acepta la Terminals API es `print`. La terminal recibe
+órdenes de cobro y las procesa; no aloja interfaces propias. El SDK de Android
+que publica MP (`sdk-android`, `px-android`) sirve para meter pagos de MP
+**dentro de tu app**, no para meter tu app dentro del Point.
+
+**Pero el objetivo del cliente sí se cumple.** Lo que pidió textualmente fue:
+
+> «que el cajero simplemente toque el botón del combo deseado, que el precio se
+> cargue automáticamente, y el cliente proceda a pagar sin necesidad de que el
+> empleado tipee el monto manualmente»
+
+Eso es exactamente lo que hace la arquitectura implementada:
+
+1. El cajero toca **"Combo Fernet"** en la tablet — la grilla de productos ya
+   está hecha, con botones grandes pensados para pantalla táctil.
+2. El sistema manda la orden al Point con el monto ya cargado.
+3. El cliente apoya la tarjeta.
+4. El Point imprime el comprobante.
+
+**El empleado nunca tipea un monto.** El combo, el precio y el detalle salen del
+catálogo. La diferencia con lo que imaginaba el cliente es en qué pantalla está
+el menú, no en cómo se opera.
+
+Y hay una ventaja de hacerlo así: el detalle de lo vendido queda en el sistema.
+Si el menú viviera dentro del Point, MP solo registraría "cobro de $50.000" sin
+saber que fueron dos fernet y un Skyy — y ahí se pierde el control de stock, el
+costo por producto y el margen. Justamente lo que el cliente pide evitar cuando
+habla de «minimizar faltantes y descuadres».
+
+### «¿Se puede escanear el QR de entrada con el mismo POS?»
+
+**No.** La Terminals API acepta un solo tipo de acción, `print`. No existe una
+acción de escaneo, y el lector de QR de la Point Smart está para *cobrar* —el
+cliente muestra un QR de pago— no para leer un código arbitrario y devolvérselo
+a tu sistema.
+
+La alternativa cuesta muy poco: un celular Android con la web de portería, que
+ya tiene el escáner, el control de aforo y el quemado atómico del QR.
+
+---
+
 ## Fuentes
 
 - [Mercado Pago Point — Resumen de la integración](https://www.mercadopago.com.ar/developers/es/docs/mp-point/overview)

@@ -114,7 +114,12 @@ export interface TarjetaCashless {
 export interface EntradaConQR {
   id:          string;
   qrCode:      string;
-  qrPayload:   string; // JSON stringificado para codificar en el QR
+  /**
+   * Secreto del código rotativo. Null en entradas emitidas antes de esta
+   * función: esas muestran solo el QR fijo.
+   */
+  qrSecret:    string | null;
+  localId:     string;
   usada:       boolean;
   precioPagado: string;
   createdAt:   string;

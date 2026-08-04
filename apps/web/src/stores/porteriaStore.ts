@@ -57,7 +57,15 @@ export interface EntradaValidada {
  * el primero es un código inventado, el segundo un intento de reingreso.
  */
 export interface ResultadoValidacion {
-  resultado: "ok" | "ya_usada" | "no_encontrada" | "otro_evento" | "sin_conexion" | "error";
+  resultado:
+    | "ok"
+    | "ya_usada"
+    | "no_encontrada"
+    | "otro_evento"
+    | "codigo_vencido"
+    | "codigo_faltante"
+    | "sin_conexion"
+    | "error";
   entrada: EntradaValidada | null;
   mensaje?: string;
 }
@@ -207,13 +215,27 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
     }
 
     try {
+      // El QR de la app trae JSON con el id y el código rotativo. Los QR
+      // viejos —o un código tipeado a mano— llegan como texto plano.
+      let id = qrCode;
+      let codigo: string | undefined;
+
+      try {
+        const payload = JSON.parse(qrCode) as { id?: string; codigo?: string };
+        if (payload.id) id = payload.id;
+        if (payload.codigo) codigo = payload.codigo;
+      } catch {
+        // No era JSON: se usa el texto tal cual como identificador.
+      }
+
       const res = await api.post<{
         resultado: ResultadoValidacion["resultado"];
         entrada: EntradaValidada | null;
       }>(
         "/entradas/validar",
         {
-          qrCode,
+          qrCode: id,
+          ...(codigo !== undefined && { codigo }),
           ...(eventoSeleccionado && { eventoId: eventoSeleccionado.id }),
         },
         staff.localId

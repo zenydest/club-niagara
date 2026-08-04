@@ -19,6 +19,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
 import { io } from "../index.js";
+import { codigoValido, generarSecretoQR } from "../lib/qrRotativo.js";
 
 // ── Schemas ──────────────────────────────────────────────────────
 
@@ -218,6 +219,9 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
             eventoId,
             entradaTipoId,
             clienteId: clienteVinculado?.id ?? null,
+            // Secreto propio por entrada: el código rotativo de una no sirve
+            // para otra, aunque sean del mismo evento y del mismo comprador.
+            qrSecret: generarSecretoQR(),
             clienteNombre,
             clienteEmail: clienteEmail ?? null,
             clienteTelefono: clienteTelefono ?? null,
@@ -335,6 +339,8 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
 
     const schema = z.object({
       qrCode: z.string().min(1).max(200),
+      /** Código rotativo que muestra la app. Ausente en entradas viejas. */
+      codigo: z.string().min(4).max(32).optional(),
       /** Si se manda, se valida que la entrada sea de ese evento */
       eventoId: z.string().uuid().optional(),
       /** Registrar el ingreso además de quemar el QR */
@@ -346,7 +352,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: body.error.flatten() });
     }
 
-    const { qrCode, eventoId, registrarAcceso } = body.data;
+    const { qrCode, codigo, eventoId, registrarAcceso } = body.data;
 
     const entrada = await prisma.entradaVendida.findUnique({
       where: { qrCode },
@@ -368,6 +374,24 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
         resultado: "otro_evento",
         entrada: { ...entrada, precioPagado: Number(entrada.precioPagado) },
       };
+    }
+
+    // El código rotativo se verifica ANTES de quemar. Al revés, un código
+    // vencido quemaría una entrada legítima y dejaría al dueño afuera.
+    if (entrada.qrSecret) {
+      if (!codigo) {
+        return {
+          resultado: "codigo_faltante",
+          entrada: { ...entrada, precioPagado: Number(entrada.precioPagado) },
+        };
+      }
+
+      if (!codigoValido(entrada.qrSecret, codigo)) {
+        return {
+          resultado: "codigo_vencido",
+          entrada: { ...entrada, precioPagado: Number(entrada.precioPagado) },
+        };
+      }
     }
 
     // Acá se define quién gana: solo una request puede pasar de false a true.

@@ -9,7 +9,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/lib/apiClient";
-import { QRDisplay } from "@/components/QRDisplay";
+import { QREntradaRotativo } from "@/components/QREntradaRotativo";
 import type { EntradaConQR } from "@/lib/apiClient";
 
 const ESTADO_EVENTO: Record<string, string> = {
@@ -86,8 +86,10 @@ function EntradaItem({ entrada }: { entrada: EntradaConQR }) {
       {/* QR de acceso */}
       {qrVisible && esActiva && (
         <View className="items-center mt-5">
-          <QRDisplay
-            value={entrada.qrPayload}
+          <QREntradaRotativo
+            qrCode={entrada.qrCode}
+            qrSecret={entrada.qrSecret}
+            localId={entrada.localId}
             size={220}
             label="Mostrá este QR en portería"
             sublabel={`${entrada.evento.nombre} · ${fechaStr}`}
