@@ -13,6 +13,13 @@
       "android"
     ],
     "newArchEnabled": true,
+    "updates": {
+      "url": "https://u.expo.dev/79813e95-42ec-4616-ae17-98666c61aa80",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.niagara.noxa"
