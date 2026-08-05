@@ -48,10 +48,41 @@ export type ModoOperacion = "PDV" | "STANDALONE" | "UNDEFINED";
 
 export interface TerminalMP {
   id: string;
-  pos_id: string;
+  /**
+   * MP lo manda como número, aunque `store_id` —que es lo mismo pero de la
+   * sucursal— viene como string. Acá estaba declarado `string` y no era cierto:
+   * el valor pasaba tal cual a Prisma y el upsert fallaba con "Expected String,
+   * provided Int". Se guarda como texto (ver `posIdComoTexto`), que es lo que
+   * espera la columna y lo correcto para un identificador.
+   */
+  pos_id: number | string;
   store_id: string;
   external_pos_id?: string;
   operating_mode: ModoOperacion;
+}
+
+/** El `pos_id` es un identificador, no una cantidad: nunca se suma ni se
+ *  compara por orden, así que va como texto y aguanta si MP algún día lo
+ *  devuelve alfanumérico. */
+export function posIdComoTexto(posId: number | string): string {
+  return String(posId);
+}
+
+/**
+ * Alias visible de la terminal.
+ *
+ * `external_pos_id` puede venir como cadena vacía, no solo ausente, así que no
+ * alcanza con `??`: con `""` el nombre quedaba en blanco y en el panel la
+ * terminal aparecía sin identificar. La serie impresa atrás del equipo —la
+ * parte después de `__`— es el mejor plan B, porque es lo que el encargado
+ * puede leer del aparato.
+ */
+export function nombrePorDefecto(terminal: TerminalMP): string {
+  const externo = terminal.external_pos_id?.trim();
+  if (externo) return externo;
+
+  const serie = terminal.id.split("__")[1]?.trim();
+  return serie || terminal.id;
 }
 
 /**

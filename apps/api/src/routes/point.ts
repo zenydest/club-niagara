@@ -30,6 +30,8 @@ import {
   ordenPagada,
   idPagoDeOrden,
   pointConfigurado,
+  posIdComoTexto,
+  nombrePorDefecto,
   MPPointError,
   type OrdenMP,
 } from "../lib/mpPoint.js";
@@ -141,15 +143,15 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
             // Solo se refrescan los datos que manda MP; el nombre y la barra
             // los asigna el operador y no se pisan.
             update: {
-              posId: t.pos_id,
+              posId: posIdComoTexto(t.pos_id),
               storeId: t.store_id,
               operatingMode: t.operating_mode,
             },
             create: {
               id: t.id,
               localId,
-              nombre: t.external_pos_id ?? t.id.split("__")[1] ?? t.id,
-              posId: t.pos_id,
+              nombre: nombrePorDefecto(t),
+              posId: posIdComoTexto(t.pos_id),
               storeId: t.store_id,
               operatingMode: t.operating_mode,
             },
@@ -430,6 +432,16 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
       data?: { id?: string };
       resource?: string;
     };
+
+    // En el panel de MP se pueden suscribir muchos eventos de una sola URL, y
+    // es fácil dejarlos todos tildados. Acá solo se procesan los de órdenes:
+    // sin este filtro, el id de un contracargo o de una suscripción se
+    // consultaba como si fuera una orden, MP devolvía 404 y el log se llenaba
+    // de errores que no eran errores.
+    const tipo = cuerpo.type ?? "";
+    if (tipo && !tipo.startsWith("order") && tipo !== "point_integration_wh") {
+      return reply.status(200).send({ ok: true, ignorado: tipo });
+    }
 
     const dataId = cuerpo.data?.id ?? cuerpo.resource?.split("/").pop();
     if (!dataId) {
