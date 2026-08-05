@@ -17,6 +17,8 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
 import { auth } from "../lib/auth.js";
+import { io } from "../index.js";
+import { generarSecretoQR } from "../lib/qrRotativo.js";
 
 // ── Schemas de validación ─────────────────────────────────────────
 
@@ -206,6 +208,121 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
     });
 
     return { eventos };
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // POST /api/cliente/comprar (protegido)
+  //
+  // Crea las entradas del cliente. Según `modalidad`:
+  //   - "puerta": quedan sin pagar; se cobran al ingresar.
+  //   - "online": quedan sin pagar y se devuelve el link de Checkout Pro;
+  //     el webhook de MP las marca pagadas.
+  //
+  // En los dos casos la entrada nace en `pagada: false`. Es a propósito: que
+  // exista la entrada no significa que haya entrado la plata, y mezclar esas
+  // dos cosas es la forma más rápida de descuadrar la caja.
+  // ══════════════════════════════════════════════════════════════
+  app.post("/comprar", async (req, reply) => {
+    const localId = getLocalId(req, reply);
+    if (!localId) return;
+
+    const sesion = await autenticarCliente(req, reply);
+    if (!sesion) return;
+
+    const schema = z.object({
+      entradaTipoId: z.string().uuid(),
+      cantidad: z.number().int().positive().max(10).default(1),
+      modalidad: z.enum(["puerta", "online"]),
+    });
+
+    const body = schema.safeParse(req.body);
+    if (!body.success) {
+      return reply.status(400).send({ error: body.error.flatten() });
+    }
+
+    const { entradaTipoId, cantidad, modalidad } = body.data;
+
+    const cliente = await prisma.cliente.findUnique({
+      where: { localId_userId: { localId, userId: sesion.userId } },
+      include: { user: { select: { email: true } } },
+    });
+    if (!cliente) return reply.status(404).send({ error: "Perfil no encontrado" });
+
+    const tipo = await prisma.entradaTipo.findFirst({
+      where: { id: entradaTipoId, localId, activo: true },
+      include: {
+        evento: { select: { id: true, nombre: true, estado: true } },
+        _count: { select: { entradasVendidas: true } },
+      },
+    });
+
+    if (!tipo) {
+      return reply.status(404).send({ error: "Tipo de entrada no disponible" });
+    }
+
+    if (!["preventa", "en_vivo"].includes(tipo.evento.estado)) {
+      return reply.status(409).send({ error: "El evento no está a la venta" });
+    }
+
+    // Mismo control de cupo que la venta del panel.
+    if (tipo.cantidadTotal !== null) {
+      const vendidas = tipo._count.entradasVendidas;
+      if (vendidas + cantidad > tipo.cantidadTotal) {
+        return reply.status(422).send({
+          error: "Sin cupo disponible",
+          disponibles: Math.max(0, tipo.cantidadTotal - vendidas),
+        });
+      }
+    }
+
+    const precio = Number(tipo.precio);
+
+    const entradas = await Promise.all(
+      Array.from({ length: cantidad }).map(() =>
+        prisma.entradaVendida.create({
+          data: {
+            localId,
+            eventoId: tipo.eventoId,
+            entradaTipoId,
+            clienteId: cliente.id,
+            qrSecret: generarSecretoQR(),
+            clienteNombre: `${cliente.nombre} ${cliente.apellido}`,
+            clienteEmail: cliente.user.email,
+            clienteTelefono: cliente.telefono,
+            precioPagado: precio,
+            // Provisorio: lo define el pago real. En "puerta" lo fija el
+            // portero al cobrar; en "online" lo confirma el webhook.
+            metodoPago: modalidad === "online" ? "qr_mp" : "efectivo",
+            pagada: false,
+          },
+        })
+      )
+    );
+
+    await prisma.entradaTipo.update({
+      where: { id: entradaTipoId },
+      data: { cantidadVendida: { increment: cantidad } },
+    });
+
+    const total = precio * cantidad;
+
+    io.to(`local:${localId}`).emit("entrada:vendida", {
+      eventoId: tipo.eventoId,
+      cantidad,
+      total,
+      metodoPago: modalidad === "online" ? "qr_mp" : "efectivo",
+    });
+
+    return reply.status(201).send({
+      entradas: entradas.map((e) => ({
+        id: e.id,
+        qrCode: e.qrCode,
+        pagada: e.pagada,
+      })),
+      cantidad,
+      total,
+      modalidad,
+    });
   });
 
   // ══════════════════════════════════════════════════════════════

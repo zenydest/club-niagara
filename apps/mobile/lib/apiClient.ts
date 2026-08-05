@@ -158,6 +158,26 @@ export const api = {
     request<{ tarjetas: TarjetaCashless[] }>("/api/cliente/cashless"),
 
   /**
+   * Compra de entradas.
+   *
+   * `puerta` deja la entrada reservada y sin pagar: se cobra al ingresar.
+   * `online` devuelve además el link de pago de Mercado Pago.
+   */
+  comprar: (body: {
+    entradaTipoId: string;
+    cantidad: number;
+    modalidad: "puerta" | "online";
+  }) =>
+    request<{
+      entradas: { id: string; qrCode: string; pagada: boolean }[];
+      cantidad: number;
+      total: number;
+      modalidad: "puerta" | "online";
+      /** Presente solo en modalidad online */
+      linkPago?: string;
+    }>("/api/cliente/comprar", { method: "POST", body: JSON.stringify(body) }),
+
+  /**
    * Entradas compradas con QR.
    *
    * Aprovecha la respuesta para sincronizar el reloj con el servidor: el código

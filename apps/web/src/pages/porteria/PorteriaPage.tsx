@@ -9,7 +9,7 @@
  * Diseñado para tablet/celular del portero en penumbra.
  */
 
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { usePorteriaStore } from "@/stores/porteriaStore";
 import type { EventoActivo, ResultadoValidacion } from "@/stores/porteriaStore";
 import { EscanerQR } from "@/components/EscanerQR";
@@ -31,6 +31,8 @@ const RESULTADO_CONFIG: Record<
   // Casi siempre es una captura de pantalla vieja: el código ya rotó.
   codigo_vencido: { titulo: "Código vencido", icono: "✕", clase: "bg-danger text-white" },
   codigo_faltante: { titulo: "Pedí el QR de la app", icono: "!", clase: "bg-warning text-background" },
+  // Reserva de la app sin pagar: no es un rechazo, es "cobrale y pasa".
+  impaga: { titulo: "Falta pagar", icono: "$", clase: "bg-warning text-background" },
   sin_conexion: { titulo: "Sin conexión", icono: "!", clase: "bg-warning text-background" },
   error: { titulo: "Error", icono: "!", clase: "bg-danger text-white" },
 };
@@ -40,23 +42,49 @@ function PanelEscaneo() {
   const [ultimo, setUltimo] = useState<ResultadoValidacion | null>(null);
   const [validando, setValidando] = useState(false);
 
+  // Último QR leído. Se guarda para poder reintentar cobrando, sin pedirle a
+  // la persona que vuelva a mostrar la pantalla.
+  const ultimoCodigoRef = useRef<string | null>(null);
+
+  const mostrarYReanudar = useCallback((resultado: ResultadoValidacion) => {
+    setUltimo(resultado);
+
+    // "Falta pagar" no se autocierra: el portero tiene que decidir si cobra.
+    if (resultado.resultado === "impaga") {
+      setValidando(true);
+      return;
+    }
+
+    setTimeout(() => {
+      setUltimo(null);
+      setValidando(false);
+    }, MS_MOSTRAR_RESULTADO);
+  }, []);
+
   const manejarLectura = useCallback(
     async (codigo: string) => {
       if (validando) return;
       setValidando(true);
+      ultimoCodigoRef.current = codigo;
 
-      const resultado = await validarQR(codigo);
-      setUltimo(resultado);
-
-      // Se deja el resultado un momento en pantalla y recién ahí se vuelve a
-      // habilitar la lectura, para que el portero alcance a verlo.
-      setTimeout(() => {
-        setUltimo(null);
-        setValidando(false);
-      }, MS_MOSTRAR_RESULTADO);
+      mostrarYReanudar(await validarQR(codigo));
     },
-    [validarQR, validando]
+    [validarQR, validando, mostrarYReanudar]
   );
+
+  const cobrarYDejarPasar = useCallback(async () => {
+    const codigo = ultimoCodigoRef.current;
+    if (!codigo) return;
+
+    mostrarYReanudar(
+      await validarQR(codigo, { cobrarEnPuerta: true, metodoPagoPuerta: "efectivo" })
+    );
+  }, [validarQR, mostrarYReanudar]);
+
+  const cancelarCobro = useCallback(() => {
+    setUltimo(null);
+    setValidando(false);
+  }, []);
 
   const cfg = ultimo ? RESULTADO_CONFIG[ultimo.resultado] : null;
 
@@ -93,6 +121,35 @@ function PanelEscaneo() {
               <span className="mt-2 px-3 py-1 rounded-full bg-black/30 text-xs font-semibold">
                 ⚠ QR sin código rotativo
               </span>
+            )}
+
+            {/* Reserva de la app: se cobra acá y pasa. El QR no se quemó, así
+                que si la persona no tiene la plata puede volver más tarde. */}
+            {ultimo?.resultado === "impaga" && (
+              <div className="mt-4 flex flex-col items-center gap-3 w-full px-8">
+                {ultimo.aCobrar !== undefined && (
+                  <span className="text-3xl font-black">
+                    {new Intl.NumberFormat("es-AR", {
+                      style: "currency",
+                      currency: "ARS",
+                      maximumFractionDigits: 0,
+                    }).format(ultimo.aCobrar)}
+                  </span>
+                )}
+
+                <button
+                  onClick={() => void cobrarYDejarPasar()}
+                  className="w-full py-3 rounded-xl bg-background text-white font-black text-sm"
+                >
+                  Cobré · Dejar pasar
+                </button>
+                <button
+                  onClick={cancelarCobro}
+                  className="text-xs font-semibold underline opacity-80"
+                >
+                  Cancelar
+                </button>
+              </div>
             )}
           </div>
         )}

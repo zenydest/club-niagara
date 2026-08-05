@@ -564,6 +564,25 @@ model EntradaVendida {
   metodoPago      MetodoPago @map("metodo_pago")
   rrppId          String?    @map("rrpp_id")
   usada           Boolean    @default(false)
+
+  /// Si la entrada está paga.
+  ///
+  /// Default `true` porque las ventas del panel se cobran en el momento. Las
+  /// reservas hechas desde la app nacen en `false` y se confirman al pagar:
+  /// online por webhook de Mercado Pago, o en la puerta cuando el portero
+  /// cobra en efectivo.
+  ///
+  /// Una entrada sin pagar **no habilita el ingreso**: la validación en puerta
+  /// la rechaza salvo que el portero confirme el cobro en ese momento.
+  pagada          Boolean    @default(true)
+
+  /// Preferencia de Checkout Pro, cuando la compra se inicia desde la app.
+  mpPreferenceId  String?    @map("mp_preference_id")
+
+  /// Pago de MP que confirmó esta entrada. Sirve para conciliar y para no
+  /// procesar dos veces la misma notificación.
+  mpPaymentId     String?    @map("mp_payment_id")
+
   createdAt       DateTime   @default(now()) @map("created_at")
 
   local       Local    @relation(fields: [localId], references: [id], onDelete: Cascade)

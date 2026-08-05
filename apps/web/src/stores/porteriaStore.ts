@@ -64,6 +64,8 @@ export interface ResultadoValidacion {
     | "otro_evento"
     | "codigo_vencido"
     | "codigo_faltante"
+    /** Reserva de la app todavía sin pagar: hay que cobrarla en la puerta */
+    | "impaga"
     | "sin_conexion"
     | "error";
   entrada: EntradaValidada | null;
@@ -74,6 +76,8 @@ export interface ResultadoValidacion {
    * contra capturas de pantalla.
    */
   sinCodigoRotativo?: boolean;
+  /** Cuánto hay que cobrar cuando el resultado es "impaga" */
+  aCobrar?: number;
 }
 
 interface PorteriaState {
@@ -93,7 +97,10 @@ interface PorteriaState {
   cargarEventos: () => Promise<void>;
   seleccionarEvento: (evento: EventoActivo) => Promise<void>;
   registrarAcceso: (tipo: "ingreso" | "egreso") => Promise<void>;
-  validarQR: (qrCode: string) => Promise<ResultadoValidacion>;
+  validarQR: (
+    qrCode: string,
+    opciones?: { cobrarEnPuerta?: boolean; metodoPagoPuerta?: string }
+  ) => Promise<ResultadoValidacion>;
   sincronizarCola: () => Promise<void>;
   setOnline: (online: boolean) => void;
 }
@@ -204,7 +211,7 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
    * saber si una entrada ya se usó sin consultar. Cuando no hay conexión, el
    * portero tiene que usar el ingreso manual, que sí tiene cola offline.
    */
-  validarQR: async (qrCode) => {
+  validarQR: async (qrCode, opciones) => {
     const { staff } = useAuthStore.getState();
     const { eventoSeleccionado, online } = get();
 
@@ -238,12 +245,17 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
         resultado: ResultadoValidacion["resultado"];
         entrada: EntradaValidada | null;
         sinCodigoRotativo?: boolean;
+        aCobrar?: number;
       }>(
         "/entradas/validar",
         {
           qrCode: id,
           ...(codigo !== undefined && { codigo }),
           ...(eventoSeleccionado && { eventoId: eventoSeleccionado.id }),
+          ...(opciones?.cobrarEnPuerta && {
+            cobrarEnPuerta: true,
+            metodoPagoPuerta: opciones.metodoPagoPuerta ?? "efectivo",
+          }),
         },
         staff.localId
       );
@@ -262,6 +274,7 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
         ...(res.sinCodigoRotativo !== undefined && {
           sinCodigoRotativo: res.sinCodigoRotativo,
         }),
+        ...(res.aCobrar !== undefined && { aCobrar: res.aCobrar }),
       };
     } catch (err) {
       return {

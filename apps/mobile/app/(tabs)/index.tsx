@@ -2,7 +2,7 @@
  * Tab: Eventos — lista de eventos activos del local.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import {
   View, Text, ScrollView, RefreshControl, ActivityIndicator, Image,
 } from "react-native";
@@ -10,8 +10,12 @@ import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/lib/apiClient";
 import { EventoCard } from "@/components/EventoCard";
+import { ModalComprar } from "@/components/ModalComprar";
+import type { EventoPublico } from "@/lib/apiClient";
 
 export default function EventosScreen() {
+  const [eventoAComprar, setEventoAComprar] = useState<EventoPublico | null>(null);
+
   const { data, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: ["eventos"],
     queryFn:  () => api.eventos(),
@@ -71,11 +75,22 @@ export default function EventosScreen() {
         )}
 
         {eventos.map((evento) => (
-          <EventoCard key={evento.id} evento={evento} />
+          <EventoCard
+            key={evento.id}
+            evento={evento}
+            onComprar={setEventoAComprar}
+          />
         ))}
 
         <View className="h-6" />
       </ScrollView>
+
+      <ModalComprar
+        evento={eventoAComprar}
+        onCerrar={() => setEventoAComprar(null)}
+        // Refresca los eventos para que el cupo restante quede al día.
+        onComprado={() => void refetch()}
+      />
     </SafeAreaView>
   );
 }

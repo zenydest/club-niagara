@@ -3,11 +3,12 @@
  */
 
 import React from "react";
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, TouchableOpacity } from "react-native";
 import type { EventoPublico } from "@/lib/apiClient";
 
 interface Props {
   evento: EventoPublico;
+  onComprar: (evento: EventoPublico) => void;
 }
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -25,7 +26,7 @@ const ESTADO_TEXT: Record<string, string> = {
   en_vivo:  "text-bg",
 };
 
-export const EventoCard: React.FC<Props> = ({ evento }) => {
+export const EventoCard: React.FC<Props> = ({ evento, onComprar }) => {
   const fecha = new Date(evento.fechaInicio);
   const fechaStr = fecha.toLocaleDateString("es-AR", {
     weekday: "short",
@@ -110,6 +111,15 @@ export const EventoCard: React.FC<Props> = ({ evento }) => {
               );
             })}
           </View>
+        )}
+
+        {evento.entradasTipo.length > 0 && (
+          <TouchableOpacity
+            onPress={() => onComprar(evento)}
+            className="mt-4 py-3.5 rounded-2xl bg-azul items-center active:opacity-80"
+          >
+            <Text className="text-white font-black">Comprar entrada</Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>

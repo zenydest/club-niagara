@@ -345,6 +345,15 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       eventoId: z.string().uuid().optional(),
       /** Registrar el ingreso además de quemar el QR */
       registrarAcceso: z.boolean().default(true),
+      /**
+       * El portero cobró la entrada en la puerta y confirma el ingreso.
+       * Sin esto, una reserva sin pagar se rechaza.
+       */
+      cobrarEnPuerta: z.boolean().default(false),
+      /** Con qué se pagó en la puerta */
+      metodoPagoPuerta: z
+        .enum(["efectivo", "tarjeta", "cashless", "qr_mp", "cortesia"])
+        .optional(),
     });
 
     const body = schema.safeParse(req.body);
@@ -352,7 +361,8 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: body.error.flatten() });
     }
 
-    const { qrCode, codigo, eventoId, registrarAcceso } = body.data;
+    const { qrCode, codigo, eventoId, registrarAcceso, cobrarEnPuerta, metodoPagoPuerta } =
+      body.data;
 
     const entrada = await prisma.entradaVendida.findUnique({
       where: { qrCode },
@@ -398,6 +408,27 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
           entrada: { ...entrada, precioPagado: Number(entrada.precioPagado) },
         };
       }
+    }
+
+    // Reserva sin pagar: no se deja entrar salvo que el portero cobre ahora.
+    // Se corta antes de quemar, para que el QR siga sirviendo cuando vuelva
+    // con la plata.
+    if (!entrada.pagada && !cobrarEnPuerta) {
+      return {
+        resultado: "impaga",
+        entrada: { ...entrada, precioPagado: Number(entrada.precioPagado) },
+        aCobrar: Number(entrada.precioPagado),
+      };
+    }
+
+    if (!entrada.pagada && cobrarEnPuerta) {
+      await prisma.entradaVendida.update({
+        where: { id: entrada.id },
+        data: {
+          pagada: true,
+          ...(metodoPagoPuerta && { metodoPago: metodoPagoPuerta }),
+        },
+      });
     }
 
     // Acá se define quién gana: solo una request puede pasar de false a true.
