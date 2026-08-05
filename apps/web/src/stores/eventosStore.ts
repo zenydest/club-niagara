@@ -9,6 +9,7 @@
  */
 
 import { create } from "zustand";
+import type { NombreIcono } from "@/components/Icono";
 import { api } from "@/lib/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -362,10 +363,13 @@ export const ESTADO_CONFIG = {
   cancelado: { label: "Cancelado", color: "text-danger",         bg: "bg-danger/10",       border: "border-danger/30" },
 } as const;
 
-export const TIPO_ENTRADA_CONFIG = {
-  general:  { label: "General",  icono: "🎟️" },
-  vip:      { label: "VIP",      icono: "⭐" },
-  rrpp:     { label: "RRPP",     icono: "🤝" },
-  invitado: { label: "Invitado", icono: "🎁" },
-  staff:    { label: "Staff",    icono: "👤" },
+export const TIPO_ENTRADA_CONFIG: Record<
+  TipoEntrada["tipo"],
+  { label: string; icono: NombreIcono }
+> = {
+  general:  { label: "General",  icono: "entrada" },
+  vip:      { label: "VIP",      icono: "reservas" },
+  rrpp:     { label: "RRPP",     icono: "personal" },
+  invitado: { label: "Invitado", icono: "cortesia" },
+  staff:    { label: "Staff",    icono: "personal" },
 } as const;

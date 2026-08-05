@@ -6,6 +6,7 @@ import { usePosStore } from "@/stores/posStore";
 import { useCobroPointStore } from "@/stores/cobroPointStore";
 import { GrillaProductos } from "@/components/GrillaProductos";
 import { Carrito } from "@/components/Carrito";
+import { Icono } from "@/components/Icono";
 import {
   iniciarSyncEngine,
   detenerSyncEngine,
@@ -140,29 +141,31 @@ export function PosLayout() {
               </select>
             ) : (
               terminales.length === 1 && (
-                <div className="px-3 py-1 rounded-full bg-surface-2 border border-border text-xs font-semibold text-text-secondary">
-                  💳 {terminales[0]?.nombre}
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-2 border border-border text-xs font-semibold text-text-secondary">
+                  <Icono nombre="terminales" tamano={13} />
+                  {terminales[0]?.nombre}
                 </div>
               )
             )}
 
             {estadoSync === "sincronizando" && (
-              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-purple/10 text-purple text-xs font-semibold">
-                ↻ Sincronizando
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple/10 text-purple text-xs font-semibold">
+                <Icono nombre="cargando" tamano={13} girando />
+                Sincronizando
               </div>
             )}
 
             {ventasPendientes > 0 && estadoSync !== "sincronizando" && (
               <div
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold",
+                  "flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold",
                   estadoSync === "error"
                     ? "bg-danger/10 text-danger"
                     : "bg-warning/10 text-warning"
                 )}
               >
-                {estadoSync === "error" ? "⚠" : "⏳"} {ventasPendientes} pendiente
-                {ventasPendientes > 1 ? "s" : ""}
+                <Icono nombre={estadoSync === "error" ? "alerta" : "reloj"} tamano={13} />
+                {ventasPendientes} pendiente{ventasPendientes > 1 ? "s" : ""}
               </div>
             )}
 

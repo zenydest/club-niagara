@@ -13,6 +13,7 @@ import React, { useEffect, useCallback, useState, useRef } from "react";
 import { usePorteriaStore } from "@/stores/porteriaStore";
 import type { EventoActivo, ResultadoValidacion } from "@/stores/porteriaStore";
 import { EscanerQR } from "@/components/EscanerQR";
+import { Icono, type NombreIcono } from "@/components/Icono";
 import { cn } from "@niagara/ui";
 
 // ── Subcomponente: escaneo de entradas ──────────────────────────
@@ -22,19 +23,19 @@ const MS_MOSTRAR_RESULTADO = 2200;
 
 const RESULTADO_CONFIG: Record<
   ResultadoValidacion["resultado"],
-  { titulo: string; icono: string; clase: string }
+  { titulo: string; icono: NombreIcono; clase: string }
 > = {
-  ok: { titulo: "Adelante", icono: "✓", clase: "bg-success text-white" },
-  ya_usada: { titulo: "Ya usada", icono: "✕", clase: "bg-danger text-white" },
-  no_encontrada: { titulo: "QR inválido", icono: "✕", clase: "bg-danger text-white" },
-  otro_evento: { titulo: "Otro evento", icono: "!", clase: "bg-warning text-background" },
+  ok: { titulo: "Adelante", icono: "ok", clase: "bg-success text-white" },
+  ya_usada: { titulo: "Ya usada", icono: "cerrar", clase: "bg-danger text-white" },
+  no_encontrada: { titulo: "QR inválido", icono: "cerrar", clase: "bg-danger text-white" },
+  otro_evento: { titulo: "Otro evento", icono: "alerta", clase: "bg-warning text-background" },
   // Casi siempre es una captura de pantalla vieja: el código ya rotó.
-  codigo_vencido: { titulo: "Código vencido", icono: "✕", clase: "bg-danger text-white" },
-  codigo_faltante: { titulo: "Pedí el QR de la app", icono: "!", clase: "bg-warning text-background" },
+  codigo_vencido: { titulo: "Código vencido", icono: "reloj", clase: "bg-danger text-white" },
+  codigo_faltante: { titulo: "Pedí el QR de la app", icono: "qr", clase: "bg-warning text-background" },
   // Reserva de la app sin pagar: no es un rechazo, es "cobrale y pasa".
-  impaga: { titulo: "Falta pagar", icono: "$", clase: "bg-warning text-background" },
-  sin_conexion: { titulo: "Sin conexión", icono: "!", clase: "bg-warning text-background" },
-  error: { titulo: "Error", icono: "!", clase: "bg-danger text-white" },
+  impaga: { titulo: "Falta pagar", icono: "efectivo", clase: "bg-warning text-background" },
+  sin_conexion: { titulo: "Sin conexión", icono: "alerta", clase: "bg-warning text-background" },
+  error: { titulo: "Error", icono: "alerta", clase: "bg-danger text-white" },
 };
 
 function PanelEscaneo() {
@@ -101,7 +102,7 @@ function PanelEscaneo() {
               cfg.clase
             )}
           >
-            <span className="text-6xl font-black">{cfg.icono}</span>
+            <Icono nombre={cfg.icono} tamano={64} />
             <span className="text-2xl font-black">{cfg.titulo}</span>
             {ultimo?.entrada?.clienteNombre && (
               <span className="text-sm opacity-90">{ultimo.entrada.clienteNombre}</span>
@@ -119,7 +120,8 @@ function PanelEscaneo() {
                 de pantalla habría funcionado igual. */}
             {ultimo?.sinCodigoRotativo && (
               <span className="mt-2 px-3 py-1 rounded-full bg-black/30 text-xs font-semibold">
-                ⚠ QR sin código rotativo
+                <Icono nombre="alerta" tamano={12} className="inline mr-1 -mt-0.5" />
+                QR sin código rotativo
               </span>
             )}
 
@@ -173,7 +175,7 @@ function SelectorEvento({
   return (
     <div className="flex flex-col items-center gap-6 py-12 px-4">
       <div className="text-center">
-        <span className="text-5xl">🚪</span>
+        <Icono nombre="porteria" tamano={52} className="text-purple" />
         <h2 className="text-2xl font-black text-text-primary mt-4">Seleccioná el evento</h2>
         <p className="text-text-secondary mt-1">¿Para cuál evento vas a controlar el ingreso?</p>
       </div>
@@ -420,7 +422,7 @@ function PantallaAforo() {
             boxShadow: "0 8px 32px rgba(30,80,255,0.4)",
           } : undefined}
         >
-          <span className="text-3xl">↓</span>
+          <Icono nombre="ingreso" tamano={30} />
           <span>INGRESO</span>
         </button>
 
@@ -439,7 +441,7 @@ function PantallaAforo() {
             boxShadow: "0 8px 32px rgba(204,0,153,0.3)",
           } : undefined}
         >
-          <span className="text-3xl">↑</span>
+          <Icono nombre="egreso" tamano={30} />
           <span>EGRESO</span>
         </button>
       </div>
@@ -500,7 +502,7 @@ export function PorteriaPage() {
   if (eventosActivos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4 text-center px-4">
-        <span className="text-5xl">📭</span>
+        <Icono nombre="calendario" tamano={52} className="text-text-muted" />
         <div>
           <p className="text-text-primary font-bold">No hay eventos activos</p>
           <p className="text-text-secondary text-sm mt-1">

@@ -4,6 +4,7 @@
  */
 
 import { create } from "zustand";
+import type { NombreIcono } from "@/components/Icono";
 import { api } from "@/lib/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -311,16 +312,16 @@ export const useReportesStore = create<ReportesState>((set, get) => ({
 
 export interface MetodoPagoConfig {
   label: string;
-  icono: string;
+  icono: NombreIcono;
   color: string;
 }
 
 export const METODO_PAGO_CONFIG: Record<string, MetodoPagoConfig> = {
-  efectivo:  { label: "Efectivo",   icono: "💵", color: "text-green-400" },
-  tarjeta:   { label: "Tarjeta",    icono: "💳", color: "text-blue-400" },
-  cashless:  { label: "Cashless",   icono: "🪙", color: "text-accent" },
-  qr_mp:     { label: "QR / MP",    icono: "📱", color: "text-purple-400" },
-  cortesia:  { label: "Cortesía",   icono: "🎁", color: "text-text-secondary" },
+  efectivo:  { label: "Efectivo",   icono: "efectivo",  color: "text-green-400" },
+  tarjeta:   { label: "Tarjeta",    icono: "tarjeta",   color: "text-blue-400" },
+  cashless:  { label: "Cashless",   icono: "billetera", color: "text-accent" },
+  qr_mp:     { label: "QR / MP",    icono: "qrMp",      color: "text-purple-400" },
+  cortesia:  { label: "Cortesía",   icono: "cortesia",  color: "text-text-secondary" },
 };
 
 /**
@@ -329,7 +330,7 @@ export const METODO_PAGO_CONFIG: Record<string, MetodoPagoConfig> = {
  */
 export const METODO_PAGO_DEFAULT: MetodoPagoConfig = {
   label: "Otro",
-  icono: "❓",
+  icono: "alerta",
   color: "text-text-secondary",
 };
 

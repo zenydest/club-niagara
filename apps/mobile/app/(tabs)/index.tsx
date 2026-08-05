@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/lib/apiClient";
 import { EventoCard } from "@/components/EventoCard";
 import { ModalComprar } from "@/components/ModalComprar";
+import { Icono } from "@/components/Icono";
 import type { EventoPublico } from "@/lib/apiClient";
 
 export default function EventosScreen() {
@@ -68,7 +69,9 @@ export default function EventosScreen() {
 
         {!isLoading && eventos.length === 0 && !error && (
           <View className="items-center justify-center py-20">
-            <Text className="text-4xl mb-3">🎵</Text>
+            <View className="mb-3">
+              <Icono nombre="eventos" tamano={40} color="#8888AA" />
+            </View>
             <Text className="text-white font-semibold">Sin eventos por ahora</Text>
             <Text className="text-muted text-sm mt-1">Volvé pronto para novedades</Text>
           </View>

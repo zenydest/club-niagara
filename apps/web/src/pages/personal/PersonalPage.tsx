@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { cn } from "@niagara/ui";
+import { Icono } from "@/components/Icono";
 import {
   usePersonalStore,
   ROL_CONFIG,
@@ -58,7 +59,9 @@ export function PersonalPage() {
       {error && (
         <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-danger">{error}</p>
-          <button onClick={limpiarError} className="text-danger ml-4">✕</button>
+          <button onClick={limpiarError} className="text-danger ml-4" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={16} />
+          </button>
         </div>
       )}
 
@@ -73,7 +76,7 @@ export function PersonalPage() {
               tab === t ? "bg-accent text-black shadow" : "text-text-secondary hover:text-text-primary"
             )}
           >
-            {t === "staff" ? "👥 Staff" : "💰 Comisiones RRPP"}
+            {t === "staff" ? "Staff" : "Comisiones RRPP"}
           </button>
         ))}
       </div>
@@ -131,7 +134,7 @@ function BotonNuevoStaff() {
             <Campo label="Rol">
               <select value={rol} onChange={(e) => setRol(e.target.value as RolStaff)} className={inputCls}>
                 {(Object.entries(ROL_CONFIG) as [RolStaff, typeof ROL_CONFIG[RolStaff]][]).map(([k, v]) => (
-                  <option key={k} value={k}>{v.icono} {v.label}</option>
+                  <option key={k} value={k}>{v.label}</option>
                 ))}
               </select>
             </Campo>
@@ -194,7 +197,7 @@ function TabStaff({ esAdmin }: { esAdmin: boolean }) {
         return (
           <div key={rol} className="bg-surface rounded-2xl border border-border overflow-hidden">
             <div className="px-4 py-2 bg-surface-2/50 border-b border-border flex items-center gap-2">
-              <span>{cfg.icono}</span>
+              <Icono nombre={cfg.icono} tamano={14} />
               <span className={cn("text-xs font-semibold uppercase tracking-wide", cfg.color)}>{cfg.label}</span>
               <span className="text-xs text-text-secondary">({miembros.length})</span>
             </div>
@@ -236,7 +239,7 @@ function TarjetaStaff({ miembro, esMio, esAdmin }: {
         "w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0",
         "bg-surface-2 border border-border"
       )}>
-        {cfg.icono}
+        <Icono nombre={cfg.icono} tamano={16} />
       </div>
 
       {/* Info */}
@@ -328,7 +331,7 @@ function ModalEditarStaff({ miembro, onCerrar, esAdmin }: {
           <Campo label="Rol">
             <select value={rol} onChange={(e) => setRol(e.target.value as RolStaff)} className={inputCls}>
               {(Object.entries(ROL_CONFIG) as [RolStaff, typeof ROL_CONFIG[RolStaff]][]).map(([k, v]) => (
-                <option key={k} value={k}>{v.icono} {v.label}</option>
+                <option key={k} value={k}>{v.label}</option>
               ))}
             </select>
           </Campo>
@@ -377,7 +380,7 @@ function TabComisiones({ esAdmin }: { esAdmin: boolean }) {
 
       {comisiones.length === 0 ? (
         <div className="py-16 text-center text-text-secondary">
-          <span className="text-4xl block mb-3">🤝</span>
+          <Icono nombre="personal" tamano={40} className="mx-auto mb-3 text-text-muted" />
           <p>Sin comisiones registradas</p>
           <p className="text-sm mt-1">Calculá la comisión de un RRPP seleccionando el evento y el porcentaje.</p>
         </div>
@@ -428,7 +431,7 @@ function TarjetaComision({ comision: c, onPagar, procesando, esAdmin }: {
       <div className="flex-1">
         <div className="flex items-center gap-2 flex-wrap mb-1">
           <span className="font-semibold text-text-primary">
-            🤝 {c.staff.nombre} {c.staff.apellido}
+            {c.staff.nombre} {c.staff.apellido}
           </span>
           <span className={cn(
             "px-2 py-0.5 rounded text-[11px] font-medium",
@@ -453,7 +456,10 @@ function TarjetaComision({ comision: c, onPagar, procesando, esAdmin }: {
             disabled={procesando}
             className="px-4 py-2 bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl text-sm font-medium hover:bg-green-500/20 transition-colors disabled:opacity-60"
           >
-            ✓ Pagar
+            <span className="inline-flex items-center gap-1.5">
+              <Icono nombre="ok" tamano={14} />
+              Pagar
+            </span>
           </button>
         )}
       </div>
@@ -540,7 +546,9 @@ function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () =>
       <div className="relative bg-surface border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-text-primary">{titulo}</h2>
-          <button onClick={onCerrar} className="text-text-secondary text-xl">✕</button>
+          <button onClick={onCerrar} className="text-text-secondary" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={20} />
+          </button>
         </div>
         {children}
       </div>

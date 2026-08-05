@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/lib/apiClient";
 import { usePreventScreenCapture } from "expo-screen-capture";
 import { QREntradaRotativo } from "@/components/QREntradaRotativo";
+import { Icono } from "@/components/Icono";
 import type { EntradaConQR } from "@/lib/apiClient";
 
 const ESTADO_EVENTO: Record<string, string> = {
@@ -161,7 +162,9 @@ export default function EntradasScreen() {
 
         {!isLoading && entradas.length === 0 && !error && (
           <View className="items-center justify-center py-20">
-            <Text className="text-4xl mb-3">🎟️</Text>
+            <View className="mb-3">
+              <Icono nombre="entrada" tamano={40} color="#8888AA" />
+            </View>
             <Text className="text-white font-semibold">Sin entradas</Text>
             <Text className="text-muted text-sm mt-1 text-center px-4">
               Comprá entradas en la boletería del evento

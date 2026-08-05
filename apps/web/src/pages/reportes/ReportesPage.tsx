@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "@niagara/ui";
+import { Icono, type NombreIcono } from "@/components/Icono";
 import {
   useReportesStore,
   METODO_PAGO_CONFIG,
@@ -78,7 +79,7 @@ export function ReportesPage() {
             onChange={(e) => setFiltros({ fechaDesde: new Date(e.target.value).toISOString() })}
             className={inputCls}
           />
-          <span className="text-text-secondary text-sm">→</span>
+          <Icono nombre="avanzar" tamano={14} className="text-text-secondary" />
           <input
             type="datetime-local"
             value={filtros.fechaHasta.slice(0, 16)}
@@ -98,7 +99,9 @@ export function ReportesPage() {
       {error && (
         <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-danger">{error}</p>
-          <button onClick={limpiarError} className="text-danger ml-4">✕</button>
+          <button onClick={limpiarError} className="text-danger ml-4" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={16} />
+          </button>
         </div>
       )}
 
@@ -113,7 +116,7 @@ export function ReportesPage() {
               tab === t ? "bg-accent text-black shadow" : "text-text-secondary hover:text-text-primary"
             )}
           >
-            {{ resumen: "📊 Resumen", productos: "🏆 Productos", ventas: "🧾 Ventas", corte: "💰 Corte de caja" }[t]}
+            {{ resumen: "Resumen", productos: "Productos", ventas: "Ventas", corte: "Corte de caja" }[t]}
           </button>
         ))}
       </div>
@@ -185,34 +188,34 @@ function TabResumen() {
           titulo="Ingresos brutos"
           valor={formatPeso(ingresosBrutos)}
           subtitulo="ventas + entradas"
-          icono="💰"
+          icono="reportes"
           destacado
         />
         <KPICard
           titulo="Ventas caja"
           valor={formatPeso(ventas.total)}
           subtitulo={`${ventas.cantidad} transacciones`}
-          icono="🛒"
+          icono="caja"
         />
         <KPICard
           titulo="Entradas"
           valor={formatPeso(entradas.total)}
           subtitulo={`${entradas.cantidad} vendidas · ${entradas.usadas} usadas`}
-          icono="🎟️"
+          icono="entrada"
         />
         <KPICard
           titulo="Recargas cashless"
           valor={formatPeso(recargas.total)}
           subtitulo={`${recargas.cantidad} recargas`}
-          icono="🪙"
+          icono="billetera"
         />
       </div>
 
       {/* Aforo */}
       <div className="grid grid-cols-3 gap-4">
-        <KPICard titulo="Ingresos" valor={String(accesos.ingresos)} icono="➡️" />
-        <KPICard titulo="Egresos"  valor={String(accesos.egresos)}  icono="⬅️" />
-        <KPICard titulo="En local" valor={String(accesos.aforoActual)} icono="👥" destacado={accesos.aforoActual > 0} />
+        <KPICard titulo="Ingresos" valor={String(accesos.ingresos)} icono="ingreso" />
+        <KPICard titulo="Egresos"  valor={String(accesos.egresos)}  icono="egreso" />
+        <KPICard titulo="En local" valor={String(accesos.aforoActual)} icono="aforo" destacado={accesos.aforoActual > 0} />
       </div>
 
       {/* Desglose por método de pago */}
@@ -224,7 +227,7 @@ function TabResumen() {
             const porcentaje = ventas.total > 0 ? (datos.monto / ventas.total) * 100 : 0;
             return (
               <div key={metodo} className="flex items-center gap-3">
-                <span className="text-lg w-6">{cfg.icono}</span>
+                <Icono nombre={cfg.icono} tamano={18} className={cn("w-6", cfg.color)} />
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-text-primary font-medium">{cfg.label}</span>
@@ -265,7 +268,7 @@ function KPICard({
   titulo: string;
   valor: string;
   subtitulo?: string;
-  icono: string;
+  icono: NombreIcono;
   destacado?: boolean;
 }) {
   return (
@@ -275,7 +278,11 @@ function KPICard({
     )}>
       <div className="flex items-center justify-between">
         <span className="text-xs text-text-secondary font-medium">{titulo}</span>
-        <span className="text-lg">{icono}</span>
+        <Icono
+          nombre={icono}
+          tamano={18}
+          className={destacado ? "text-accent" : "text-text-muted"}
+        />
       </div>
       <p className={cn("text-2xl font-bold", destacado ? "text-accent" : "text-text-primary")}>
         {valor}
@@ -442,9 +449,10 @@ function TabVentas() {
               <button
                 disabled={ventasPagina === 1}
                 onClick={() => void cargarVentas(ventasPagina - 1)}
-                className="px-4 py-2 rounded-xl text-sm border border-border text-text-secondary hover:border-accent disabled:opacity-40"
+                className="px-4 py-2 rounded-xl text-sm border border-border text-text-secondary hover:border-accent disabled:opacity-40 inline-flex items-center gap-1.5"
               >
-                ← Anterior
+                <Icono nombre="volver" tamano={14} />
+                Anterior
               </button>
               <span className="px-4 py-2 text-sm text-text-secondary">
                 Pág. {ventasPagina} de {Math.ceil(ventasTotal / 50)}
@@ -452,9 +460,10 @@ function TabVentas() {
               <button
                 disabled={ventasPagina >= Math.ceil(ventasTotal / 50)}
                 onClick={() => void cargarVentas(ventasPagina + 1)}
-                className="px-4 py-2 rounded-xl text-sm border border-border text-text-secondary hover:border-accent disabled:opacity-40"
+                className="px-4 py-2 rounded-xl text-sm border border-border text-text-secondary hover:border-accent disabled:opacity-40 inline-flex items-center gap-1.5"
               >
-                Siguiente →
+                Siguiente
+                <Icono nombre="avanzar" tamano={14} />
               </button>
             </div>
           )}
@@ -479,7 +488,7 @@ function TarjetaVenta({ venta, expandida, onToggle }: {
         className="flex items-center gap-3 p-4 cursor-pointer hover:bg-surface-2/30 transition-colors"
         onClick={onToggle}
       >
-        <span className="text-lg">{cfg?.icono ?? "💳"}</span>
+        <Icono nombre={cfg.icono} tamano={18} className={cfg.color} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-text-primary">
             {venta.barra?.nombre ?? "Sin barra"} · {venta.staff.nombre} {venta.staff.apellido}
@@ -509,7 +518,7 @@ function TarjetaVenta({ venta, expandida, onToggle }: {
             ))}
           </div>
           {venta.nota && (
-            <p className="text-xs text-text-secondary mt-2 italic">📝 {venta.nota}</p>
+            <p className="text-xs text-text-secondary mt-2 italic">{venta.nota}</p>
           )}
         </div>
       )}
@@ -547,15 +556,15 @@ function TabCorte() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div>
               <p className="text-lg font-bold text-text-primary">{formatPeso(resumen.ventas.porMetodo.efectivo.monto)}</p>
-              <p className="text-xs text-text-secondary">💵 Efectivo esperado</p>
+              <p className="text-xs text-text-secondary">Efectivo esperado</p>
             </div>
             <div>
               <p className="text-lg font-bold text-text-primary">{formatPeso(resumen.ventas.porMetodo.tarjeta.monto)}</p>
-              <p className="text-xs text-text-secondary">💳 Tarjeta</p>
+              <p className="text-xs text-text-secondary">Tarjeta</p>
             </div>
             <div>
               <p className="text-lg font-bold text-text-primary">{formatPeso(resumen.ventas.porMetodo.cashless.monto)}</p>
-              <p className="text-xs text-text-secondary">🪙 Cashless</p>
+              <p className="text-xs text-text-secondary">Cashless</p>
             </div>
             <div>
               <p className="text-lg font-bold text-accent">{formatPeso(resumen.ventas.total)}</p>
@@ -702,24 +711,24 @@ function TarjetaCorte({ corte, onCerrar, procesando }: {
               </div>
             )}
             <div>
-              <p className="text-xs text-text-secondary">💳 Tarjeta</p>
+              <p className="text-xs text-text-secondary">Tarjeta</p>
               <p className="font-semibold text-text-primary">{formatPeso(corte.ventasTarjeta)}</p>
             </div>
             <div>
-              <p className="text-xs text-text-secondary">🪙 Cashless</p>
+              <p className="text-xs text-text-secondary">Cashless</p>
               <p className="font-semibold text-text-primary">{formatPeso(corte.ventasCashless)}</p>
             </div>
             <div>
-              <p className="text-xs text-text-secondary">📱 QR/MP</p>
+              <p className="text-xs text-text-secondary">QR/MP</p>
               <p className="font-semibold text-text-primary">{formatPeso(corte.ventasQr)}</p>
             </div>
             <div>
-              <p className="text-xs text-text-secondary">🎁 Cortesía</p>
+              <p className="text-xs text-text-secondary">Cortesía</p>
               <p className="font-semibold text-text-primary">{formatPeso(corte.ventasCortesia)}</p>
             </div>
           </div>
           {corte.nota && (
-            <p className="text-xs text-text-secondary mt-3 italic">📝 {corte.nota}</p>
+            <p className="text-xs text-text-secondary mt-3 italic">{corte.nota}</p>
           )}
         </div>
       )}
@@ -746,7 +755,7 @@ function ModalNuevoCorte({ resumen, onCrear, onCancelar }: {
           <p className="text-text-secondary mb-2 text-xs font-medium">Se calculará automáticamente:</p>
           <div className="flex flex-col gap-1">
             <div className="flex justify-between">
-              <span className="text-text-secondary">💵 Efectivo esperado</span>
+              <span className="text-text-secondary">Efectivo esperado</span>
               <span className="font-semibold text-text-primary">{formatPeso(resumen.ventas.porMetodo.efectivo.monto)}</span>
             </div>
             <div className="flex justify-between">
@@ -865,7 +874,13 @@ function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () =>
       <div className="relative bg-surface border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-text-primary">{titulo}</h2>
-          <button onClick={onCerrar} className="text-text-secondary hover:text-text-primary text-xl leading-none">✕</button>
+          <button
+            onClick={onCerrar}
+            className="text-text-secondary hover:text-text-primary"
+            aria-label="Cerrar"
+          >
+            <Icono nombre="cerrar" tamano={20} />
+          </button>
         </div>
         {children}
       </div>
@@ -876,7 +891,7 @@ function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () =>
 function EstadoVacio({ mensaje }: { mensaje: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-secondary">
-      <span className="text-4xl">📊</span>
+      <Icono nombre="reportes" tamano={40} className="text-text-muted" />
       <p className="text-sm">{mensaje}</p>
     </div>
   );

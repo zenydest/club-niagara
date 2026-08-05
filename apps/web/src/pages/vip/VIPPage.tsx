@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@niagara/ui";
+import { Icono } from "@/components/Icono";
 import {
   useVipStore,
   ESTADO_MESA_CONFIG,
@@ -55,7 +56,9 @@ export function VIPPage() {
       {(error ?? errorOperacion) && (
         <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-danger">{error ?? errorOperacion}</p>
-          <button onClick={limpiarError} className="text-danger hover:opacity-70 ml-4">✕</button>
+          <button onClick={limpiarError} className="text-danger hover:opacity-70 ml-4" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={16} />
+          </button>
         </div>
       )}
 
@@ -72,7 +75,7 @@ export function VIPPage() {
                 : "text-text-secondary hover:text-text-primary"
             )}
           >
-            {t === "mapa" ? "🗺️ Mapa de mesas" : "📋 Reservas"}
+            {t === "mapa" ? "Mapa de mesas" : "Reservas"}
           </button>
         ))}
       </div>
@@ -227,7 +230,7 @@ function MapaMesas({ mesas, cargando }: MapaMesasProps) {
   if (mesas.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4 text-text-secondary">
-        <span className="text-5xl">🪑</span>
+        <Icono nombre="reservas" tamano={52} className="text-text-muted" />
         <p className="text-lg font-medium">No hay mesas creadas</p>
         <p className="text-sm">Hacé click en "Nueva mesa" para empezar.</p>
       </div>
@@ -300,7 +303,10 @@ function MapaMesas({ mesas, cargando }: MapaMesasProps) {
                     {mesa.sector}
                   </span>
                 )}
-                <span className="text-[10px] text-text-secondary mt-1">👥 {mesa.capacidad}</span>
+                <span className="text-[10px] text-text-secondary mt-1 flex items-center gap-1">
+                  <Icono nombre="aforo" tamano={10} />
+                  {mesa.capacidad}
+                </span>
                 {mesa.reservaActiva && (
                   <div className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-yellow-400 rounded-full border-2 border-background" />
                 )}
@@ -345,7 +351,9 @@ function PanelMesa({ mesa, onCerrar }: { mesa: MesaVip; onCerrar: () => void }) 
           <h3 className="text-lg font-bold text-text-primary">Mesa {mesaActual.numero}</h3>
           {mesaActual.sector && <p className="text-xs text-text-secondary">{mesaActual.sector}</p>}
         </div>
-        <button onClick={onCerrar} className="text-text-secondary hover:text-text-primary text-lg leading-none">✕</button>
+        <button onClick={onCerrar} className="text-text-secondary hover:text-text-primary" aria-label="Cerrar">
+          <Icono nombre="cerrar" tamano={18} />
+        </button>
       </div>
 
       {/* Chips de info */}
@@ -354,7 +362,7 @@ function PanelMesa({ mesa, onCerrar }: { mesa: MesaVip; onCerrar: () => void }) 
           {cfg.label}
         </span>
         <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-2 border border-border text-text-secondary">
-          👥 {mesaActual.capacidad} personas
+          {mesaActual.capacidad} personas
         </span>
       </div>
 
@@ -664,7 +672,7 @@ function TarjetaReserva({ reserva, onCambiarEstado, onEliminar, procesando }: Ta
           </div>
           <p className="text-xs text-text-secondary mt-0.5">
             {reserva.cantidadPersonas} personas · {fecha}
-            {reserva.clienteTelefono && ` · 📞 ${reserva.clienteTelefono}`}
+            {reserva.clienteTelefono && ` · ${reserva.clienteTelefono}`}
           </p>
         </div>
 
@@ -683,7 +691,7 @@ function TarjetaReserva({ reserva, onCambiarEstado, onEliminar, procesando }: Ta
       {expandida && (
         <div className="border-t border-border px-4 py-3 flex flex-col gap-3">
           {reserva.nota && (
-            <p className="text-sm text-text-secondary italic">📝 {reserva.nota}</p>
+            <p className="text-sm text-text-secondary italic">{reserva.nota}</p>
           )}
           {reserva.evento && (
             <p className="text-xs text-text-secondary">Evento: <span className="text-text-primary">{reserva.evento.nombre}</span></p>
@@ -820,7 +828,9 @@ function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () =>
       <div className="relative bg-surface border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-text-primary">{titulo}</h2>
-          <button onClick={onCerrar} className="text-text-secondary hover:text-text-primary text-xl leading-none">✕</button>
+          <button onClick={onCerrar} className="text-text-secondary hover:text-text-primary" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={20} />
+          </button>
         </div>
         {children}
       </div>

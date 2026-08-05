@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { cn } from "@niagara/ui";
+import { Icono } from "@/components/Icono";
 import {
   useStockStore,
   TIPO_MOVIMIENTO_CONFIG,
@@ -57,7 +58,8 @@ export function StockPage() {
               onClick={() => setTab("alertas")}
               className="flex items-center gap-2 px-3 py-1.5 bg-danger/10 border border-danger/30 rounded-xl text-xs font-medium text-danger hover:bg-danger/20 transition-colors"
             >
-              ⚠️ {alertas.length} bajo mínimo
+              <Icono nombre="alerta" tamano={14} className="inline mr-1 -mt-0.5" />
+              {alertas.length} bajo mínimo
             </button>
           )}
           <BotonNuevoDeposito />
@@ -67,7 +69,9 @@ export function StockPage() {
       {error && (
         <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-danger">{error}</p>
-          <button onClick={limpiarError} className="text-danger ml-4">✕</button>
+          <button onClick={limpiarError} className="text-danger ml-4" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={16} />
+          </button>
         </div>
       )}
 
@@ -97,7 +101,9 @@ export function StockPage() {
               )}
             >
               {d.nombre}
-              {d.esPrincipal && <span className="ml-1 text-[10px] opacity-70">★</span>}
+              {d.esPrincipal && (
+                <Icono nombre="principal" tamano={11} className="inline ml-1 opacity-70" />
+              )}
             </button>
           ))}
         </div>
@@ -114,7 +120,7 @@ export function StockPage() {
               tab === t ? "bg-accent text-black shadow" : "text-text-secondary hover:text-text-primary"
             )}
           >
-            {{ inventario: "📦 Inventario", movimientos: "📋 Movimientos", alertas: "⚠️ Alertas" }[t]}
+            {{ inventario: "Inventario", movimientos: "Movimientos", alertas: "Alertas" }[t]}
             {t === "alertas" && alertas.length > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-danger text-white text-[10px] rounded-full flex items-center justify-center font-bold">
                 {alertas.length}
@@ -196,7 +202,7 @@ function TabInventario({ cargando }: { cargando: boolean }) {
   if (productos.length === 0) {
     return (
       <div className="py-16 text-center text-text-secondary">
-        <span className="text-4xl block mb-3">📦</span>
+        <Icono nombre="stock" tamano={40} className="mx-auto mb-3 text-text-muted" />
         <p>No hay productos con movimientos de stock registrados.</p>
         <p className="text-sm mt-1">Cargá productos desde la sección de Caja y luego registrá un ingreso aquí.</p>
       </div>
@@ -282,7 +288,8 @@ function FilaProducto({ producto: p, onMovimiento, onEditarMinimo }: {
         <div className="flex items-center gap-4">
           {p.bajoMinimo && (
             <span className="text-xs bg-danger/10 text-danger border border-danger/20 px-2 py-0.5 rounded-lg">
-              ⚠️ Bajo mínimo
+              <Icono nombre="alerta" tamano={12} className="inline mr-1 -mt-0.5" />
+              Bajo mínimo
             </span>
           )}
           <div className="text-right">
@@ -317,7 +324,9 @@ function FilaProducto({ producto: p, onMovimiento, onEditarMinimo }: {
               <div key={d.depositoId} className="flex items-center justify-between text-sm">
                 <span className="text-text-secondary">
                   {d.depositoNombre}
-                  {d.esPrincipal && <span className="ml-1 text-[10px] text-accent">★</span>}
+                  {d.esPrincipal && (
+                    <Icono nombre="principal" tamano={11} className="inline ml-1 text-accent" />
+                  )}
                 </span>
                 <span className={cn("font-semibold tabular-nums", d.stock <= 0 ? "text-danger" : "text-text-primary")}>
                   {d.stock}
@@ -367,7 +376,7 @@ function ModalMovimiento({ producto, onCerrar }: { producto: ProductoStock; onCe
           <label className="text-xs font-medium text-text-secondary">Depósito *</label>
           <select value={depositoId} onChange={(e) => setDepositoId(e.target.value)} className={inputCls} required>
             {depositos.map((d) => (
-              <option key={d.id} value={d.id}>{d.nombre}{d.esPrincipal ? " ★" : ""}</option>
+              <option key={d.id} value={d.id}>{d.nombre}{d.esPrincipal ? " (principal)" : ""}</option>
             ))}
           </select>
         </div>
@@ -387,7 +396,10 @@ function ModalMovimiento({ producto, onCerrar }: { producto: ProductoStock; onCe
                     tipo === t ? cn(c.color, "bg-current/10 border-current/30") : "text-text-secondary border-border"
                   )}
                 >
-                  {c.icono} {c.label}
+                  <span className="inline-flex items-center gap-1.5 justify-center">
+                    <Icono nombre={c.icono} tamano={15} />
+                    {c.label}
+                  </span>
                 </button>
               );
             })}
@@ -504,7 +516,7 @@ function TabMovimientos() {
 
       {movimientos.length === 0 ? (
         <div className="py-16 text-center text-text-secondary">
-          <span className="text-4xl block mb-3">📋</span>
+          <Icono nombre="actividad" tamano={40} className="mx-auto mb-3 text-text-muted" />
           <p>Sin movimientos registrados</p>
         </div>
       ) : (
@@ -525,7 +537,7 @@ function FilaMovimiento({ movimiento: m }: { movimiento: StockMovimiento }) {
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 hover:bg-surface-2/30 transition-colors">
-      <span className="text-lg">{cfg.icono}</span>
+      <Icono nombre={cfg.icono} tamano={18} className={cfg.color} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-text-primary">{m.producto.nombre}</p>
         <p className="text-xs text-text-secondary">
@@ -553,7 +565,7 @@ function TabAlertas() {
   if (alertas.length === 0) {
     return (
       <div className="py-16 text-center text-text-secondary">
-        <span className="text-4xl block mb-3">✅</span>
+        <Icono nombre="ok" tamano={40} className="mx-auto mb-3 text-success" />
         <p>Sin alertas — todos los productos están sobre su mínimo</p>
       </div>
     );
@@ -589,7 +601,9 @@ function Modal({ titulo, onCerrar, children }: { titulo: string; onCerrar: () =>
       <div className="relative bg-surface border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-text-primary">{titulo}</h2>
-          <button onClick={onCerrar} className="text-text-secondary text-xl">✕</button>
+          <button onClick={onCerrar} className="text-text-secondary" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={20} />
+          </button>
         </div>
         {children}
       </div>

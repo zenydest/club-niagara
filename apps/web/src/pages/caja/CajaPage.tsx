@@ -14,18 +14,19 @@ import { useCajaStore } from "@/stores/cajaStore";
 import { useCashlessStore } from "@/stores/cashlessStore";
 import type { MetodoPago, Producto } from "@niagara/core";
 import { useAuthStore } from "@/stores/authStore";
+import { Icono, type NombreIcono } from "@/components/Icono";
 
 // ── Helpers ─────────────────────────────────────────────────────
 
 const ARS = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
-const METODOS: { id: MetodoPago; label: string; icono: string }[] = [
-  { id: "efectivo", label: "Efectivo", icono: "💵" },
-  { id: "tarjeta", label: "Tarjeta", icono: "💳" },
-  { id: "qr_mp", label: "QR / MP", icono: "📱" },
-  { id: "cashless", label: "Cashless", icono: "🪙" },
-  { id: "cortesia", label: "Cortesía", icono: "🎁" },
+const METODOS: { id: MetodoPago; label: string; icono: NombreIcono }[] = [
+  { id: "efectivo", label: "Efectivo", icono: "efectivo" },
+  { id: "tarjeta", label: "Tarjeta", icono: "tarjeta" },
+  { id: "qr_mp", label: "QR / MP", icono: "qrMp" },
+  { id: "cashless", label: "Cashless", icono: "fichas" },
+  { id: "cortesia", label: "Cortesía", icono: "cortesia" },
 ];
 
 // ── Sub-componente: Badge de estado ─────────────────────────────
@@ -114,8 +115,8 @@ function TarjetaProducto({ producto }: { producto: Producto }) {
       )}
     >
       {/* Ícono categoría */}
-      <div className="w-10 h-10 rounded-lg bg-surface-2 flex items-center justify-center text-lg flex-shrink-0">
-        {getCategoriaIcon(producto.categoria)}
+      <div className="w-10 h-10 rounded-lg bg-surface-2 flex items-center justify-center text-text-secondary flex-shrink-0">
+        <Icono nombre={getCategoriaIcon(producto.categoria)} tamano={20} />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -132,18 +133,24 @@ function TarjetaProducto({ producto }: { producto: Producto }) {
   );
 }
 
-function getCategoriaIcon(cat: string): string {
-  const mapa: Record<string, string> = {
-    Cerveza: "🍺",
-    Tragos: "🍹",
-    Destilados: "🥃",
-    Espumantes: "🥂",
-    "Sin Alcohol": "🧃",
-    Vinos: "🍷",
-    Shots: "🥃",
-    Snacks: "🍟",
+/**
+ * La categoría llega como texto libre desde la carta, así que normalizamos
+ * antes de buscar: el encargado puede escribir "cervezas" o "Cerveza".
+ */
+function getCategoriaIcon(cat: string): NombreIcono {
+  // Claves en singular: abajo se le saca la "s" final a lo que venga.
+  const mapa: Record<string, NombreIcono> = {
+    cerveza: "cerveza",
+    trago: "trago",
+    destilado: "destilado",
+    espumante: "espumante",
+    "sin alcohol": "sinAlcohol",
+    vino: "vino",
+    shot: "destilado",
+    snack: "snack",
   };
-  return mapa[cat] ?? "🛒";
+  const clave = cat.trim().toLowerCase().replace(/s$/, "");
+  return mapa[clave] ?? "carrito";
 }
 
 // ── Sub-componente: Item del carrito ────────────────────────────
@@ -187,10 +194,11 @@ function ItemCarritoRow({
 
       <button
         onClick={() => quitarProducto(item.producto.id)}
-        className="w-7 h-7 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors text-xs"
+        className="w-7 h-7 rounded-lg text-text-secondary hover:text-danger hover:bg-danger/10 transition-colors flex items-center justify-center"
         title="Quitar"
+        aria-label="Quitar del carrito"
       >
-        ✕
+        <Icono nombre="cerrar" tamano={14} />
       </button>
     </div>
   );
@@ -276,9 +284,10 @@ function ModalPago({
           </div>
           <button
             onClick={onCerrar}
-            className="w-9 h-9 rounded-xl bg-surface-2 text-text-secondary hover:text-text-primary transition-colors"
+            className="w-9 h-9 rounded-xl bg-surface-2 text-text-secondary hover:text-text-primary transition-colors flex items-center justify-center"
+            aria-label="Cerrar"
           >
-            ✕
+            <Icono nombre="cerrar" tamano={18} />
           </button>
         </div>
 
@@ -300,7 +309,7 @@ function ModalPago({
                       : "border-border bg-surface-2 text-text-secondary hover:border-lime/40"
                   )}
                 >
-                  <span className="text-xl">{m.icono}</span>
+                  <Icono nombre={m.icono} tamano={20} />
                   <span className="text-[10px] font-medium leading-tight text-center">
                     {m.label}
                   </span>
@@ -365,7 +374,7 @@ function ModalPago({
 
           {metodoPago === "tarjeta" && (
             <div className="p-4 rounded-xl bg-surface-2 border border-border text-center space-y-1">
-              <p className="text-2xl">💳</p>
+              <Icono nombre="tarjeta" tamano={26} className="mx-auto text-text-secondary" />
               <p className="text-sm font-medium text-text-primary">
                 Pasá la tarjeta en el posnet
               </p>
@@ -377,7 +386,7 @@ function ModalPago({
 
           {metodoPago === "qr_mp" && (
             <div className="p-4 rounded-xl bg-surface-2 border border-border text-center space-y-2">
-              <p className="text-2xl">📱</p>
+              <Icono nombre="qrMp" tamano={26} className="mx-auto text-text-secondary" />
               <p className="text-sm font-medium text-text-primary">
                 QR de Mercado Pago
               </p>
@@ -456,7 +465,7 @@ function ModalPago({
 
           {metodoPago === "cortesia" && (
             <div className="p-4 rounded-xl bg-surface-2 border border-yellow-500/30 text-center space-y-1">
-              <p className="text-2xl">🎁</p>
+              <Icono nombre="cortesia" tamano={26} className="mx-auto text-yellow-400" />
               <p className="text-sm font-medium text-yellow-400">
                 Cortesía — sin cobro
               </p>
@@ -472,12 +481,23 @@ function ModalPago({
             disabled={!puedeConfirmar || procesando}
             className={cn(
               "w-full py-4 rounded-xl font-bold text-lg transition-all",
+              "flex items-center justify-center gap-2",
               puedeConfirmar && !procesando
                 ? "bg-lime text-background hover:brightness-110 active:scale-[0.98]"
                 : "bg-surface-2 text-text-secondary cursor-not-allowed border border-border"
             )}
           >
-            {procesando ? "Procesando…" : "✓ Confirmar cobro"}
+            {procesando ? (
+              <>
+                <Icono nombre="cargando" tamano={20} girando />
+                Procesando…
+              </>
+            ) : (
+              <>
+                <Icono nombre="ok" tamano={20} />
+                Confirmar cobro
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -511,7 +531,7 @@ function ToastExito({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
       <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-green-500/20 border border-green-500/40 backdrop-blur-sm shadow-xl">
-        <span className="text-2xl">✅</span>
+        <Icono nombre="ok" tamano={24} className="text-green-400" />
         <div>
           <p className="text-sm font-bold text-green-400">Venta registrada</p>
           <p className="text-xs text-text-secondary">Carrito limpio para la siguiente venta</p>
@@ -578,7 +598,7 @@ export function CajaPage() {
   if (staff && !rolesPermitidos.includes(staff.rol)) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <span className="text-4xl">🔒</span>
+        <Icono nombre="cerrarCaja" tamano={40} className="text-text-muted" />
         <p className="text-text-secondary">No tenés acceso a la caja</p>
       </div>
     );
@@ -603,7 +623,9 @@ export function CajaPage() {
           {/* Búsqueda */}
           <div className="px-4 py-3 border-b border-border">
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm">🔍</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">
+                <Icono nombre="buscar" tamano={16} />
+              </span>
               <input
                 ref={busquedaRef}
                 type="text"
@@ -619,9 +641,10 @@ export function CajaPage() {
               {busqueda && (
                 <button
                   onClick={() => { setBusqueda(""); busquedaRef.current?.focus(); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors text-sm"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
+                  aria-label="Limpiar búsqueda"
                 >
-                  ✕
+                  <Icono nombre="cerrar" tamano={14} />
                 </button>
               )}
             </div>
@@ -636,7 +659,7 @@ export function CajaPage() {
               </div>
             ) : productosFiltrados.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-text-secondary">
-                <span className="text-3xl">🔍</span>
+                <Icono nombre="buscar" tamano={30} className="text-text-muted" />
                 <p className="text-sm">
                   {busqueda ? `Sin resultados para "${busqueda}"` : "Sin productos disponibles"}
                 </p>
@@ -683,7 +706,7 @@ export function CajaPage() {
           <div className="flex-1 overflow-y-auto px-4 py-2">
             {carrito.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-text-secondary py-8">
-                <span className="text-4xl opacity-30">🛒</span>
+                <Icono nombre="carrito" tamano={40} className="opacity-30" />
                 <p className="text-sm text-center">
                   Tocá un producto para agregarlo
                 </p>

@@ -1,6 +1,7 @@
 import React from "react";
 import { cn } from "@niagara/ui";
 import { useCobroPointStore } from "@/stores/cobroPointStore";
+import { Icono } from "@/components/Icono";
 
 interface ModalCobroPointProps {
   monto: number;
@@ -67,14 +68,14 @@ export function ModalCobroPoint({ monto, onCerrar }: ModalCobroPointProps) {
 
         {estado === "pagado" && (
           <div className="flex flex-col items-center gap-2">
-            <span className="text-5xl">✓</span>
+            <Icono nombre="ok" tamano={52} className="text-success" />
             <p className="text-lg font-bold text-success">Pago aprobado</p>
           </div>
         )}
 
         {(estado === "rechazado" || estado === "error") && (
           <div className="flex flex-col items-center gap-2">
-            <span className="text-5xl">⚠</span>
+            <Icono nombre="alerta" tamano={52} className="text-danger" />
             <p className="text-lg font-bold text-danger">No se pudo cobrar</p>
             {error && (
               <p className="text-xs text-text-secondary text-center max-w-xs">{error}</p>
@@ -84,7 +85,7 @@ export function ModalCobroPoint({ monto, onCerrar }: ModalCobroPointProps) {
 
         {estado === "cancelado" && (
           <div className="flex flex-col items-center gap-2">
-            <span className="text-5xl">✕</span>
+            <Icono nombre="cerrar" tamano={52} className="text-text-secondary" />
             <p className="text-lg font-bold text-text-secondary">Cobro cancelado</p>
           </div>
         )}

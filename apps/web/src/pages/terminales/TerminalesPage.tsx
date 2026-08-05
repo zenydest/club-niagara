@@ -16,6 +16,7 @@ import {
   type ModoOperacion,
 } from "@/stores/terminalesStore";
 import { useAuthStore } from "@/stores/authStore";
+import { Icono } from "@/components/Icono";
 
 const MODO_CONFIG: Record<ModoOperacion, { label: string; clase: string; ayuda: string }> = {
   PDV: {
@@ -132,7 +133,7 @@ export function TerminalesPage() {
         </div>
       ) : terminales.length === 0 ? (
         <div className="bg-surface border border-border rounded-2xl p-8 text-center">
-          <span className="text-4xl block mb-3">💳</span>
+          <Icono nombre="terminales" tamano={40} className="mx-auto mb-3 text-text-muted" />
           <p className="text-text-primary font-semibold">No hay terminales cargadas</p>
           <p className="text-sm text-text-secondary mt-2 max-w-md mx-auto">
             Primero vinculá cada terminal a la cuenta de Mercado Pago desde la app
@@ -204,7 +205,7 @@ function Mensaje({
     >
       <p>{texto}</p>
       <button onClick={onCerrar} className="hover:opacity-70 flex-shrink-0">
-        ✕
+        <Icono nombre="cerrar" tamano={16} />
       </button>
     </div>
   );

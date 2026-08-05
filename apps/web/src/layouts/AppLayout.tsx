@@ -14,6 +14,7 @@ import { StockPage } from "@/pages/stock/StockPage";
 import { PersonalPage } from "@/pages/personal/PersonalPage";
 import { TerminalesPage } from "@/pages/terminales/TerminalesPage";
 import { ROL_LABELS } from "@niagara/core";
+import { Icono } from "@/components/Icono";
 
 type Pagina =
   | "dashboard"
@@ -66,7 +67,7 @@ export function AppLayout() {
         return (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
             <div className="w-16 h-16 rounded-2xl bg-surface-2 flex items-center justify-center">
-              <span className="text-2xl">🚧</span>
+              <Icono nombre="alerta" tamano={26} className="text-text-muted" />
             </div>
             <p className="text-text-secondary">Módulo en construcción</p>
           </div>

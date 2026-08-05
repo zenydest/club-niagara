@@ -20,7 +20,7 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { prisma } from "@niagara/db";
+import { prisma, Prisma } from "@niagara/db";
 
 // ── Stock actual por (productoId, depositoId) ─────────────────────
 // ingreso → +cantidad | egreso_* → -cantidad | ajuste → +cantidad (firmado) | transferencia → ignorado
@@ -74,6 +74,16 @@ export const registrarRutasStock: FastifyPluginAsync = async (app) => {
     const { localId } = req;
     const { depositoId } = req.query as { depositoId?: string };
 
+    // Filtro opcional por depósito.
+    //
+    // Va con `Prisma.sql` / `Prisma.empty` y no con `prisma.$queryRaw`:
+    // `$queryRaw` devuelve una Promise, no un fragmento SQL. Interpolarla en el
+    // template la convertía en "[object Promise]" y Postgres recibía SQL
+    // inválido, así que este endpoint devolvía 500 siempre, con o sin depósito.
+    const filtroDeposito = depositoId
+      ? Prisma.sql`AND deposito_id::text = ${depositoId}`
+      : Prisma.empty;
+
     // Calcular stock actual
     const stockRows = await prisma.$queryRaw<
       { producto_id: string; deposito_id: string; stock: number }[]
@@ -92,7 +102,7 @@ export const registrarRutasStock: FastifyPluginAsync = async (app) => {
         )::float AS stock
       FROM stock_movimientos
       WHERE local_id = ${localId}
-      ${depositoId ? prisma.$queryRaw`AND deposito_id::text = ${depositoId}` : prisma.$queryRaw``}
+      ${filtroDeposito}
       GROUP BY producto_id, deposito_id
     `;
 

@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { cn } from "@niagara/ui";
+import { Icono } from "@/components/Icono";
 import { useGuardarropaStore, type TicketGuardarropa } from "@/stores/guardarropaStore";
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -100,7 +101,9 @@ export function GuardarropaPage() {
       {error && (
         <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-danger">{error}</p>
-          <button onClick={limpiarError} className="text-danger ml-4">✕</button>
+          <button onClick={limpiarError} className="text-danger ml-4" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={16} />
+          </button>
         </div>
       )}
 
@@ -123,7 +126,7 @@ export function GuardarropaPage() {
                 tab === t ? "bg-accent text-black shadow" : "text-text-secondary hover:text-text-primary"
               )}
             >
-              {t === "activos" ? `🧥 Sin entregar (${tickets.filter(x => !x.entregado).length})` : `✅ Entregados (${tickets.filter(x => x.entregado).length})`}
+              {t === "activos" ? `Sin entregar (${tickets.filter(x => !x.entregado).length})` : `Entregados (${tickets.filter(x => x.entregado).length})`}
             </button>
           ))}
         </div>
@@ -140,7 +143,7 @@ export function GuardarropaPage() {
         <Skeleton />
       ) : filtrados.length === 0 ? (
         <div className="py-16 text-center text-text-secondary">
-          <span className="text-4xl block mb-3">🧥</span>
+          <Icono nombre="guardarropa" tamano={40} className="mx-auto mb-3 text-text-muted" />
           {tab === "activos" ? "No hay prendas sin entregar" : "No hay prendas entregadas"}
         </div>
       ) : (
@@ -201,7 +204,10 @@ function BusquedaEntrega({ tickets, onEntregar, procesando }: {
 
   return (
     <div className="bg-surface rounded-2xl border border-border p-5">
-      <p className="text-sm font-semibold text-text-secondary mb-3">🔍 Entrega rápida por número</p>
+      <p className="text-sm font-semibold text-text-secondary mb-3 flex items-center gap-2">
+        <Icono nombre="buscar" tamano={15} />
+        Entrega rápida por número
+      </p>
       <div className="flex gap-2">
         <input
           ref={inputRef}
@@ -225,20 +231,26 @@ function BusquedaEntrega({ tickets, onEntregar, procesando }: {
             disabled={procesando}
             className="flex-1 py-2 bg-accent text-black rounded-xl text-sm font-bold hover:bg-accent/90 transition-colors disabled:opacity-60"
           >
-            ✓ Entregar #{resultado.numeroTicket}
+            <span className="inline-flex items-center gap-2">
+              <Icono nombre="ok" tamano={16} />
+              Entregar #{resultado.numeroTicket}
+            </span>
             {resultado.clienteNombre && ` — ${resultado.clienteNombre}`}
           </button>
         )}
       </div>
 
       {resultado === "no_encontrado" && (
-        <p className="text-sm text-danger mt-2">⚠️ No se encontró el ticket #{numero} entre las prendas activas</p>
+        <p className="text-sm text-danger mt-2 flex items-center gap-2">
+          <Icono nombre="alerta" tamano={15} />
+          No se encontró el ticket #{numero} entre las prendas activas
+        </p>
       )}
       {resultado && resultado !== "no_encontrado" && (
         <div className="mt-3 bg-accent/5 border border-accent/20 rounded-xl p-3 text-sm">
           <p className="font-semibold text-accent">Ticket #{resultado.numeroTicket}</p>
-          {resultado.clienteNombre && <p className="text-text-secondary">👤 {resultado.clienteNombre}</p>}
-          {resultado.descripcion && <p className="text-text-secondary">🧥 {resultado.descripcion}</p>}
+          {resultado.clienteNombre && <p className="text-text-secondary">{resultado.clienteNombre}</p>}
+          {resultado.descripcion && <p className="text-text-secondary">{resultado.descripcion}</p>}
         </div>
       )}
     </div>
@@ -298,14 +310,17 @@ function TarjetaTicket({ ticket, onEntregar, onCancelar, procesando }: {
             disabled={procesando || ticket._offline}
             className="flex-1 py-2 bg-accent text-black rounded-xl text-xs font-bold hover:bg-accent/90 transition-colors disabled:opacity-50"
           >
-            ✓ Entregar
+            <span className="inline-flex items-center gap-1.5">
+              <Icono nombre="ok" tamano={14} />
+              Entregar
+            </span>
           </button>
           <button
             onClick={onCancelar}
             disabled={procesando}
             className="px-3 py-2 text-danger bg-danger/10 border border-danger/20 rounded-xl text-xs hover:bg-danger/20 transition-colors"
           >
-            ✕
+            <Icono nombre="cerrar" tamano={14} />
           </button>
         </div>
       )}
@@ -341,7 +356,9 @@ function ModalRegistrar({ siguienteNumero, onRegistrar, onCerrar, procesando }: 
       <div className="relative bg-surface border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-text-primary">Registrar prenda</h2>
-          <button onClick={onCerrar} className="text-text-secondary text-xl">✕</button>
+          <button onClick={onCerrar} className="text-text-secondary" aria-label="Cerrar">
+            <Icono nombre="cerrar" tamano={20} />
+          </button>
         </div>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">

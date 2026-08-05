@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { cn } from "@niagara/ui";
 import { usePosStore } from "@/stores/posStore";
+import { Icono } from "@/components/Icono";
 import type { ProductoPos } from "@/types";
 
 interface GrillaProductosProps {
@@ -67,8 +68,8 @@ export function GrillaProductos({ productos }: GrillaProductosProps) {
                   className="w-10 h-10 object-cover rounded-lg"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-lg bg-surface-3 flex items-center justify-center text-xl">
-                  🍺
+                <div className="w-10 h-10 rounded-lg bg-surface-3 flex items-center justify-center text-text-secondary">
+                  <Icono nombre="producto" tamano={20} />
                 </div>
               )}
               <span className="text-xs font-semibold text-text-primary text-center leading-tight line-clamp-2">

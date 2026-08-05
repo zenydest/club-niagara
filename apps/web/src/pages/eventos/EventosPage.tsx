@@ -16,6 +16,7 @@ import {
   type EntradaVendida,
 } from "@/stores/eventosStore";
 import { useAuthStore } from "@/stores/authStore";
+import { Icono, type NombreIcono } from "@/components/Icono";
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -241,13 +242,13 @@ function TabInfo({ evento, onEditar }: { evento: Evento; onEditar: () => void })
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Capacidad", valor: evento.capacidad.toLocaleString("es-AR"), icono: "👥" },
-          { label: "Aforo actual", valor: `${evento.aforoActual} (${pctAforo}%)`, icono: "🚪" },
-          { label: "Entradas vendidas", valor: String(evento._count?.entradasVendidas ?? 0), icono: "🎟️" },
-        ].map((k) => (
+        {([
+          { label: "Capacidad", valor: evento.capacidad.toLocaleString("es-AR"), icono: "aforo" },
+          { label: "Aforo actual", valor: `${evento.aforoActual} (${pctAforo}%)`, icono: "porteria" },
+          { label: "Entradas vendidas", valor: String(evento._count?.entradasVendidas ?? 0), icono: "entrada" },
+        ] satisfies { label: string; valor: string; icono: NombreIcono }[]).map((k) => (
           <div key={k.label} className="bg-surface-2 border border-border rounded-xl p-4 text-center">
-            <p className="text-xl mb-1">{k.icono}</p>
+            <Icono nombre={k.icono} tamano={20} className="mx-auto mb-1 text-text-secondary" />
             <p className="text-lg font-bold text-text-primary">{k.valor}</p>
             <p className="text-xs text-text-secondary">{k.label}</p>
           </div>
@@ -296,11 +297,13 @@ function TabInfo({ evento, onEditar }: { evento: Evento; onEditar: () => void })
                   disabled={procesando}
                   className={cn(
                     "px-4 py-2 rounded-xl text-sm font-semibold border transition-all",
+                    "inline-flex items-center gap-1.5",
                     cfg.color, cfg.bg, cfg.border,
                     "hover:brightness-125 disabled:opacity-50"
                   )}
                 >
-                  → {cfg.label}
+                  <Icono nombre="avanzar" tamano={14} />
+                  {cfg.label}
                 </button>
               );
             })}
@@ -367,7 +370,7 @@ function TabTipos({ evento }: { evento: Evento }) {
         <div className="flex justify-center py-8"><div className="w-5 h-5 border-2 border-lime border-t-transparent rounded-full animate-spin" /></div>
       ) : tipos.length === 0 ? (
         <div className="text-center py-10 text-text-secondary">
-          <p className="text-3xl mb-2">🎟️</p>
+          <Icono nombre="entrada" tamano={34} className="mx-auto mb-2 text-text-muted" />
           <p className="text-sm">Sin tipos de entrada. Agregá uno para empezar a vender.</p>
         </div>
       ) : (
@@ -377,7 +380,7 @@ function TabTipos({ evento }: { evento: Evento }) {
             const pct = t.cantidadTotal ? Math.round((t.cantidadVendida / t.cantidadTotal) * 100) : null;
             return (
               <div key={t.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-border">
-                <span className="text-xl">{cfg.icono}</span>
+                <Icono nombre={cfg.icono} tamano={20} className="text-text-secondary flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-text-primary">{t.nombre}</p>
                   <p className="text-xs text-text-secondary">
@@ -487,7 +490,7 @@ function TabVender({ evento }: { evento: Evento }) {
     return (
       <div className="space-y-4">
         <div className="text-center py-6">
-          <p className="text-4xl mb-2">✅</p>
+          <Icono nombre="ok" tamano={40} className="mx-auto mb-2 text-green-400" />
           <p className="text-lg font-bold text-green-400">
             {entradasVendidas.length === 1 ? "Entrada vendida" : `${entradasVendidas.length} entradas vendidas`}
           </p>
@@ -524,8 +527,8 @@ function TabVender({ evento }: { evento: Evento }) {
     <div className="max-w-md space-y-4">
       {tipos.length === 0 ? (
         <div className="text-center py-10 text-text-secondary">
-          <p className="text-3xl mb-2">⚠️</p>
-          <p className="text-sm">Primero creá los tipos de entrada en la pestaña "Tipos".</p>
+          <Icono nombre="alerta" tamano={34} className="mx-auto mb-2 text-warning" />
+          <p className="text-sm">Primero creá los tipos de entrada en la pestaña &ldquo;Tipos&rdquo;.</p>
         </div>
       ) : (
         <>
@@ -547,7 +550,7 @@ function TabVender({ evento }: { evento: Evento }) {
                       sinCupo && "opacity-40 cursor-not-allowed"
                     )}
                   >
-                    <p className="text-base">{cfg.icono}</p>
+                    <Icono nombre={cfg.icono} tamano={16} className="text-text-secondary" />
                     <p className="text-xs font-semibold text-text-primary mt-0.5">{t.nombre}</p>
                     <p className="text-xs text-lime font-bold">{ARS(t.precio)}</p>
                     {sinCupo && <p className="text-[10px] text-danger mt-0.5">Sin cupo</p>}
@@ -582,11 +585,11 @@ function TabVender({ evento }: { evento: Evento }) {
               <div>
                 <label className="text-xs text-text-secondary uppercase tracking-wider">Método de pago</label>
                 <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)} className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-lime/40">
-                  <option value="efectivo">💵 Efectivo</option>
-                  <option value="tarjeta">💳 Tarjeta</option>
-                  <option value="qr_mp">📱 QR / MP</option>
-                  <option value="cashless">🪙 Cashless</option>
-                  <option value="cortesia">🎁 Cortesía</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="qr_mp">QR / Mercado Pago</option>
+                  <option value="cashless">Cashless</option>
+                  <option value="cortesia">Cortesía</option>
                 </select>
               </div>
               <div>
@@ -702,8 +705,8 @@ function TabVendidas({ evento }: { evento: Evento }) {
         <div className="flex justify-center py-8"><div className="w-5 h-5 border-2 border-lime border-t-transparent rounded-full animate-spin" /></div>
       ) : vendidas.length === 0 ? (
         <div className="text-center py-10 text-text-secondary">
-          <p className="text-3xl mb-2">🎟️</p>
-          <p className="text-sm">Sin entradas vendidas{busqueda ? ` para "${busqueda}"` : ""}</p>
+          <Icono nombre="entrada" tamano={34} className="mx-auto mb-2 text-text-muted" />
+          <p className="text-sm">Sin entradas vendidas{busqueda ? ` para “${busqueda}”` : ""}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -718,7 +721,12 @@ function TabVendidas({ evento }: { evento: Evento }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-text-primary truncate">{v.clienteNombre}</p>
-                  {v.usada && <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-500/20 text-green-400 border border-green-500/30 flex-shrink-0">✓ Usada</span>}
+                  {v.usada && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-500/20 text-green-400 border border-green-500/30 flex-shrink-0 inline-flex items-center gap-1">
+                      <Icono nombre="ok" tamano={10} />
+                      Usada
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-text-secondary">
                   {v.entradaTipo?.nombre} · {ARS(v.precioPagado)} · {v.metodoPago}
@@ -772,11 +780,11 @@ function EventoDetalle({ evento, onVolver }: { evento: Evento; onVolver: () => v
   const { cargarEvento } = useEventosStore();
   const { staff } = useAuthStore();
 
-  const TABS_DETALLE: { id: TabDetalle; label: string; icono: string; roles: string[] }[] = [
-    { id: "info",     label: "Info",    icono: "📋", roles: ["admin", "encargado"] },
-    { id: "tipos",    label: "Tipos",   icono: "🏷️", roles: ["admin", "encargado"] },
-    { id: "vender",   label: "Vender",  icono: "🎟️", roles: ["admin", "encargado", "cajero", "rrpp"] },
-    { id: "vendidas", label: "Vendidas",icono: "📋", roles: ["admin", "encargado", "cajero"] },
+  const TABS_DETALLE: { id: TabDetalle; label: string; icono: NombreIcono; roles: string[] }[] = [
+    { id: "info",     label: "Info",    icono: "eventos",  roles: ["admin", "encargado"] },
+    { id: "tipos",    label: "Tipos",   icono: "entrada",  roles: ["admin", "encargado"] },
+    { id: "vender",   label: "Vender",  icono: "caja",     roles: ["admin", "encargado", "cajero", "rrpp"] },
+    { id: "vendidas", label: "Vendidas",icono: "reportes", roles: ["admin", "encargado", "cajero"] },
   ];
 
   const tabsVisibles = TABS_DETALLE.filter((t) => !staff || t.roles.includes(staff.rol));
@@ -788,8 +796,9 @@ function EventoDetalle({ evento, onVolver }: { evento: Evento; onVolver: () => v
         <button
           onClick={onVolver}
           className="mt-0.5 p-2 rounded-xl bg-surface-2 border border-border text-text-secondary hover:text-lime hover:border-lime/40 transition-all"
+          aria-label="Volver"
         >
-          ←
+          <Icono nombre="volver" tamano={16} />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -811,7 +820,7 @@ function EventoDetalle({ evento, onVolver }: { evento: Evento; onVolver: () => v
               tab === t.id ? "bg-lime text-background" : "text-text-secondary hover:text-text-primary"
             )}
           >
-            <span>{t.icono}</span>
+            <Icono nombre={t.icono} tamano={15} />
             {t.label}
           </button>
         ))}
@@ -872,9 +881,10 @@ export function EventosPage() {
         {esAdmin && (
           <button
             onClick={() => setModalCrear(true)}
-            className="px-4 py-2.5 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 transition-all"
+            className="px-4 py-2.5 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 transition-all inline-flex items-center gap-1.5"
           >
-            + Nuevo evento
+            <Icono nombre="agregar" tamano={16} />
+            Nuevo evento
           </button>
         )}
       </div>
@@ -883,8 +893,8 @@ export function EventosPage() {
       <div className="flex gap-2 overflow-x-auto pb-1">
         {[
           { id: "todos", label: "Todos" },
-          { id: "en_vivo", label: "🔴 En vivo" },
-          { id: "preventa", label: "🔵 Preventa" },
+          { id: "en_vivo", label: "En vivo" },
+          { id: "preventa", label: "Preventa" },
           { id: "borrador", label: "Borrador" },
           { id: "cerrado", label: "Cerrado" },
         ].map((f) => (
@@ -910,7 +920,7 @@ export function EventosPage() {
         </div>
       ) : eventosFiltrados.length === 0 ? (
         <div className="text-center py-16 text-text-secondary">
-          <p className="text-4xl mb-3">🎉</p>
+          <Icono nombre="eventos" tamano={40} className="mx-auto mb-3 text-text-muted" />
           <p className="text-sm">Sin eventos. {esAdmin && "Creá uno para empezar."}</p>
         </div>
       ) : (
@@ -952,7 +962,11 @@ export function EventosPage() {
                   </div>
                 </div>
 
-                <span className="text-text-secondary group-hover:text-lime transition-colors self-center flex-shrink-0">→</span>
+                <Icono
+                  nombre="avanzar"
+                  tamano={16}
+                  className="text-text-secondary group-hover:text-lime transition-colors self-center flex-shrink-0"
+                />
               </button>
             );
           })}

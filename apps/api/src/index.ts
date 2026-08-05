@@ -85,7 +85,23 @@ await app.register(rateLimit, {
 });
 
 // ── Health check ─────────────────────────────────────────────
-app.get("/health", async () => ({ status: "ok", ts: new Date().toISOString() }));
+//
+// Consulta la base de verdad. Antes solo devolvía "ok" sin tocarla, así que
+// respondía bien con la base caída o vacía: el chequeo pasaba y el login
+// fallaba con un 500 opaco. Un health que miente es peor que no tener uno.
+app.get("/health", async (_req, reply) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return { status: "ok", db: "ok", ts: new Date().toISOString() };
+  } catch (err) {
+    app.log.error({ err }, "Health check: la base no responde");
+    return reply.status(503).send({
+      status: "degradado",
+      db: "sin_conexion",
+      ts: new Date().toISOString(),
+    });
+  }
+});
 
 // ── Better Auth — manejar todas las rutas /api/auth/* ────────
 app.all("/api/auth/*", async (req, reply) => {
@@ -147,7 +163,7 @@ iniciarSocketIO(io);
 // ── Arranque ─────────────────────────────────────────────────
 try {
   await app.listen({ port: PORT, host: HOST });
-  console.log(`🎉 Club Niágara API corriendo en http://${HOST}:${PORT}`);
+  console.log(`Club Niágara API corriendo en http://${HOST}:${PORT}`);
 } catch (err) {
   app.log.error(err);
   await prisma.$disconnect();

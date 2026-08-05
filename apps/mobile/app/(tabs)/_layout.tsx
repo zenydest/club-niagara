@@ -4,13 +4,17 @@
 
 import React from "react";
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
+import { Icono, type NombreIcono } from "@/components/Icono";
 
-// Iconos simples con emojis (sin dependencia extra)
-const TabIcon = ({ emoji, focused }: { emoji: string; focused: boolean }) => (
-  <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.5 }}>
-    {emoji}
-  </Text>
+const ACTIVO = "#1E50FF";
+const INACTIVO = "#8888AA";
+
+const TabIcon = ({ nombre, focused }: { nombre: NombreIcono; focused: boolean }) => (
+  <Icono
+    nombre={nombre}
+    tamano={focused ? 23 : 21}
+    color={focused ? ACTIVO : INACTIVO}
+  />
 );
 
 export default function TabsLayout() {
@@ -38,28 +42,28 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Eventos",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🎵" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon nombre="eventos" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="tarjeta"
         options={{
           title: "Mi Tarjeta",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="💳" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon nombre="tarjeta" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="entradas"
         options={{
           title: "Mis Entradas",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🎟️" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon nombre="entrada" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="perfil"
         options={{
           title: "Perfil",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon nombre="perfil" focused={focused} />,
         }}
       />
     </Tabs>

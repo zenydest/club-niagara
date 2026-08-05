@@ -13,6 +13,7 @@ import Constants from "expo-constants";
 import { usePreventScreenCapture } from "expo-screen-capture";
 import { api } from "@/lib/apiClient";
 import { QRDisplay } from "@/components/QRDisplay";
+import { Icono } from "@/components/Icono";
 import type { TarjetaCashless } from "@/lib/apiClient";
 
 const LOCAL_ID =
@@ -138,7 +139,9 @@ export default function TarjetaScreen() {
 
         {!isLoading && tarjetas.length === 0 && !error && (
           <View className="items-center justify-center py-20">
-            <Text className="text-4xl mb-3">💳</Text>
+            <View className="mb-3">
+              <Icono nombre="tarjeta" tamano={40} color="#8888AA" />
+            </View>
             <Text className="text-white font-semibold">Sin tarjetas cashless</Text>
             <Text className="text-muted text-sm mt-1 text-center px-4">
               Cargá una tarjeta en la caja del evento para pagar sin efectivo

@@ -14,6 +14,7 @@ import {
   type TarjetaCashless,
 } from "@/stores/cashlessStore";
 import { useAuthStore } from "@/stores/authStore";
+import { Icono, type NombreIcono } from "@/components/Icono";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -138,7 +139,9 @@ function TabTarjetas() {
       {/* Barra de acciones */}
       <div className="flex gap-3">
         <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary text-sm">🔍</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">
+            <Icono nombre="buscar" tamano={16} />
+          </span>
           <input
             type="text"
             placeholder="Buscar por código, nombre o email…"
@@ -162,7 +165,7 @@ function TabTarjetas() {
         </div>
       ) : tarjetas.length === 0 ? (
         <div className="text-center py-12 text-text-secondary">
-          <p className="text-3xl mb-2">🪙</p>
+          <Icono nombre="billetera" tamano={36} className="mx-auto mb-2 text-text-muted" />
           <p className="text-sm">No hay tarjetas cashless aún</p>
         </div>
       ) : (
@@ -182,7 +185,7 @@ function TabTarjetas() {
               >
                 {/* Ícono */}
                 <div className="w-10 h-10 rounded-xl bg-lime/10 border border-lime/30 flex items-center justify-center text-lg flex-shrink-0">
-                  🪙
+                  <Icono nombre="billetera" tamano={18} />
                 </div>
 
                 {/* Info */}
@@ -518,7 +521,7 @@ function TabCobro() {
       {/* Resultado del cobro */}
       {resultado?.ok && (
         <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 text-center space-y-1">
-          <p className="text-2xl">✅</p>
+          <Icono nombre="ok" tamano={28} className="mx-auto text-success" />
           <p className="text-sm font-bold text-green-400">Cobro exitoso</p>
           <p className="text-xs text-text-secondary">
             Nuevo saldo: <span className="font-semibold text-green-400">{ARS(resultado.nuevoSaldo)}</span>
@@ -551,7 +554,7 @@ function TabQRMP() {
     <div className="max-w-md mx-auto space-y-4">
       {/* Info sobre modo simulado */}
       <div className="px-4 py-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-400 flex items-start gap-2">
-        <span>⚠️</span>
+        <Icono nombre="alerta" tamano={16} />
         <div>
           <p className="font-semibold">Modo simulado</p>
           <p className="text-text-secondary mt-0.5">
@@ -628,10 +631,10 @@ function TabQRMP() {
 
 type Tab = "tarjetas" | "cobro" | "qrmp";
 
-const TABS: { id: Tab; label: string; icono: string; roles: string[] }[] = [
-  { id: "tarjetas", label: "Tarjetas", icono: "🪙", roles: ["admin", "encargado", "cajero"] },
-  { id: "cobro", label: "Cobro rápido", icono: "⚡", roles: ["admin", "encargado", "cajero", "barman"] },
-  { id: "qrmp", label: "QR / MP", icono: "📱", roles: ["admin", "encargado", "cajero", "barman"] },
+const TABS: { id: Tab; label: string; icono: NombreIcono; roles: string[] }[] = [
+  { id: "tarjetas", label: "Tarjetas", icono: "billetera", roles: ["admin", "encargado", "cajero"] },
+  { id: "cobro", label: "Cobro rápido", icono: "dashboard", roles: ["admin", "encargado", "cajero", "barman"] },
+  { id: "qrmp", label: "QR / MP", icono: "qrMp", roles: ["admin", "encargado", "cajero", "barman"] },
 ];
 
 export function CashlessPage() {
@@ -642,7 +645,7 @@ export function CashlessPage() {
   if (staff && !rolesPermitidos.includes(staff.rol)) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <span className="text-4xl">🔒</span>
+        <Icono nombre="alerta" tamano={40} className="text-text-muted" />
         <p className="text-text-secondary">No tenés acceso al módulo cashless</p>
       </div>
     );
@@ -673,7 +676,7 @@ export function CashlessPage() {
                 : "text-text-secondary hover:text-text-primary"
             )}
           >
-            <span>{t.icono}</span>
+            <Icono nombre={t.icono} tamano={16} />
             {t.label}
           </button>
         ))}

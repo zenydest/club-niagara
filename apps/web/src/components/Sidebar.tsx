@@ -1,29 +1,30 @@
 import React from "react";
 import { cn } from "@niagara/ui";
 import { useAuthStore } from "@/stores/authStore";
+import { Icono, type NombreIcono } from "@/components/Icono";
 
 interface NavItem {
   id: string;
   label: string;
-  icono: string;
+  icono: NombreIcono;
   roles?: string[];
   badge?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", icono: "⚡" },
-  { id: "porteria", label: "Portería", icono: "🚪", roles: ["admin", "encargado", "portero"] },
-  { id: "caja", label: "Caja / POS", icono: "💰", roles: ["admin", "encargado", "cajero", "barman"] },
-  { id: "cashless", label: "Cashless", icono: "💳", roles: ["admin", "encargado", "cajero"] },
-  { id: "eventos", label: "Eventos", icono: "🎉", roles: ["admin", "encargado"] },
-  { id: "reservas", label: "Reservas VIP", icono: "🛋️", roles: ["admin", "encargado", "rrpp"] },
-  { id: "reportes", label: "Reportes", icono: "📊", roles: ["admin", "encargado"] },
-  { id: "stock", label: "Stock", icono: "📦", roles: ["admin", "encargado", "barman"] },
+  { id: "dashboard", label: "Dashboard", icono: "dashboard" },
+  { id: "porteria", label: "Portería", icono: "porteria", roles: ["admin", "encargado", "portero"] },
+  { id: "caja", label: "Caja / POS", icono: "caja", roles: ["admin", "encargado", "cajero", "barman"] },
+  { id: "cashless", label: "Cashless", icono: "cashless", roles: ["admin", "encargado", "cajero"] },
+  { id: "eventos", label: "Eventos", icono: "eventos", roles: ["admin", "encargado"] },
+  { id: "reservas", label: "Reservas VIP", icono: "reservas", roles: ["admin", "encargado", "rrpp"] },
+  { id: "reportes", label: "Reportes", icono: "reportes", roles: ["admin", "encargado"] },
+  { id: "stock", label: "Stock", icono: "stock", roles: ["admin", "encargado", "barman"] },
   // Guardarropa existía como página pero faltaba en el menú, así que no había
   // forma de llegar a ella desde la app.
-  { id: "guardarropa", label: "Guardarropa", icono: "🧥", roles: ["admin", "encargado", "cajero"] },
-  { id: "terminales", label: "Terminales", icono: "💳", roles: ["admin", "encargado"] },
-  { id: "staff", label: "Personal", icono: "👥", roles: ["admin"] },
+  { id: "guardarropa", label: "Guardarropa", icono: "guardarropa", roles: ["admin", "encargado", "cajero"] },
+  { id: "terminales", label: "Terminales", icono: "terminales", roles: ["admin", "encargado"] },
+  { id: "staff", label: "Personal", icono: "personal", roles: ["admin"] },
 ];
 
 interface SidebarProps {
@@ -100,7 +101,14 @@ export function Sidebar({ abierto, paginaActual, onNavegar }: SidebarProps) {
                     } : undefined}
                     title={!abierto ? item.label : undefined}
                   >
-                    <span className="text-base flex-shrink-0">{item.icono}</span>
+                    <Icono
+                      nombre={item.icono}
+                      tamano={19}
+                      className={cn(
+                        "flex-shrink-0 transition-colors",
+                        esActivo ? "text-lime" : "text-current"
+                      )}
+                    />
                     {abierto && (
                       <span className="truncate">{item.label}</span>
                     )}

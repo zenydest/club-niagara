@@ -3,6 +3,7 @@
  */
 
 import { create } from "zustand";
+import type { NombreIcono } from "@/components/Icono";
 import { api } from "@/lib/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -194,11 +195,14 @@ export const usePersonalStore = create<PersonalState>((set) => ({
 
 // ── Constantes de UI ───────────────────────────────────────────────
 
-export const ROL_CONFIG: Record<RolStaff, { label: string; icono: string; color: string }> = {
-  admin:     { label: "Admin",     icono: "👑", color: "text-accent" },
-  encargado: { label: "Encargado", icono: "🎯", color: "text-purple-400" },
-  cajero:    { label: "Cajero",    icono: "💳", color: "text-blue-400" },
-  portero:   { label: "Portero",   icono: "🚪", color: "text-yellow-400" },
-  rrpp:      { label: "RRPP",      icono: "🤝", color: "text-green-400" },
-  barman:    { label: "Barman",    icono: "🍹", color: "text-orange-400" },
+export const ROL_CONFIG: Record<
+  RolStaff,
+  { label: string; icono: NombreIcono; color: string }
+> = {
+  admin:     { label: "Admin",     icono: "dashboard",  color: "text-accent" },
+  encargado: { label: "Encargado", icono: "actividad",  color: "text-purple-400" },
+  cajero:    { label: "Cajero",    icono: "caja",       color: "text-blue-400" },
+  portero:   { label: "Portero",   icono: "porteria",   color: "text-yellow-400" },
+  rrpp:      { label: "RRPP",      icono: "personal",   color: "text-green-400" },
+  barman:    { label: "Barman",    icono: "producto",   color: "text-orange-400" },
 };

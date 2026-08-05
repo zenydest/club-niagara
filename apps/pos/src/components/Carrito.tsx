@@ -6,15 +6,16 @@ import { useCobroPointStore } from "@/stores/cobroPointStore";
 import { ModalCobroPoint } from "@/components/ModalCobroPoint";
 import type { MetodoPago } from "@niagara/core";
 import { METODO_PAGO_LABELS } from "@niagara/core";
+import { Icono, type NombreIcono } from "@/components/Icono";
 
 const METODOS: MetodoPago[] = ["efectivo", "tarjeta", "cashless", "qr_mp", "cortesia"];
 
-const ICONO_METODO: Record<MetodoPago, string> = {
-  efectivo: "💵",
-  tarjeta: "💳",
-  cashless: "🏷️",
-  qr_mp: "📱",
-  cortesia: "🎁",
+const ICONO_METODO: Record<MetodoPago, NombreIcono> = {
+  efectivo: "efectivo",
+  tarjeta: "tarjeta",
+  cashless: "fichas",
+  qr_mp: "qrMp",
+  cortesia: "cortesia",
 };
 
 /**
@@ -132,8 +133,9 @@ export function Carrito() {
 
       {/* Éxito de venta */}
       {ultimaVenta && (
-        <div className="mx-4 mt-3 bg-success/10 border border-success/30 rounded-xl px-4 py-3 text-success text-sm font-semibold text-center animate-fade-in">
-          ✓ Venta #{ultimaVenta} guardada
+        <div className="mx-4 mt-3 bg-success/10 border border-success/30 rounded-xl px-4 py-3 text-success text-sm font-semibold flex items-center justify-center gap-2 animate-fade-in">
+          <Icono nombre="ok" tamano={16} />
+          Venta #{ultimaVenta} guardada
         </div>
       )}
 
@@ -148,7 +150,7 @@ export function Carrito() {
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {carrito.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2">
-            <span className="text-3xl">🛒</span>
+            <Icono nombre="carrito" tamano={30} className="text-text-muted" />
             <p className="text-text-muted text-sm">Sin productos</p>
           </div>
         ) : (
@@ -190,9 +192,10 @@ export function Carrito() {
                 {/* Quitar */}
                 <button
                   onClick={() => quitarProducto(item.producto.id)}
-                  className="text-text-muted hover:text-danger transition-colors text-xs ml-1"
+                  className="text-text-muted hover:text-danger transition-colors ml-1"
+                  aria-label="Quitar"
                 >
-                  ✕
+                  <Icono nombre="cerrar" tamano={14} />
                 </button>
               </li>
             ))}
@@ -225,7 +228,7 @@ export function Carrito() {
                   metodo === "efectivo" && "col-span-2 border-lime/30 text-lime"
                 )}
               >
-                <span>{ICONO_METODO[metodo]}</span>
+                <Icono nombre={ICONO_METODO[metodo]} tamano={16} />
                 <span>{METODO_PAGO_LABELS[metodo]}</span>
               </button>
             ))}

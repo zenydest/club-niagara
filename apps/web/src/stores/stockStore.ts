@@ -3,6 +3,7 @@
  */
 
 import { create } from "zustand";
+import type { NombreIcono } from "@/components/Icono";
 import { api } from "@/lib/apiClient";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -252,17 +253,17 @@ export const useStockStore = create<StockState>((set) => ({
 
 export interface TipoMovimientoConfig {
   label: string;
-  icono: string;
+  icono: NombreIcono;
   color: string;
   signo: string;
 }
 
 export const TIPO_MOVIMIENTO_CONFIG: Record<string, TipoMovimientoConfig> = {
-  ingreso:      { label: "Ingreso",      icono: "📦", color: "text-green-400", signo: "+" },
-  egreso_venta: { label: "Venta",        icono: "🛒", color: "text-blue-400",  signo: "-" },
-  egreso_merma: { label: "Merma/Baja",   icono: "🗑️", color: "text-danger",   signo: "-" },
-  ajuste:       { label: "Ajuste",       icono: "✏️", color: "text-yellow-400", signo: "±" },
-  transferencia:{ label: "Transferencia",icono: "↔️", color: "text-purple-400", signo: "~" },
+  ingreso:      { label: "Ingreso",      icono: "ingresoStock", color: "text-green-400", signo: "+" },
+  egreso_venta: { label: "Venta",        icono: "caja",         color: "text-blue-400",  signo: "-" },
+  egreso_merma: { label: "Merma/Baja",   icono: "eliminar",     color: "text-danger",    signo: "-" },
+  ajuste:       { label: "Ajuste",       icono: "editar",       color: "text-yellow-400", signo: "±" },
+  transferencia:{ label: "Transferencia",icono: "deposito",     color: "text-purple-400", signo: "~" },
 };
 
 /**
@@ -271,7 +272,7 @@ export const TIPO_MOVIMIENTO_CONFIG: Record<string, TipoMovimientoConfig> = {
  */
 export const TIPO_MOVIMIENTO_DEFAULT: TipoMovimientoConfig = {
   label: "Movimiento",
-  icono: "❓",
+  icono: "alerta",
   color: "text-text-secondary",
   signo: "~",
 };

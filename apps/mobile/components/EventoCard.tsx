@@ -4,6 +4,7 @@
 
 import React from "react";
 import { View, Text, Image, TouchableOpacity } from "react-native";
+import { Icono } from "@/components/Icono";
 import type { EventoPublico } from "@/lib/apiClient";
 
 interface Props {
@@ -53,7 +54,7 @@ export const EventoCard: React.FC<Props> = ({ evento, onComprar }) => {
         />
       ) : (
         <View className="w-full h-40 bg-border items-center justify-center">
-          <Text className="text-muted text-4xl">🎵</Text>
+          <Icono nombre="eventos" tamano={40} color="#8888AA" />
         </View>
       )}
 

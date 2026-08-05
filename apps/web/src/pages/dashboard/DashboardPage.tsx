@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KpiCard, Badge } from "@niagara/ui";
+import { Icono } from "@/components/Icono";
 import { useAuthStore } from "@/stores/authStore";
 import { api } from "@/lib/apiClient";
 import { socket } from "@/lib/socketClient";
@@ -200,28 +201,28 @@ export function DashboardPage() {
           subtitulo={`de ${aforoMax} máx.`}
           acento={pctAforo >= 90 ? "danger" : pctAforo >= 70 ? "warning" : "lime"}
           enVivo={!!eventoActivo}
-          icono="🚪"
+          icono={<Icono nombre="porteria" tamano={20} />}
         />
         <KpiCard
           titulo="% Capacidad"
           valor={`${pctAforo}%`}
           subtitulo={pctAforo >= 90 ? "¡Casi lleno!" : undefined}
           acento={pctAforo >= 90 ? "danger" : "lime"}
-          icono="📊"
+          icono={<Icono nombre="aforo" tamano={20} />}
         />
         <KpiCard
           titulo="Recaudación total"
           valor={formatPesos(kpisData?.kpis.recaudacionTotal ?? 0)}
           subtitulo={`${kpisData?.kpis.ventasBarra.cantidad ?? 0} transacciones`}
           acento="lime"
-          icono="💰"
+          icono={<Icono nombre="reportes" tamano={20} />}
         />
         <KpiCard
           titulo="Entradas vendidas"
           valor={kpisData?.kpis.boleteria.cantidad ?? 0}
           subtitulo={formatPesos(kpisData?.kpis.boleteria.total ?? 0)}
           acento="purple"
-          icono="🎟️"
+          icono={<Icono nombre="entrada" tamano={20} />}
         />
       </div>
 
@@ -260,8 +261,8 @@ export function DashboardPage() {
           </h3>
           <div className="flex flex-col gap-3">
             {[
-              { label: "🍺 Barra", monto: kpisData?.kpis.ventasBarra.total ?? 0 },
-              { label: "🎟️ Boletería", monto: kpisData?.kpis.boleteria.total ?? 0 },
+              { label: "Barra", monto: kpisData?.kpis.ventasBarra.total ?? 0 },
+              { label: "Boletería", monto: kpisData?.kpis.boleteria.total ?? 0 },
             ].map(({ label, monto }) => (
               <div key={label} className="flex items-center justify-between">
                 <span className="text-sm text-text-secondary">{label}</span>
@@ -380,7 +381,7 @@ export function DashboardPage() {
       {/* Estado vacío */}
       {!eventoActivo && !isLoading && (
         <div className="card text-center py-12">
-          <div className="text-4xl mb-4">🎉</div>
+          <Icono nombre="eventos" tamano={40} className="mx-auto mb-4 text-purple" />
           <h3 className="text-lg font-bold text-text-primary mb-2">
             No hay evento activo
           </h3>
