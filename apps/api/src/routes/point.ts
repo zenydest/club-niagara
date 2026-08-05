@@ -227,6 +227,10 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
         ...(body.data.activa !== undefined && { activa: body.data.activa }),
         operatingMode,
       },
+      // La barra va incluida para que el panel pueda mostrar el nombre nuevo
+      // sin recargar: el front mezcla esta respuesta con lo que ya tenía, y sin
+      // el include quedaba pegado el nombre de la barra anterior.
+      include: { barra: { select: { id: true, nombre: true } } },
     });
 
     return {

@@ -16,6 +16,7 @@ import {
   type ModoOperacion,
 } from "@/stores/terminalesStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useCajaStore } from "@/stores/cajaStore";
 import { Icono } from "@/components/Icono";
 
 const MODO_CONFIG: Record<ModoOperacion, { label: string; clase: string; ayuda: string }> = {
@@ -52,9 +53,14 @@ export function TerminalesPage() {
   const { staff } = useAuthStore();
   const esAdmin = staff?.rol === "admin" || staff?.rol === "encargado";
 
+  // Las barras se reutilizan del store de caja en vez de duplicar el fetch:
+  // es la misma lista y ya está resuelta ahí.
+  const cargarBarras = useCajaStore((s) => s.cargarBarras);
+
   useEffect(() => {
     void cargar();
-  }, [cargar]);
+    void cargarBarras();
+  }, [cargar, cargarBarras]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -213,6 +219,7 @@ function Mensaje({
 
 function FilaTerminal({ terminal, editable }: { terminal: Terminal; editable: boolean }) {
   const { actualizar, procesando } = useTerminalesStore();
+  const barras = useCajaStore((s) => s.barras);
   const [nombre, setNombre] = useState(terminal.nombre);
   const [editandoNombre, setEditandoNombre] = useState(false);
 
@@ -263,9 +270,44 @@ function FilaTerminal({ terminal, editable }: { terminal: Terminal; editable: bo
 
         <p className="text-xs text-text-muted mt-1 font-mono">Serie {serial}</p>
 
-        <p className="text-xs text-text-secondary mt-1">
-          {terminal.barra ? `Barra: ${terminal.barra.nombre}` : "Sin barra asignada"}
-        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <label className="text-xs text-text-secondary" htmlFor={`barra-${terminal.id}`}>
+            Barra
+          </label>
+          {editable ? (
+            <select
+              id={`barra-${terminal.id}`}
+              value={terminal.barraId ?? ""}
+              disabled={procesando}
+              onChange={(e) =>
+                // Cadena vacía = "Puerta / boletería". En la base es `null`, no
+                // "": la columna es una FK y "" no es un id válido.
+                void actualizar(terminal.id, { barraId: e.target.value || null })
+              }
+              className={cn(
+                "bg-surface-2 border border-border rounded-lg px-2 py-1",
+                "text-xs text-text-primary",
+                "focus:outline-none focus:border-accent transition-colors",
+                "disabled:opacity-40"
+              )}
+            >
+              <option value="">Puerta / boletería</option>
+              {barras.map((b) => (
+                <option key={b.id} value={b.id}>{b.nombre}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-xs text-text-primary">
+              {terminal.barra?.nombre ?? "Puerta / boletería"}
+            </span>
+          )}
+        </div>
+
+        {editable && barras.length === 0 && (
+          <p className="text-xs text-warning mt-1">
+            No hay barras cargadas. Creá las barras para poder asignarlas.
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
