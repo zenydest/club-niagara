@@ -179,7 +179,23 @@ async function pedir<T>(
   });
 
   const texto = await res.text();
-  const cuerpo: unknown = texto ? JSON.parse(texto) : null;
+
+  // Se parsea con red de contención y **después** se mira el status.
+  //
+  // Antes esto era `texto ? JSON.parse(texto) : null` suelto, arriba del
+  // chequeo de `res.ok`: cuando MP contestaba un error con HTML —pasa con
+  // algunos 401 y con las páginas de mantenimiento— el JSON.parse explotaba
+  // con un SyntaxError que no es MPPointError, se escapaba del catch de la
+  // ruta y llegaba al navegador como "500 Internal Server Error", sin ninguna
+  // pista de que el problema venía de Mercado Pago.
+  let cuerpo: unknown = null;
+  if (texto) {
+    try {
+      cuerpo = JSON.parse(texto);
+    } catch {
+      cuerpo = null;
+    }
+  }
 
   if (!res.ok) {
     // El chequeo `"message" in cuerpo` ya narrowea el tipo, no hace falta cast.
@@ -199,6 +215,15 @@ async function pedir<T>(
           : "";
 
     throw new MPPointError(`MP ${res.status}: ${detalle}${ayuda}`, res.status, cuerpo);
+  }
+
+  // Respuesta OK pero ilegible: es raro, pero devolver `null as T` haría que
+  // reviente más adelante en un lugar que no tiene nada que ver.
+  if (texto && cuerpo === null) {
+    throw new MPPointError(
+      `MP respondió ${res.status} con un cuerpo que no es JSON: ${texto.slice(0, 200)}`,
+      502
+    );
   }
 
   return cuerpo as T;

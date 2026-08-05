@@ -162,7 +162,18 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
       if (err instanceof MPPointError) {
         return reply.status(err.status === 503 ? 503 : 502).send({ error: err.message });
       }
-      throw err;
+
+      // Cualquier otra cosa (Prisma, red, un parseo raro) se registra con el
+      // detalle en el log del servidor y sale con un mensaje que al menos dice
+      // en qué paso se rompió. Antes se re-lanzaba y el panel mostraba
+      // "Internal Server Error" pelado, que no ayuda a nadie.
+      req.log.error({ err }, "Falló la sincronización de terminales Point");
+
+      return reply.status(500).send({
+        error:
+          "No se pudieron guardar las terminales. " +
+          (err instanceof Error ? err.message : "Error desconocido"),
+      });
     }
   });
 
