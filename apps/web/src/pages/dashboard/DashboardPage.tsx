@@ -9,13 +9,15 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface KpisResponse {
+  /** `null` cuando no hay ningún evento en vivo. No es un error: es una noche
+   *  sin fiesta. Los KPIs vienen en cero. */
   evento: {
     id: string;
     nombre: string;
     estado: string;
     capacidad: number;
     fechaInicio: string;
-  };
+  } | null;
   kpis: {
     aforoActual: number;
     aforoMaximo: number;

@@ -55,6 +55,9 @@ Variables de entorno a completar en Render → *Environment* (todas marcadas `sy
 | `FRONTEND_URLS` | Sí | Dominios del front separados por coma, ej: `https://club-niagara.vercel.app` |
 | `MP_ACCESS_TOKEN` | No | Access token de Mercado Pago. Sin esto, el cobro con terminales Point queda deshabilitado y el resto funciona igual |
 | `MP_WEBHOOK_SECRET` | No* | Clave secreta del webhook de MP. *Obligatoria antes de cobrar de verdad: sin ella el endpoint acepta notificaciones de cualquier origen |
+| `CLOUDINARY_CLOUD_NAME` | No | Para subir portadas de eventos desde la computadora. Sin esto solo se puede pegar una URL |
+| `CLOUDINARY_API_KEY` | No | Ídem |
+| `CLOUDINARY_API_SECRET` | No | Ídem. **No lo pongas en el frontend**: la API firma los uploads |
 
 > **`BETTER_AUTH_SECRET` no es opcional.** Si falta, la API **no arranca** en
 > producción, y es a propósito: antes caía en un secreto de desarrollo que está
@@ -247,6 +250,29 @@ predecible y no depende del sistema operativo de quien buildea.
 - [ ] El dashboard actualiza en vivo (Socket.io conectado, sin errores de websocket).
 - [ ] Si cargaste MP: *Terminales* muestra el panel de diagnóstico sin alertas rojas.
 - [ ] La app móvil (build preview) hace login y lista eventos.
+
+## Configurar Cloudinary (portadas de eventos)
+
+Sirve para que el encargado suba la portada desde su computadora en vez de
+tener que subirla a otro lado y pegar el link. Es opcional: sin configurar,
+el panel deja la pestaña *Subir archivo* desactivada y funciona con URL.
+
+1. Crear una cuenta en [cloudinary.com](https://cloudinary.com).
+2. En el **Dashboard**, sección *Product Environment Credentials*, copiar
+   **Cloud name**, **API key** y **API secret**.
+3. En Render → servicio de la API → **Environment**, cargar las tres:
+   `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+4. Redeployar.
+
+El **API secret no se comparte por chat ni queda en el repo**: se pega directo
+en el panel de Render. Con ese secreto se puede subir y borrar cualquier cosa
+de la cuenta.
+
+Cómo funciona: el navegador le pide una firma a la API, achica la imagen a
+1200×675 y la manda directo a Cloudinary. Los archivos nunca pasan por Render
+—que en plan free tiene poca memoria— y el secreto nunca sale del servidor.
+
+Las imágenes quedan en la carpeta `club-niagara/eventos`.
 
 ## Configurar Mercado Pago más adelante
 

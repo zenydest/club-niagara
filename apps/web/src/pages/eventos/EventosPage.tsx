@@ -17,6 +17,7 @@ import {
 } from "@/stores/eventosStore";
 import { useAuthStore } from "@/stores/authStore";
 import { Icono, type NombreIcono } from "@/components/Icono";
+import { CampoImagen } from "@/components/CampoImagen";
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -80,10 +81,6 @@ function ModalEvento({
   );
   const [capacidad, setCapacidad] = useState(String(evento?.capacidad ?? 300));
   const [imagenUrl, setImagenUrl] = useState(evento?.imagenUrl ?? "");
-
-  // Solo se previsualiza si parece una URL completa: así no se intenta cargar
-  // una imagen mientras el usuario todavía está tipeando.
-  const urlValida = /^https?:\/\/\S+$/i.test(imagenUrl.trim());
 
   const handleGuardar = async () => {
     if (!nombre.trim() || !fechaInicio || !capacidad) return;
@@ -166,34 +163,14 @@ function ModalEvento({
             <label className="text-xs text-text-secondary uppercase tracking-wider">
               Imagen del evento
             </label>
-            <input
-              type="url"
-              value={imagenUrl}
-              onChange={(e) => setImagenUrl(e.target.value)}
-              placeholder="https://..."
-              className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-lime/40"
-            />
-            <p className="text-xs text-text-muted mt-1">
-              Es la portada que ve el cliente en la app. Ideal apaisada, 1200×675.
-            </p>
-
-            {/* Previsualización: verificar acá evita descubrir en el celular
-                que el link estaba roto. */}
-            {urlValida && (
-              <div className="mt-2 rounded-xl overflow-hidden border border-border bg-surface-2 aspect-video">
-                <img
-                  src={imagenUrl.trim()}
-                  alt="Previsualización"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                  onLoad={(e) => {
-                    e.currentTarget.style.display = "block";
-                  }}
-                />
-              </div>
-            )}
+            <div className="mt-1">
+              <CampoImagen
+                valor={imagenUrl}
+                onCambio={setImagenUrl}
+                carpeta="eventos"
+                ayuda="Es la portada que ve el cliente en la app. Ideal apaisada, 1200×675."
+              />
+            </div>
           </div>
         </div>
 

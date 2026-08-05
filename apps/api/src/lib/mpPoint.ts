@@ -19,10 +19,28 @@
 import { randomUUID } from "node:crypto";
 
 const MP_BASE_URL = "https://api.mercadopago.com";
-const MP_ACCESS_TOKEN = process.env["MP_ACCESS_TOKEN"];
+
+/**
+ * Lee el token del entorno, limpio.
+ *
+ * Se lee en cada llamada y no una vez al importar el módulo: si alguien carga
+ * la variable en Render pero el proceso ya estaba levantado, con la constante
+ * el token quedaba en `undefined` hasta el próximo reinicio y la API seguía
+ * diciendo "no configurado" aunque en el panel figurara cargado.
+ *
+ * Las comillas se sacan porque pegar `"APP_USR-..."` en el panel de Render
+ * guarda las comillas como parte del valor. MP devuelve un 401 y el error que
+ * se ve es "token inválido", que manda a buscar el problema al lado equivocado.
+ */
+function tokenMP(): string | undefined {
+  const crudo = process.env["MP_ACCESS_TOKEN"]?.trim().replace(/^["']|["']$/g, "");
+  return crudo ? crudo : undefined;
+}
 
 /** true si hay credenciales de MP configuradas */
-export const pointConfigurado = Boolean(MP_ACCESS_TOKEN);
+export function pointConfigurado(): boolean {
+  return tokenMP() !== undefined;
+}
 
 // ── Tipos de la API ──────────────────────────────────────────────
 
@@ -135,7 +153,9 @@ async function pedir<T>(
   path: string,
   init: { method: string; body?: unknown; idempotente?: boolean } = { method: "GET" }
 ): Promise<T> {
-  if (!MP_ACCESS_TOKEN) {
+  const token = tokenMP();
+
+  if (!token) {
     throw new MPPointError(
       "MP_ACCESS_TOKEN no configurado — no se puede operar con las terminales Point",
       503
@@ -144,7 +164,7 @@ async function pedir<T>(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+    Authorization: `Bearer ${token}`,
   };
 
   // MP usa esta clave para no duplicar operaciones si reintentamos.
@@ -167,7 +187,18 @@ async function pedir<T>(
       typeof cuerpo === "object" && cuerpo !== null && "message" in cuerpo
         ? String(cuerpo.message)
         : texto.slice(0, 300);
-    throw new MPPointError(`MP ${res.status}: ${detalle}`, res.status, cuerpo);
+
+    // "unauthorized" a secas no dice qué hacer. Estos dos son los motivos
+    // reales por los que falla la primera vez que alguien conecta la cuenta.
+    const ayuda =
+      res.status === 401
+        ? " — revisá que el token sea el de la cuenta del boliche y que esté " +
+          "copiado entero (los de producción empiezan con APP_USR-)"
+        : res.status === 403
+          ? " — el token es válido pero esa cuenta no tiene habilitado Point"
+          : "";
+
+    throw new MPPointError(`MP ${res.status}: ${detalle}${ayuda}`, res.status, cuerpo);
   }
 
   return cuerpo as T;

@@ -20,8 +20,33 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
           orderBy: { fechaInicio: "desc" },
         });
 
+    // Que no haya evento en vivo no es un error: es un martes a la tarde.
+    //
+    // Antes esto devolvía 404 y el panel mostraba pantalla de error con el
+    // 404 rojo en la consola cada 60 segundos. Ahora responde 200 con el
+    // evento en null y los contadores en cero, y el dashboard puede decir
+    // "no hay ningún evento en vivo", que es la verdad.
+    //
+    // El 404 se reserva para cuando piden un `eventoId` que no existe: ahí sí
+    // el recurso pedido no está.
     if (!evento) {
-      return reply.status(404).send({ error: "No hay evento activo" });
+      if (eventoId) {
+        return reply.status(404).send({ error: "El evento no existe" });
+      }
+
+      return {
+        evento: null,
+        kpis: {
+          aforoActual: 0,
+          aforoMaximo: 0,
+          porcentajeAforo: 0,
+          totalIngresos: 0,
+          totalEgresos: 0,
+          ventasBarra: { total: 0, cantidad: 0 },
+          boleteria: { total: 0, cantidad: 0 },
+          recaudacionTotal: 0,
+        },
+      };
     }
 
     // Consultas en paralelo para performance

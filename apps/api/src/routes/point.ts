@@ -97,7 +97,7 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
     });
 
     return {
-      configurado: pointConfigurado,
+      configurado: pointConfigurado(),
       webhookFirmado: Boolean(process.env["MP_WEBHOOK_SECRET"]),
       terminales,
       terminalesEnPDV: enPDV,
