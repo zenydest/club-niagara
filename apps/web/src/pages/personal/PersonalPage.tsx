@@ -73,7 +73,7 @@ export function PersonalPage() {
             onClick={() => setTab(t)}
             className={cn(
               "px-5 py-2 rounded-lg text-sm font-medium transition-all",
-              tab === t ? "bg-accent text-black shadow" : "text-text-secondary hover:text-text-primary"
+              tab === t ? "bg-accent text-white shadow" : "text-text-secondary hover:text-text-primary"
             )}
           >
             {t === "staff" ? "Staff" : "Comisiones RRPP"}
@@ -112,7 +112,7 @@ function BotonNuevoStaff() {
     <>
       <button
         onClick={() => setAbierto(true)}
-        className="px-4 py-2 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
+        className="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
       >
         + Nuevo staff
       </button>
@@ -149,7 +149,8 @@ function BotonNuevoStaff() {
               />
             </Campo>
             <p className="text-xs text-text-secondary">
-              El staff recibirá un email con sus credenciales para acceder al sistema.
+              No se envía ningún mail: pasale vos el email y la contraseña. Después
+              se pueden cambiar desde la ficha de la persona.
             </p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setAbierto(false)} className={btnSecundario}>Cancelar</button>
@@ -267,8 +268,11 @@ function TarjetaStaff({ miembro, esMio, esAdmin }: {
         )}
       </div>
 
-      {/* Acciones */}
-      {esAdmin && !esMio && (
+      {/* Acciones.
+          Editar sí se muestra sobre uno mismo —hace falta para cambiarse la
+          propia contraseña—, pero Desactivar no: la API rechaza que alguien se
+          deje afuera solo, así que mostrar el botón sería prometer algo falso. */}
+      {esAdmin && (
         <div className="flex gap-2 flex-shrink-0">
           <button
             onClick={() => setModalEdit(true)}
@@ -276,23 +280,30 @@ function TarjetaStaff({ miembro, esMio, esAdmin }: {
           >
             Editar
           </button>
-          <button
-            onClick={() => void cambiarEstado(miembro.id, !miembro.activo)}
-            disabled={procesando}
-            className={cn(
-              "px-3 py-1.5 text-xs rounded-xl border transition-colors",
-              miembro.activo
-                ? "bg-danger/10 border-danger/30 text-danger hover:bg-danger/20"
-                : "bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20"
-            )}
-          >
-            {miembro.activo ? "Desactivar" : "Activar"}
-          </button>
+          {!esMio && (
+            <button
+              onClick={() => void cambiarEstado(miembro.id, !miembro.activo)}
+              disabled={procesando}
+              className={cn(
+                "px-3 py-1.5 text-xs rounded-xl border transition-colors",
+                miembro.activo
+                  ? "bg-danger/10 border-danger/30 text-danger hover:bg-danger/20"
+                  : "bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20"
+              )}
+            >
+              {miembro.activo ? "Desactivar" : "Activar"}
+            </button>
+          )}
         </div>
       )}
 
       {modalEdit && (
-        <ModalEditarStaff miembro={miembro} onCerrar={() => setModalEdit(false)} esAdmin={esAdmin} />
+        <ModalEditarStaff
+          miembro={miembro}
+          onCerrar={() => setModalEdit(false)}
+          esAdmin={esAdmin}
+          esMio={esMio}
+        />
       )}
     </div>
   );
@@ -300,20 +311,45 @@ function TarjetaStaff({ miembro, esMio, esAdmin }: {
 
 // ── Modal editar staff ────────────────────────────────────────────
 
-function ModalEditarStaff({ miembro, onCerrar, esAdmin }: {
+function ModalEditarStaff({ miembro, onCerrar, esAdmin, esMio }: {
   miembro: StaffMiembro;
   onCerrar: () => void;
   esAdmin: boolean;
+  esMio: boolean;
 }) {
-  const { editarStaff, procesando } = usePersonalStore();
+  const { editarStaff, cambiarCredenciales, procesando } = usePersonalStore();
   const [nombre, setNombre] = useState(miembro.nombre);
   const [apellido, setApellido] = useState(miembro.apellido);
   const [rol, setRol] = useState<RolStaff>(miembro.rol);
 
+  const [email, setEmail] = useState(miembro.user.email);
+  // Vacío significa "no la toques". Nunca se precarga la contraseña actual
+  // porque el servidor no la tiene: guarda un hash, no el texto.
+  const [password, setPassword] = useState("");
+
+  const emailCambio = email.trim() !== miembro.user.email;
+  const hayCredenciales = emailCambio || password.length > 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = await editarStaff(miembro.id, { nombre, apellido, rol });
-    if (ok) onCerrar();
+
+    const datosCambiaron =
+      nombre !== miembro.nombre || apellido !== miembro.apellido || rol !== miembro.rol;
+
+    if (datosCambiaron) {
+      const ok = await editarStaff(miembro.id, { nombre, apellido, rol });
+      if (!ok) return;
+    }
+
+    if (hayCredenciales) {
+      const res = await cambiarCredenciales(miembro.id, {
+        ...(emailCambio && { email: email.trim() }),
+        ...(password && { password }),
+      });
+      if (!res) return;
+    }
+
+    onCerrar();
   };
 
   return (
@@ -327,6 +363,7 @@ function ModalEditarStaff({ miembro, onCerrar, esAdmin }: {
             <input value={apellido} onChange={(e) => setApellido(e.target.value)} className={inputCls} required />
           </Campo>
         </div>
+
         {esAdmin && (
           <Campo label="Rol">
             <select value={rol} onChange={(e) => setRol(e.target.value as RolStaff)} className={inputCls}>
@@ -336,6 +373,45 @@ function ModalEditarStaff({ miembro, onCerrar, esAdmin }: {
             </select>
           </Campo>
         )}
+
+        {esAdmin && (
+          <div className="flex flex-col gap-4 pt-4 border-t border-border">
+            <p className="text-xs uppercase tracking-wider text-text-secondary">
+              Acceso al sistema
+            </p>
+
+            <Campo label="Email">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputCls}
+                required
+              />
+            </Campo>
+
+            <Campo label="Contraseña nueva">
+              <input
+                type="password"
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Dejar vacío para no cambiarla"
+                className={inputCls}
+                autoComplete="new-password"
+              />
+            </Campo>
+
+            {password.length > 0 && (
+              <p className="text-xs text-warning">
+                {esMio
+                  ? "Al guardar se va a cerrar tu sesión y vas a tener que entrar de nuevo con la contraseña nueva."
+                  : `Se van a cerrar las sesiones abiertas de ${miembro.nombre}. Pasale la contraseña nueva.`}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button type="button" onClick={onCerrar} className={btnSecundario}>Cancelar</button>
           <button type="submit" disabled={procesando} className={btnPrimario}>
@@ -371,7 +447,7 @@ function TabComisiones({ esAdmin }: { esAdmin: boolean }) {
         {esAdmin && (
           <button
             onClick={() => setModalCalcular(true)}
-            className="px-4 py-2 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
+            className="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
           >
             + Calcular comisión
           </button>
@@ -576,5 +652,5 @@ function Skeleton() {
 }
 
 const inputCls = "w-full bg-surface-2 border border-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent transition-colors";
-const btnPrimario = "flex-1 py-2.5 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
+const btnPrimario = "flex-1 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
 const btnSecundario = "flex-1 py-2.5 bg-surface-2 border border-border text-text-secondary rounded-xl text-sm hover:border-text-secondary transition-colors";

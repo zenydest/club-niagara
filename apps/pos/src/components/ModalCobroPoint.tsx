@@ -117,7 +117,7 @@ export function ModalCobroPoint({ monto, onCerrar }: ModalCobroPointProps) {
               className={cn(
                 "w-full py-3 rounded-xl text-sm font-bold transition-colors",
                 estado === "pagado"
-                  ? "bg-lime text-background"
+                  ? "bg-accent text-white"
                   : "border border-border text-text-secondary hover:text-text-primary"
               )}
             >

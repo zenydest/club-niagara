@@ -208,7 +208,7 @@ function ModalEvento({
           <button
             onClick={() => void handleGuardar()}
             disabled={!nombre.trim() || !fechaInicio || !capacidad || procesando}
-            className="flex-1 py-2.5 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"
+            className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"
           >
             {procesando ? "Guardando…" : esEdicion ? "Guardar cambios" : "Crear evento"}
           </button>
@@ -360,7 +360,7 @@ function TabTipos({ evento }: { evento: Evento }) {
     <div className="space-y-4">
       {esAdmin && (
         <div className="flex justify-end">
-          <button onClick={abrirCrear} className="px-4 py-2 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 transition-all">
+          <button onClick={abrirCrear} className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 transition-all">
             + Agregar tipo
           </button>
         </div>
@@ -439,7 +439,7 @@ function TabTipos({ evento }: { evento: Evento }) {
             {errorOperacion && <p className="text-xs text-danger">{errorOperacion}</p>}
             <div className="flex gap-2">
               <button onClick={() => setModalAbierto(false)} className="flex-1 py-2.5 rounded-xl border border-border text-text-secondary text-sm hover:border-lime/40 transition-colors">Cancelar</button>
-              <button onClick={() => void handleGuardar()} disabled={!nombre.trim() || !precio || procesando} className="flex-1 py-2.5 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all">{procesando ? "Guardando…" : "Guardar"}</button>
+              <button onClick={() => void handleGuardar()} disabled={!nombre.trim() || !precio || procesando} className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all">{procesando ? "Guardando…" : "Guardar"}</button>
             </div>
           </div>
         </div>
@@ -515,7 +515,7 @@ function TabVender({ evento }: { evento: Evento }) {
 
         <button
           onClick={() => setEntradasVendidas(null)}
-          className="w-full py-3 rounded-xl bg-lime text-background font-bold text-sm hover:brightness-110 transition-all"
+          className="w-full py-3 rounded-xl bg-accent text-white font-bold text-sm hover:brightness-110 transition-all"
         >
           Vender otra entrada
         </button>
@@ -612,7 +612,7 @@ function TabVender({ evento }: { evento: Evento }) {
           <button
             onClick={() => void handleVender()}
             disabled={!tipoId || !nombre.trim() || procesando}
-            className="w-full py-4 rounded-xl bg-lime text-background font-bold text-base hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full py-4 rounded-xl bg-accent text-white font-bold text-base hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {procesando ? "Registrando…" : `Registrar venta ${total > 0 ? `· ${ARS(total)}` : ""}`}
           </button>
@@ -817,7 +817,7 @@ function EventoDetalle({ evento, onVolver }: { evento: Evento; onVolver: () => v
             onClick={() => setTab(t.id)}
             className={cn(
               "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
-              tab === t.id ? "bg-lime text-background" : "text-text-secondary hover:text-text-primary"
+              tab === t.id ? "bg-accent text-white" : "text-text-secondary hover:text-text-primary"
             )}
           >
             <Icono nombre={t.icono} tamano={15} />
@@ -881,7 +881,7 @@ export function EventosPage() {
         {esAdmin && (
           <button
             onClick={() => setModalCrear(true)}
-            className="px-4 py-2.5 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 transition-all inline-flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 transition-all inline-flex items-center gap-1.5"
           >
             <Icono nombre="agregar" tamano={16} />
             Nuevo evento

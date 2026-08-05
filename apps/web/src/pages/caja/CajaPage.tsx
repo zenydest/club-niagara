@@ -483,7 +483,7 @@ function ModalPago({
               "w-full py-4 rounded-xl font-bold text-lg transition-all",
               "flex items-center justify-center gap-2",
               puedeConfirmar && !procesando
-                ? "bg-lime text-background hover:brightness-110 active:scale-[0.98]"
+                ? "bg-accent text-white hover:brightness-110 active:scale-[0.98]"
                 : "bg-surface-2 text-text-secondary cursor-not-allowed border border-border"
             )}
           >
@@ -748,7 +748,7 @@ export function CajaPage() {
               className={cn(
                 "w-full py-4 rounded-xl font-bold text-base transition-all",
                 carrito.length > 0
-                  ? "bg-lime text-background hover:brightness-110 active:scale-[0.98] shadow-lg shadow-lime/20"
+                  ? "bg-accent text-white hover:brightness-110 active:scale-[0.98] shadow-lg shadow-lime/20"
                   : "bg-surface-2 text-text-secondary cursor-not-allowed border border-border"
               )}
             >

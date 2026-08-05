@@ -152,7 +152,7 @@ function TabTarjetas() {
         </div>
         <button
           onClick={() => setModalCrear(true)}
-          className="px-4 py-2.5 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 transition-all"
+          className="px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 transition-all"
         >
           + Nueva tarjeta
         </button>
@@ -307,7 +307,7 @@ function TabTarjetas() {
               <button
                 onClick={() => void handleCrear()}
                 disabled={!nuevoCodigo.trim() || procesando}
-                className="flex-1 py-2.5 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {procesando ? "Creando…" : "Crear tarjeta"}
               </button>
@@ -398,7 +398,7 @@ function TabTarjetas() {
               <button
                 onClick={() => void handleRecargar()}
                 disabled={!montoRecarga || Number(montoRecarga) <= 0 || procesando}
-                className="flex-1 py-2.5 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {procesando ? "Recargando…" : `Recargar ${montoRecarga ? ARS(Number(montoRecarga)) : ""}`}
               </button>
@@ -454,7 +454,7 @@ function TabCobro() {
           <button
             onClick={() => void handleConsultar()}
             disabled={!codigo.trim() || consultando}
-            className="px-4 py-3 rounded-xl bg-lime text-background text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"
+            className="px-4 py-3 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"
           >
             {consultando ? "…" : "Consultar"}
           </button>
@@ -507,7 +507,7 @@ function TabCobro() {
           <button
             onClick={() => void handleCobrar()}
             disabled={!monto || Number(monto) <= 0 || !saldoSuficiente || procesando}
-            className="w-full py-4 rounded-xl bg-lime text-background font-bold text-base hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full py-4 rounded-xl bg-accent text-white font-bold text-base hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {procesando ? "Procesando…" : `Cobrar ${monto ? ARS(Number(monto)) : ""}`}
           </button>
@@ -588,7 +588,7 @@ function TabQRMP() {
         <button
           onClick={() => void handleGenerar()}
           disabled={!monto || Number(monto) <= 0 || cargandoQR}
-          className="w-full py-3 rounded-xl bg-lime text-background font-bold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="w-full py-3 rounded-xl bg-accent text-white font-bold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {cargandoQR ? "Generando QR…" : "Generar QR de pago"}
         </button>
@@ -672,7 +672,7 @@ export function CashlessPage() {
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
               tabActual === t.id
-                ? "bg-lime text-background"
+                ? "bg-accent text-white"
                 : "text-text-secondary hover:text-text-primary"
             )}
           >

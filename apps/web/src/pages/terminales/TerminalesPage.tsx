@@ -71,7 +71,7 @@ export function TerminalesPage() {
             onClick={() => void sincronizar()}
             disabled={sincronizando}
             className={cn(
-              "px-4 py-2 rounded-xl text-sm font-semibold bg-lime text-background",
+              "px-4 py-2 rounded-xl text-sm font-semibold bg-accent text-white",
               "hover:opacity-90 active:scale-95 transition-all",
               "disabled:opacity-40 disabled:cursor-not-allowed"
             )}

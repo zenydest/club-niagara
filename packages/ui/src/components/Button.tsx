@@ -12,11 +12,14 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantesClases: Record<Variante, string> = {
-  lime: "bg-lime text-background font-bold hover:bg-lime-200 active:scale-95 shadow-lime-glow",
+  // El acento es un azul oscuro (#1E50FF): encima va texto blanco, no negro.
+  // Con negro el contraste queda en 3.4:1 y no se lee, que es justo lo que
+  // pasaba en los botones primarios del panel.
+  lime: "bg-accent text-white font-bold hover:bg-accent-300 active:scale-95 shadow-lime-glow",
   purple: "bg-purple text-white font-bold hover:bg-purple-500 active:scale-95 shadow-purple-glow",
   ghost: "bg-transparent text-text-primary hover:bg-surface-2 border border-border",
   danger: "bg-danger text-white font-bold hover:bg-red-600 active:scale-95",
-  outline: "bg-transparent border border-lime text-lime hover:bg-lime hover:text-background",
+  outline: "bg-transparent border border-accent text-accent hover:bg-accent hover:text-white",
 };
 
 const tamañosClases: Record<Tamaño, string> = {

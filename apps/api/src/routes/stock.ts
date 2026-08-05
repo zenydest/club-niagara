@@ -22,14 +22,50 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma, Prisma } from "@niagara/db";
 
-// ── Stock actual por (productoId, depositoId) ─────────────────────
-// ingreso → +cantidad | egreso_* → -cantidad | ajuste → +cantidad (firmado) | transferencia → ignorado
-//
-// NOTA: existía acá un helper `calcularStockNivel` que nadie llamaba — la misma
-// consulta está duplicada inline más abajo (líneas ~95 y ~166). Se eliminó
-// porque además tenía el SQL mal armado: interpolaba `prisma.$queryRaw` dentro
-// del template en vez de `Prisma.sql`, así que nunca habría funcionado.
-// Pendiente: unificar las dos copias que sí están en uso.
+interface FilaStock {
+  producto_id: string;
+  deposito_id: string;
+  stock: number;
+}
+
+/**
+ * Stock actual por (producto, depósito), calculado sumando los movimientos.
+ *
+ *   ingreso → +cantidad · egreso_* → -cantidad · ajuste → +cantidad (firmado)
+ *
+ * `transferencia` se ignora a propósito: hoy se guarda como un movimiento
+ * suelto que no dice de qué depósito sale ni a cuál entra, así que sumarla
+ * duplicaría mercadería. Cuando se registre como par egreso+ingreso, entra acá.
+ *
+ * Se llama `$queryRaw(Prisma.sql\`…\`)` en vez de usar el template etiquetado
+ * directo porque el filtro de depósito es un fragmento de SQL variable. En el
+ * template etiquetado cada `${}` se manda como parámetro, no como SQL, así que
+ * componer ahí adentro es justamente lo que rompe la consulta.
+ */
+async function sumarStock(localId: string, depositoId?: string): Promise<FilaStock[]> {
+  const filtroDeposito = depositoId
+    ? Prisma.sql`AND deposito_id = ${depositoId}`
+    : Prisma.empty;
+
+  return prisma.$queryRaw<FilaStock[]>(Prisma.sql`
+    SELECT
+      producto_id,
+      deposito_id,
+      SUM(
+        CASE
+          WHEN tipo = 'ingreso'      THEN cantidad
+          WHEN tipo = 'egreso_venta' THEN -cantidad
+          WHEN tipo = 'egreso_merma' THEN -cantidad
+          WHEN tipo = 'ajuste'       THEN cantidad
+          ELSE 0
+        END
+      )::float AS stock
+    FROM stock_movimientos
+    WHERE local_id = ${localId}
+    ${filtroDeposito}
+    GROUP BY producto_id, deposito_id
+  `);
+}
 
 export const registrarRutasStock: FastifyPluginAsync = async (app) => {
 
@@ -74,37 +110,7 @@ export const registrarRutasStock: FastifyPluginAsync = async (app) => {
     const { localId } = req;
     const { depositoId } = req.query as { depositoId?: string };
 
-    // Filtro opcional por depósito.
-    //
-    // Va con `Prisma.sql` / `Prisma.empty` y no con `prisma.$queryRaw`:
-    // `$queryRaw` devuelve una Promise, no un fragmento SQL. Interpolarla en el
-    // template la convertía en "[object Promise]" y Postgres recibía SQL
-    // inválido, así que este endpoint devolvía 500 siempre, con o sin depósito.
-    const filtroDeposito = depositoId
-      ? Prisma.sql`AND deposito_id::text = ${depositoId}`
-      : Prisma.empty;
-
-    // Calcular stock actual
-    const stockRows = await prisma.$queryRaw<
-      { producto_id: string; deposito_id: string; stock: number }[]
-    >`
-      SELECT
-        producto_id,
-        deposito_id,
-        SUM(
-          CASE
-            WHEN tipo = 'ingreso'      THEN cantidad
-            WHEN tipo = 'egreso_venta' THEN -cantidad
-            WHEN tipo = 'egreso_merma' THEN -cantidad
-            WHEN tipo = 'ajuste'       THEN cantidad
-            ELSE 0
-          END
-        )::float AS stock
-      FROM stock_movimientos
-      WHERE local_id = ${localId}
-      ${filtroDeposito}
-      GROUP BY producto_id, deposito_id
-    `;
+    const stockRows = await sumarStock(localId, depositoId);
 
     // Obtener todos los productos activos
     const productos = await prisma.producto.findMany({
@@ -159,27 +165,14 @@ export const registrarRutasStock: FastifyPluginAsync = async (app) => {
   app.get("/alertas", async (req) => {
     const { localId } = req;
 
-    // Reusar la lógica de nivel
-    const stockRows = await prisma.$queryRaw<
-      { producto_id: string; stock: number }[]
-    >`
-      SELECT
-        producto_id,
-        SUM(
-          CASE
-            WHEN tipo = 'ingreso'      THEN cantidad
-            WHEN tipo = 'egreso_venta' THEN -cantidad
-            WHEN tipo = 'egreso_merma' THEN -cantidad
-            WHEN tipo = 'ajuste'       THEN cantidad
-            ELSE 0
-          END
-        )::float AS stock
-      FROM stock_movimientos
-      WHERE local_id = ${localId}
-      GROUP BY producto_id
-    `;
+    // El helper agrupa por (producto, depósito); acá el depósito no importa,
+    // así que se suman los depósitos de cada producto.
+    const stockRows = await sumarStock(localId);
 
-    const stockMap = Object.fromEntries(stockRows.map((r) => [r.producto_id, r.stock]));
+    const stockMap = new Map<string, number>();
+    for (const fila of stockRows) {
+      stockMap.set(fila.producto_id, (stockMap.get(fila.producto_id) ?? 0) + fila.stock);
+    }
 
     const productos = await prisma.producto.findMany({
       where: { localId, activo: true, stockMinimo: { not: null } },
@@ -188,12 +181,12 @@ export const registrarRutasStock: FastifyPluginAsync = async (app) => {
 
     const alertas = productos
       .filter((p) => {
-        const stock = stockMap[p.id] ?? 0;
+        const stock = stockMap.get(p.id) ?? 0;
         return p.stockMinimo !== null && stock <= p.stockMinimo;
       })
       .map((p) => ({
         ...p,
-        stockActual: stockMap[p.id] ?? 0,
+        stockActual: stockMap.get(p.id) ?? 0,
       }));
 
     return { alertas, total: alertas.length };

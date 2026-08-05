@@ -6,6 +6,7 @@
  *   GET    /                  — listar staff del local (activos e inactivos)
  *   POST   /                  — crear staff (crea user en Better Auth + registro staff)
  *   PATCH  /:id               — editar nombre, apellido, rol
+ *   PATCH  /:id/credenciales  — cambiar email y/o contraseña (solo admin)
  *   PATCH  /:id/estado        — activar / desactivar
  *
  * Comisiones RRPP:
@@ -162,6 +163,88 @@ export const registrarRutasPersonal: FastifyPluginAsync = async (app) => {
     });
 
     return { staff };
+  });
+
+  /**
+   * PATCH /api/personal/:id/credenciales — cambiar email y/o contraseña.
+   *
+   * Es el reemplazo del "me olvidé la clave": no hay mail de recupero montado,
+   * así que el admin la resetea a mano y se la pasa a la persona.
+   *
+   * Solo admin, incluso para encargados: quien puede cambiar la contraseña de
+   * otro puede entrar como esa persona y firmar ventas a su nombre.
+   *
+   * Al cambiar la contraseña se cierran todas las sesiones abiertas de ese
+   * usuario. Es el punto del reseteo: si se lo cambian porque alguien más tenía
+   * acceso, dejar viva la sesión vieja no sirve de nada. Si el admin se cambia
+   * la propia, también se cierra la suya y tiene que volver a entrar.
+   */
+  app.patch("/:id/credenciales", async (req, reply) => {
+    const { localId, staffActual } = req;
+    const { id } = req.params as { id: string };
+
+    if (staffActual.rol !== "admin") {
+      return reply.status(403).send({ error: "Solo el admin puede cambiar credenciales" });
+    }
+
+    const body = z.object({
+      email: z.string().email().optional(),
+      password: z.string().min(8).max(100).optional(),
+    })
+      .refine((d) => d.email !== undefined || d.password !== undefined, {
+        message: "Indicá un email nuevo, una contraseña nueva, o las dos",
+      })
+      .safeParse(req.body);
+
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const staff = await prisma.staff.findFirst({
+      where: { id, localId },
+      include: { user: { select: { id: true, email: true } } },
+    });
+    if (!staff) return reply.status(404).send({ error: "Staff no encontrado" });
+
+    const { email, password } = body.data;
+
+    // El email es la credencial de acceso: si ya lo tiene otra cuenta, el login
+    // queda ambiguo. Se chequea antes de tocar nada.
+    if (email && email !== staff.user.email) {
+      const enUso = await prisma.user.findUnique({ where: { email } });
+      if (enUso) return reply.status(409).send({ error: "El email ya está registrado" });
+    }
+
+    if (email) {
+      // `user.email` es con el que se inicia sesión; `staff.email` es la copia
+      // que se muestra en el panel. Van juntos o el panel miente.
+      await prisma.$transaction([
+        prisma.user.update({ where: { id: staff.user.id }, data: { email } }),
+        prisma.staff.update({ where: { id }, data: { email } }),
+      ]);
+    }
+
+    if (password) {
+      // Se usa el hasher de Better Auth y no uno propio: el hash tiene que
+      // quedar en el mismo formato que genera el registro, sino el login falla.
+      const ctx = await auth.$context;
+      const hash = await ctx.password.hash(password);
+      await ctx.internalAdapter.updatePassword(staff.user.id, hash);
+
+      // `deleteSessions` del adapter recibe tokens, no un userId, así que las
+      // sesiones se borran por Prisma. Ojo: la sesión viaja cacheada en cookie
+      // (ver `session.cookieCache` en lib/auth.ts), así que una sesión ya
+      // abierta puede seguir andando hasta 5 minutos más.
+      await prisma.session.deleteMany({ where: { userId: staff.user.id } });
+    }
+
+    const actualizado = await prisma.staff.findUniqueOrThrow({
+      where: { id },
+      include: { user: { select: { email: true, createdAt: true } } },
+    });
+
+    return {
+      staff: actualizado,
+      sesionesCerradas: Boolean(password),
+    };
   });
 
   // PATCH /api/personal/:id/estado — activar / desactivar

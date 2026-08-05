@@ -83,7 +83,7 @@ export function StockPage() {
             className={cn(
               "px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
               !depositoSeleccionado
-                ? "bg-accent text-black border-accent"
+                ? "bg-accent text-white border-accent"
                 : "text-text-secondary border-border hover:border-accent"
             )}
           >
@@ -96,7 +96,7 @@ export function StockPage() {
               className={cn(
                 "px-3 py-1.5 rounded-xl text-sm font-medium border transition-all",
                 depositoSeleccionado === d.id
-                  ? "bg-accent text-black border-accent"
+                  ? "bg-accent text-white border-accent"
                   : "text-text-secondary border-border hover:border-accent"
               )}
             >
@@ -117,7 +117,7 @@ export function StockPage() {
             onClick={() => setTab(t)}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-all relative",
-              tab === t ? "bg-accent text-black shadow" : "text-text-secondary hover:text-text-primary"
+              tab === t ? "bg-accent text-white shadow" : "text-text-secondary hover:text-text-primary"
             )}
           >
             {{ inventario: "Inventario", movimientos: "Movimientos", alertas: "Alertas" }[t]}
@@ -622,5 +622,5 @@ function Skeleton() {
 }
 
 const inputCls = "w-full bg-surface-2 border border-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent transition-colors";
-const btnPrimario = "flex-1 py-2.5 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
+const btnPrimario = "flex-1 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
 const btnSecundario = "flex-1 py-2.5 bg-surface-2 border border-border text-text-secondary rounded-xl text-sm hover:border-text-secondary transition-colors";

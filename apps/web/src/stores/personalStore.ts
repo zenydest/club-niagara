@@ -57,6 +57,15 @@ interface PersonalState {
     password: string;
   }) => Promise<StaffMiembro | null>;
   editarStaff: (id: string, datos: { nombre?: string; apellido?: string; rol?: RolStaff }) => Promise<boolean>;
+  /**
+   * Cambia email y/o contraseña. Devuelve `sesionesCerradas` en true cuando se
+   * cambió la contraseña, para poder avisarle al admin que esa persona va a
+   * tener que volver a iniciar sesión.
+   */
+  cambiarCredenciales: (
+    id: string,
+    datos: { email?: string; password?: string }
+  ) => Promise<{ sesionesCerradas: boolean } | null>;
   cambiarEstado: (id: string, activo: boolean) => Promise<boolean>;
 
   cargarComisiones: (filtros?: { eventoId?: string; staffId?: string; pagada?: boolean }) => Promise<void>;
@@ -118,6 +127,24 @@ export const usePersonalStore = create<PersonalState>((set) => ({
     } catch (err) {
       set({ procesando: false, error: err instanceof Error ? err.message : "Error al editar" });
       return false;
+    }
+  },
+
+  cambiarCredenciales: async (id, datos) => {
+    const localId = getLocalId();
+    set({ procesando: true, error: null });
+    try {
+      const data = await api.patch<{ staff: StaffMiembro; sesionesCerradas: boolean }>(
+        `/personal/${id}/credenciales`, datos, localId
+      );
+      set((s) => ({
+        staff: s.staff.map((m) => m.id === id ? data.staff : m),
+        procesando: false,
+      }));
+      return { sesionesCerradas: data.sesionesCerradas };
+    } catch (err) {
+      set({ procesando: false, error: err instanceof Error ? err.message : "Error al cambiar credenciales" });
+      return null;
     }
   },
 

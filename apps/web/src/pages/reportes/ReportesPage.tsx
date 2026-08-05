@@ -89,7 +89,7 @@ export function ReportesPage() {
           <button
             onClick={aplicarFiltros}
             disabled={cargandoResumen}
-            className="px-4 py-2 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60"
+            className="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60"
           >
             {cargandoResumen ? "Cargando..." : "Aplicar"}
           </button>
@@ -113,7 +113,7 @@ export function ReportesPage() {
             onClick={() => setTab(t)}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              tab === t ? "bg-accent text-black shadow" : "text-text-secondary hover:text-text-primary"
+              tab === t ? "bg-accent text-white shadow" : "text-text-secondary hover:text-text-primary"
             )}
           >
             {{ resumen: "Resumen", productos: "Productos", ventas: "Ventas", corte: "Corte de caja" }[t]}
@@ -543,7 +543,7 @@ function TabCorte() {
         </div>
         <button
           onClick={() => setModalNuevoCorte(true)}
-          className="px-4 py-2 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
+          className="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
         >
           + Nuevo corte
         </button>
@@ -688,7 +688,7 @@ function TarjetaCorte({ corte, onCerrar, procesando }: {
           <button
             onClick={(e) => { e.stopPropagation(); onCerrar(); }}
             disabled={procesando}
-            className="px-3 py-1.5 bg-accent text-black rounded-lg text-xs font-semibold hover:bg-accent/90 transition-colors flex-shrink-0"
+            className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-semibold hover:bg-accent/90 transition-colors flex-shrink-0"
           >
             Cerrar
           </button>
@@ -924,7 +924,7 @@ const inputCls =
   "bg-surface-2 border border-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent transition-colors";
 
 const btnPrimario =
-  "flex-1 py-2.5 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
+  "flex-1 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
 
 const btnSecundario =
   "flex-1 py-2.5 bg-surface-2 border border-border text-text-secondary rounded-xl text-sm hover:border-text-secondary transition-colors";

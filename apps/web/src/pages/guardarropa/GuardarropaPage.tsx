@@ -91,7 +91,7 @@ export function GuardarropaPage() {
           </div>
           <button
             onClick={() => setFormAbierto(true)}
-            className="px-4 py-2 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
+            className="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
           >
             + Registrar prenda
           </button>
@@ -123,7 +123,7 @@ export function GuardarropaPage() {
               onClick={() => setTab(t)}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                tab === t ? "bg-accent text-black shadow" : "text-text-secondary hover:text-text-primary"
+                tab === t ? "bg-accent text-white shadow" : "text-text-secondary hover:text-text-primary"
               )}
             >
               {t === "activos" ? `Sin entregar (${tickets.filter(x => !x.entregado).length})` : `Entregados (${tickets.filter(x => x.entregado).length})`}
@@ -229,7 +229,7 @@ function BusquedaEntrega({ tickets, onEntregar, procesando }: {
           <button
             onClick={() => void confirmarEntrega()}
             disabled={procesando}
-            className="flex-1 py-2 bg-accent text-black rounded-xl text-sm font-bold hover:bg-accent/90 transition-colors disabled:opacity-60"
+            className="flex-1 py-2 bg-accent text-white rounded-xl text-sm font-bold hover:bg-accent/90 transition-colors disabled:opacity-60"
           >
             <span className="inline-flex items-center gap-2">
               <Icono nombre="ok" tamano={16} />
@@ -308,7 +308,7 @@ function TarjetaTicket({ ticket, onEntregar, onCancelar, procesando }: {
           <button
             onClick={onEntregar}
             disabled={procesando || ticket._offline}
-            className="flex-1 py-2 bg-accent text-black rounded-xl text-xs font-bold hover:bg-accent/90 transition-colors disabled:opacity-50"
+            className="flex-1 py-2 bg-accent text-white rounded-xl text-xs font-bold hover:bg-accent/90 transition-colors disabled:opacity-50"
           >
             <span className="inline-flex items-center gap-1.5">
               <Icono nombre="ok" tamano={14} />
@@ -441,7 +441,7 @@ const inputCls =
   "w-full bg-surface-2 border border-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent transition-colors";
 
 const btnPrimario =
-  "flex-1 py-2.5 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
+  "flex-1 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
 
 const btnSecundario =
   "flex-1 py-2.5 bg-surface-2 border border-border text-text-secondary rounded-xl text-sm hover:border-text-secondary transition-colors";

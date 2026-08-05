@@ -39,7 +39,7 @@ export function GrillaProductos({ productos }: GrillaProductosProps) {
             className={cn(
               "flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-100",
               categoriaActiva === cat
-                ? "bg-lime text-background"
+                ? "bg-accent text-white"
                 : "bg-surface-2 text-text-secondary hover:text-text-primary border border-border"
             )}
           >

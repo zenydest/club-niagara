@@ -17,6 +17,21 @@ const niagaraPreset: Partial<Config> = {
         "surface-3": "#171735",
 
         // Acento principal: azul eléctrico (lado izquierdo del ring del logo)
+        //
+        // `accent` es el nombre bueno. `lime` es el nombre viejo de cuando el
+        // acento era verde: quedó como alias porque hay medio panel usándolo,
+        // pero en código nuevo va `accent`. Los dos apuntan al mismo azul, así
+        // que no hay forma de que se vean distinto por error.
+        accent: {
+          DEFAULT: "#1E50FF",
+          50: "#E6ECFF",
+          100: "#BFCEFF",
+          200: "#8AAAFF",
+          300: "#4D7AFF",
+          400: "#1E50FF",
+          500: "#0035E0",
+          600: "#0025B0",
+        },
         lime: {
           DEFAULT: "#1E50FF",
           50: "#E6ECFF",
@@ -58,10 +73,12 @@ const niagaraPreset: Partial<Config> = {
         danger: "#EF4444",
         info: "#3B82F6",
 
-        // Texto
+        // Texto — de más a menos contraste. `tertiary` es el más bajo que
+        // todavía se lee en penumbra: se usa para placeholders, no para datos.
         "text-primary": "#F0F0FF",
         "text-secondary": "#8888AA",
-        "text-muted": "#444460",
+        "text-muted": "#5A5A7A",
+        "text-tertiary": "#444460",
 
         // Bordes
         border: "#171735",

@@ -71,7 +71,7 @@ export function VIPPage() {
             className={cn(
               "px-5 py-2 rounded-lg text-sm font-medium transition-all",
               tab === t
-                ? "bg-accent text-black shadow"
+                ? "bg-accent text-white shadow"
                 : "text-text-secondary hover:text-text-primary"
             )}
           >
@@ -119,7 +119,7 @@ function BotonCrearMesa() {
     <>
       <button
         onClick={() => setAbierto(true)}
-        className="flex items-center gap-2 px-4 py-2 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
+        className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors"
       >
         <span>+</span> Nueva mesa
       </button>
@@ -560,7 +560,7 @@ function ListaReservas({ reservas, cargando, mesas }: ListaReservasProps) {
         </select>
         <button
           onClick={() => setModalNuevaReserva(true)}
-          className="px-4 py-2 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors whitespace-nowrap"
+          className="px-4 py-2 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors whitespace-nowrap"
         >
           + Nueva reserva
         </button>
@@ -863,7 +863,7 @@ const inputCls =
   "w-full bg-surface-2 border border-border rounded-xl px-3 py-2.5 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent transition-colors";
 
 const btnPrimario =
-  "flex-1 py-2.5 bg-accent text-black rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
+  "flex-1 py-2.5 bg-accent text-white rounded-xl text-sm font-semibold hover:bg-accent/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed";
 
 const btnSecundario =
   "flex-1 py-2.5 bg-surface-2 border border-border text-text-secondary rounded-xl text-sm hover:border-text-secondary transition-colors";
