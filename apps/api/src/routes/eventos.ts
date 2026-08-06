@@ -9,13 +9,24 @@ import { prisma } from "@niagara/db";
 import type { EstadoEvento } from "@niagara/db";
 import { io } from "../index.js";
 
+/**
+ * `.nullish()` y no `.optional()` en los campos que pueden venir vacíos.
+ *
+ * `.optional()` solo acepta que la clave falte; el panel manda `null` explícito
+ * para "sin descripción" / "sin fecha de fin", y Zod lo rechazaba con
+ * "Expected string, received null". El formulario de nuevo evento no dejaba
+ * crear nada si no se llenaban campos que son opcionales.
+ *
+ * `imagenUrl` acepta además cadena vacía: es lo que queda cuando se borra la
+ * imagen desde el campo, y significa lo mismo que no tenerla.
+ */
 const crearEventoSchema = z.object({
   nombre: z.string().min(3),
-  descripcion: z.string().optional(),
+  descripcion: z.string().nullish(),
   fechaInicio: z.string().datetime(),
-  fechaFin: z.string().datetime().optional(),
+  fechaFin: z.string().datetime().nullish(),
   capacidad: z.number().int().positive(),
-  imagenUrl: z.string().url().optional(),
+  imagenUrl: z.union([z.string().url(), z.literal("")]).nullish(),
 });
 
 export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
@@ -82,7 +93,9 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
         fechaInicio: new Date(body.data.fechaInicio),
         fechaFin: body.data.fechaFin ? new Date(body.data.fechaFin) : null,
         capacidad: body.data.capacidad,
-        imagenUrl: body.data.imagenUrl ?? null,
+        // Cadena vacía y "sin imagen" son lo mismo; en la base va `null` para
+        // no tener dos formas de representar lo mismo.
+        imagenUrl: body.data.imagenUrl || null,
       },
     });
 
@@ -113,7 +126,7 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
           fechaFin: body.data.fechaFin ? new Date(body.data.fechaFin) : null,
         }),
         ...(body.data.capacidad && { capacidad: body.data.capacidad }),
-        ...(body.data.imagenUrl !== undefined && { imagenUrl: body.data.imagenUrl }),
+        ...(body.data.imagenUrl !== undefined && { imagenUrl: body.data.imagenUrl || null }),
       },
     });
 

@@ -106,6 +106,20 @@ async function subirACloudinary(blob: Blob, firma: FirmaUpload): Promise<string>
   return data.secure_url;
 }
 
+/**
+ * Detecta links que la gente pega creyendo que son la imagen, pero que en
+ * realidad son la página del visor. Drive, Dropbox y OneDrive devuelven HTML
+ * con su propio reproductor: puestos en un `<img>` no cargan nada.
+ *
+ * Vale la pena avisar por separado porque el error genérico ("no se pudo
+ * cargar") manda a revisar la dirección, y la dirección está bien — lo que
+ * está mal es qué tipo de link es.
+ */
+function esLinkDeVisor(url: string): boolean {
+  return /drive\.google\.com|docs\.google\.com|dropbox\.com\/s\/|1drv\.ms|onedrive\.live\.com/i
+    .test(url);
+}
+
 type Modo = "archivo" | "url";
 
 interface CampoImagenProps {
@@ -266,7 +280,14 @@ export function CampoImagen({
             src={valor}
             alt="Vista previa de la portada"
             className="w-full max-h-40 object-cover rounded-xl border border-border"
-            onError={() => setError("No se pudo cargar esa imagen. Revisá la dirección.")}
+            onError={() =>
+              setError(
+                esLinkDeVisor(valor)
+                  ? "Ese es el link para ver el archivo en Drive, no la imagen en sí. " +
+                    "Lo más simple es usar la pestaña “Subir archivo”."
+                  : "No se pudo cargar esa imagen. Revisá la dirección."
+              )
+            }
             onLoad={() => setError(null)}
           />
           <button

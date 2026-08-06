@@ -15,6 +15,8 @@ import { useCashlessStore } from "@/stores/cashlessStore";
 import type { MetodoPago, Producto } from "@niagara/core";
 import { useAuthStore } from "@/stores/authStore";
 import { Icono, type NombreIcono } from "@/components/Icono";
+import { useCobroPointStore } from "@/stores/cobroPointStore";
+import { ModalCobroPoint } from "@/components/ModalCobroPoint";
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -242,6 +244,27 @@ function ModalPago({
   const saldoCashlessSuficiente =
     tarjetaConsultada ? tarjetaConsultada.saldo >= total : false;
 
+  // ── Cobro con terminal Point ────────────────────────────────
+  const {
+    terminales,
+    terminalId,
+    cargarTerminales,
+    setTerminal,
+    cobrar: cobrarConPoint,
+  } = useCobroPointStore();
+
+  const [modalPoint, setModalPoint] = useState(false);
+
+  useEffect(() => {
+    void cargarTerminales();
+  }, [cargarTerminales]);
+
+  // Si no hay ninguna terminal en PDV, el cobro con tarjeta sigue siendo
+  // manual, como era antes. Es lo que corresponde: el boliche puede tener un
+  // posnet común que no habla con el sistema.
+  const hayTerminales = terminales.length > 0;
+  const cobroPointDisponible = metodoPago === "tarjeta" && hayTerminales;
+
   // `!procesandoCashless` evita el doble débito: sin eso, un segundo clic
   // mientras el cobro está en vuelo vuelve a descontar saldo de la tarjeta.
   const puedeConfirmar =
@@ -250,7 +273,11 @@ function ModalPago({
       ? montoCobrado >= total
       : metodoPago === "cashless"
         ? saldoCashlessSuficiente
-        : true); // tarjeta, qr_mp, cortesia siempre habilitados
+        : cobroPointDisponible
+          // Sin terminal elegida el cobro falla del otro lado; mejor no dejar
+          // apretar el botón.
+          ? terminalId !== null
+          : true); // qr_mp, cortesía y tarjeta sin terminal: siempre habilitados
 
   const handleConfirmar = async () => {
     // Si es cashless: primero debitar saldo de la tarjeta
@@ -258,6 +285,36 @@ function ModalPago({
       if (!tarjetaConsultada) return;
       const cobro = await cobrarCashless(tarjetaConsultada.codigo, total);
       if (!cobro?.ok) return; // el error se muestra via errorConsulta
+    }
+
+    // Con terminal Point el orden importa: primero se cobra de verdad y recién
+    // después se registra la venta. Al revés quedarían ventas registradas que
+    // nunca se cobraron.
+    //
+    // El id se genera acá y se usa en los dos lados: como referencia de la
+    // orden en MP y como id de la venta. Si el navegador se cierra entre el
+    // cobro y el registro, ese id es lo que permite encontrar el cobro
+    // huérfano desde el panel.
+    if (cobroPointDisponible) {
+      const ventaId = crypto.randomUUID();
+
+      setModalPoint(true);
+      const res = await cobrarConPoint({
+        ventaId,
+        monto: total,
+        descripcion: `Consumo — ${carrito.length} ítem${carrito.length !== 1 ? "s" : ""}`,
+      });
+
+      if (!res.ok) return; // el modal muestra el motivo y lo cierra el cajero
+
+      setModalPoint(false);
+
+      const ok = await confirmarVenta(eventoId, ventaId);
+      if (ok) {
+        limpiarConsulta();
+        onExito();
+      }
+      return;
     }
 
     const ok = await confirmarVenta(eventoId);
@@ -373,15 +430,51 @@ function ModalPago({
           )}
 
           {metodoPago === "tarjeta" && (
-            <div className="p-4 rounded-xl bg-surface-2 border border-border text-center space-y-1">
-              <Icono nombre="tarjeta" tamano={26} className="mx-auto text-text-secondary" />
-              <p className="text-sm font-medium text-text-primary">
-                Pasá la tarjeta en el posnet
-              </p>
-              <p className="text-xs text-text-secondary">
-                Confirmá una vez que el pago esté aprobado
-              </p>
-            </div>
+            hayTerminales ? (
+              <div className="p-4 rounded-xl bg-surface-2 border border-border space-y-3">
+                <div className="flex items-center gap-2">
+                  <Icono nombre="terminales" tamano={18} className="text-accent" />
+                  <p className="text-sm font-medium text-text-primary">
+                    Cobrar con terminal
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="terminal-cobro"
+                    className="text-xs text-text-secondary uppercase tracking-wider"
+                  >
+                    Terminal
+                  </label>
+                  <select
+                    id="terminal-cobro"
+                    value={terminalId ?? ""}
+                    onChange={(e) => setTerminal(e.target.value || null)}
+                    className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface border border-border text-text-primary text-sm focus:outline-none focus:border-accent transition-colors"
+                  >
+                    <option value="">Elegí una terminal…</option>
+                    {terminales.map((t) => (
+                      <option key={t.id} value={t.id}>{t.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <p className="text-xs text-text-secondary">
+                  Al confirmar, el monto le llega sola a la terminal. La venta se
+                  registra recién cuando el pago sale aprobado.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-surface-2 border border-border text-center space-y-1">
+                <Icono nombre="tarjeta" tamano={26} className="mx-auto text-text-secondary" />
+                <p className="text-sm font-medium text-text-primary">
+                  Pasá la tarjeta en el posnet
+                </p>
+                <p className="text-xs text-text-secondary">
+                  Confirmá una vez que el pago esté aprobado
+                </p>
+              </div>
+            )
           )}
 
           {metodoPago === "qr_mp" && (
@@ -391,10 +484,11 @@ function ModalPago({
                 QR de Mercado Pago
               </p>
               <p className="text-xs text-text-secondary">
-                Integración con MP disponible en el módulo Cashless (M4)
+                Las terminales Point en modo PDV solo aceptan tarjeta. El QR se
+                cobra desde la app de Mercado Pago.
               </p>
-              <p className="text-xs text-lime font-medium">
-                Por ahora: confirmá manualmente cuando cobres
+              <p className="text-xs text-accent font-medium">
+                Confirmá cuando veas el pago acreditado
               </p>
             </div>
           )}
@@ -501,6 +595,10 @@ function ModalPago({
           </button>
         </div>
       </div>
+
+      {modalPoint && (
+        <ModalCobroPoint monto={total} onCerrar={() => setModalPoint(false)} />
+      )}
     </div>
   );
 }

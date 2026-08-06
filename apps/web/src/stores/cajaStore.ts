@@ -78,7 +78,13 @@ interface CajaState {
   // Acciones — pago
   setMetodoPago: (metodo: MetodoPago) => void;
   setMontoCobrado: (monto: number) => void;
-  confirmarVenta: (eventoId?: string) => Promise<boolean>;
+  /**
+   * Registra la venta. `ventaId` se pasa cuando el id ya se generó antes —es el
+   * caso del cobro con Point, donde ese id viaja a Mercado Pago como referencia
+   * de la orden. Usar el mismo en los dos lados es lo que permite después
+   * cruzar cobro y venta (ver `GET /point/cobros/huerfanos`).
+   */
+  confirmarVenta: (eventoId?: string, ventaId?: string) => Promise<boolean>;
 
   // Acciones — sincronización
   setOnline: (online: boolean) => void;
@@ -226,7 +232,7 @@ export const useCajaStore = create<CajaState>((set, get) => ({
   setMetodoPago: (metodo) => set({ metodoPago: metodo, montoCobrado: 0 }),
   setMontoCobrado: (monto) => set({ montoCobrado: monto }),
 
-  confirmarVenta: async (eventoId) => {
+  confirmarVenta: async (eventoId, ventaId) => {
     const { carrito, metodoPago, barraSeleccionada, online } = get();
     const localId = getLocalId();
 
@@ -235,7 +241,7 @@ export const useCajaStore = create<CajaState>((set, get) => ({
     const total = carrito.reduce((acc, i) => acc + i.subtotal, 0);
 
     const venta: VentaOffline = {
-      id: crypto.randomUUID(),
+      id: ventaId ?? crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       eventoId: eventoId ?? null,
       barraId: barraSeleccionada?.id ?? null,
