@@ -310,8 +310,18 @@ export interface CrearOrdenInput {
   expiracion?: string;
   /** Número de ticket que se muestra en la terminal */
   numeroTicket?: string;
-  /** Si la terminal imprime su propio comprobante */
-  imprimirEnTerminal?: "no_ticket" | "ticket";
+  /**
+   * Qué comprobante imprime la terminal.
+   *
+   * Los tres valores son los que acepta MP; no hay otros. Acá decía `"ticket"`,
+   * que no existe, y MP rechazaba **toda** orden con un 400 — o sea, el cobro
+   * con terminal nunca podía funcionar.
+   *
+   *   seller_ticket — copia para el comercio
+   *   buyer_ticket  — copia para el cliente
+   *   no_ticket     — no imprime nada
+   */
+  imprimirEnTerminal?: "seller_ticket" | "buyer_ticket" | "no_ticket";
 }
 
 /**
@@ -336,7 +346,10 @@ export async function crearOrden(input: CrearOrdenInput): Promise<OrdenMP> {
       config: {
         point: {
           terminal_id: input.terminalId,
-          print_on_terminal: input.imprimirEnTerminal ?? "ticket",
+          // Por defecto imprime el ticket del cliente: es el que se lleva quien
+          // pagó, y es lo que el cliente pidió (que el comprobante salga solo
+          // de la terminal al cobrar).
+          print_on_terminal: input.imprimirEnTerminal ?? "buyer_ticket",
           ...(input.numeroTicket && { ticket_number: input.numeroTicket }),
         },
       },
