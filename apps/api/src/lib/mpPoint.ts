@@ -318,7 +318,9 @@ export interface CrearOrdenInput {
    * con terminal nunca podía funcionar.
    *
    *   seller_ticket — copia para el comercio
-   *   buyer_ticket  — copia para el cliente
+   *   buyer_ticket  — copia para el cliente. **Solo en modo SELF_SERVICE**: en
+   *                   PDV, MP lo rechaza con
+   *                   `creation_not_possible_buyer_ticket_is_only_available_for_self_service_mode`
    *   no_ticket     — no imprime nada
    */
   imprimirEnTerminal?: "seller_ticket" | "buyer_ticket" | "no_ticket";
@@ -346,10 +348,12 @@ export async function crearOrden(input: CrearOrdenInput): Promise<OrdenMP> {
       config: {
         point: {
           terminal_id: input.terminalId,
-          // Por defecto imprime el ticket del cliente: es el que se lleva quien
-          // pagó, y es lo que el cliente pidió (que el comprobante salga solo
-          // de la terminal al cobrar).
-          print_on_terminal: input.imprimirEnTerminal ?? "buyer_ticket",
+          // `seller_ticket` y no `buyer_ticket` porque las terminales están en
+          // PDV (las atiende un cajero, no el cliente) y MP solo permite el
+          // ticket del comprador en modo autoservicio. Igual sale el
+          // comprobante de la operación, que es lo que se le entrega a quien
+          // pagó.
+          print_on_terminal: input.imprimirEnTerminal ?? "seller_ticket",
           ...(input.numeroTicket && { ticket_number: input.numeroTicket }),
         },
       },
