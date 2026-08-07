@@ -40,7 +40,33 @@ function limpiar(valor: string | undefined): string | undefined {
   return crudo ? crudo : undefined;
 }
 
+/**
+ * Lee `CLOUDINARY_URL`, que es el formato que da el panel de Cloudinary:
+ *
+ *   cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+ *
+ * Se prefiere sobre las tres variables sueltas porque viene de una sola pieza:
+ * copiando esa línea es imposible mezclar la key de una credencial con el
+ * secret de otra, que es justo el error que hace fallar la firma con un
+ * "Invalid Signature" que parece un bug del código.
+ */
+function credencialesDesdeUrl(): CredencialesCloudinary | null {
+  const url = limpiar(process.env["CLOUDINARY_URL"]);
+  if (!url) return null;
+
+  const match = /^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/.exec(url);
+  if (!match) return null;
+
+  const [, apiKey, apiSecret, cloudName] = match;
+  if (!apiKey || !apiSecret || !cloudName) return null;
+
+  return { cloudName, apiKey, apiSecret };
+}
+
 function leerCredenciales(): CredencialesCloudinary | null {
+  const desdeUrl = credencialesDesdeUrl();
+  if (desdeUrl) return desdeUrl;
+
   const cloudName = limpiar(process.env["CLOUDINARY_CLOUD_NAME"]);
   const apiKey = limpiar(process.env["CLOUDINARY_API_KEY"]);
   const apiSecret = limpiar(process.env["CLOUDINARY_API_SECRET"]);

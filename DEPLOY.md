@@ -55,9 +55,7 @@ Variables de entorno a completar en Render → *Environment* (todas marcadas `sy
 | `FRONTEND_URLS` | Sí | Dominios del front separados por coma, ej: `https://club-niagara.vercel.app` |
 | `MP_ACCESS_TOKEN` | No | Access token de Mercado Pago. Sin esto, el cobro con terminales Point queda deshabilitado y el resto funciona igual |
 | `MP_WEBHOOK_SECRET` | No* | Clave secreta del webhook de MP. *Obligatoria antes de cobrar de verdad: sin ella el endpoint acepta notificaciones de cualquier origen |
-| `CLOUDINARY_CLOUD_NAME` | No | Para subir portadas de eventos desde la computadora. Sin esto solo se puede pegar una URL |
-| `CLOUDINARY_API_KEY` | No | Ídem |
-| `CLOUDINARY_API_SECRET` | No | Ídem. **No lo pongas en el frontend**: la API firma los uploads |
+| `CLOUDINARY_URL` | No | Para subir portadas de eventos desde la computadora. Se copia de Cloudinary → Settings → API Keys, con el formato `cloudinary://KEY:SECRET@CLOUD`. Sin esto solo se puede pegar una URL de imagen |
 
 > **`BETTER_AUTH_SECRET` no es opcional.** Si falta, la API **no arranca** en
 > producción, y es a propósito: antes caía en un secreto de desarrollo que está
@@ -258,11 +256,17 @@ tener que subirla a otro lado y pegar el link. Es opcional: sin configurar,
 el panel deja la pestaña *Subir archivo* desactivada y funciona con URL.
 
 1. Crear una cuenta en [cloudinary.com](https://cloudinary.com).
-2. En el **Dashboard**, sección *Product Environment Credentials*, copiar
-   **Cloud name**, **API key** y **API secret**.
-3. En Render → servicio de la API → **Environment**, cargar las tres:
-   `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
-4. Redeployar.
+2. Ir a **Settings → API Keys** y generar una key para el sistema.
+3. Copiar la línea `CLOUDINARY_URL=cloudinary://KEY:SECRET@CLOUD`, sustituyendo
+   los placeholders por la key y el secret **de la misma fila** de la tabla.
+4. En Render → servicio de la API → **Environment**, cargar `CLOUDINARY_URL`.
+5. Redeployar.
+
+> Si en vez de la URL se cargan las tres variables sueltas, hay que asegurarse
+> de que la key y el secret sean del mismo par. Cada key de la tabla tiene su
+> propio secret, y el que muestra el dashboard principal es el de la key `Root`.
+> Mezclarlos hace fallar la subida con `Invalid Signature`, un error que apunta
+> a la firma cuando el problema son las credenciales.
 
 El **API secret no se comparte por chat ni queda en el repo**: se pega directo
 en el panel de Render. Con ese secreto se puede subir y borrar cualquier cosa
