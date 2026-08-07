@@ -10,11 +10,23 @@ import { prisma } from "@niagara/db";
 
 const productoSchema = z.object({
   nombre: z.string().min(2),
-  descripcion: z.string().optional(),
+  descripcion: z.string().nullish(),
   categoria: z.string().min(2),
   precio: z.number().positive(),
-  costo: z.number().positive().optional(),
-  imagenUrl: z.string().url().optional(),
+  costo: z.number().positive().nullish(),
+  imagenUrl: z.union([z.string().url(), z.literal("")]).nullish(),
+});
+
+/**
+ * En el PATCH se acepta además `activo`, que no está en el alta porque un
+ * producto nuevo siempre nace activo.
+ *
+ * Sirve para deshacer una baja: sin esto, un producto dado de baja por error
+ * quedaba fuera de la carta para siempre y había que crearlo de nuevo, con lo
+ * que las ventas viejas quedaban colgadas del producto muerto.
+ */
+const editarProductoSchema = productoSchema.partial().extend({
+  activo: z.boolean().optional(),
 });
 
 export const registrarRutasProductos: FastifyPluginAsync = async (app) => {
@@ -89,7 +101,7 @@ export const registrarRutasProductos: FastifyPluginAsync = async (app) => {
       return reply.status(403).send({ error: "Sin permisos" });
     }
 
-    const body = productoSchema.partial().safeParse(req.body);
+    const body = editarProductoSchema.safeParse(req.body);
     if (!body.success) {
       return reply.status(400).send({ error: body.error.flatten() });
     }
@@ -104,9 +116,10 @@ export const registrarRutasProductos: FastifyPluginAsync = async (app) => {
         ...(d.nombre !== undefined && { nombre: d.nombre }),
         ...(d.categoria !== undefined && { categoria: d.categoria }),
         ...(d.precio !== undefined && { precio: d.precio }),
-        ...(d.descripcion !== undefined && { descripcion: d.descripcion }),
-        ...(d.costo !== undefined && { costo: d.costo }),
-        ...(d.imagenUrl !== undefined && { imagenUrl: d.imagenUrl }),
+        ...(d.descripcion !== undefined && { descripcion: d.descripcion || null }),
+        ...(d.costo !== undefined && { costo: d.costo ?? null }),
+        ...(d.imagenUrl !== undefined && { imagenUrl: d.imagenUrl || null }),
+        ...(d.activo !== undefined && { activo: d.activo }),
       },
     });
 

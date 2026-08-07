@@ -14,6 +14,7 @@ import {
   useTerminalesStore,
   type Terminal,
   type ModoOperacion,
+  type CobroHuerfano,
 } from "@/stores/terminalesStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useCajaStore } from "@/stores/cajaStore";
@@ -41,6 +42,7 @@ export function TerminalesPage() {
   const {
     terminales,
     estadoPoint,
+    huerfanos,
     cargando,
     sincronizando,
     error,
@@ -128,6 +130,8 @@ export function TerminalesPage() {
       )}
       {aviso && <Mensaje tono="info" texto={aviso} onCerrar={limpiarMensajes} />}
 
+      {huerfanos.length > 0 && <CobrosHuerfanos cobros={huerfanos} />}
+
       {cargando ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 3 }, (_, i) => (
@@ -187,6 +191,67 @@ function Tarjeta({
         {valor}
       </p>
       {detalle && <p className="text-xs text-text-muted mt-1">{detalle}</p>}
+    </div>
+  );
+}
+
+/**
+ * Cobros aprobados en Mercado Pago sin venta registrada.
+ *
+ * Solo aparece si hay alguno. Es plata que entró y que el sistema no tiene
+ * asentada: pasa si el navegador se cierra o se corta internet justo entre
+ * que la terminal aprueba y que la caja guarda la venta.
+ *
+ * Por ahora es informativo: sirve para cruzar contra lo que reporta Mercado
+ * Pago y cargar la venta a mano. No se crea sola porque no hay forma de saber
+ * qué productos se vendieron — esa información se perdió con el carrito.
+ */
+function CobrosHuerfanos({ cobros }: { cobros: CobroHuerfano[] }) {
+  const fecha = (iso: string) =>
+    new Date(iso).toLocaleString("es-AR", {
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
+
+  const pesos = (m: string | number) =>
+    new Intl.NumberFormat("es-AR", {
+      style: "currency", currency: "ARS", maximumFractionDigits: 0,
+    }).format(Number(m));
+
+  return (
+    <div className="rounded-xl border border-warning/30 bg-warning/5 p-4">
+      <div className="flex items-start gap-2">
+        <Icono nombre="alerta" tamano={18} className="text-warning flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-warning">
+            {cobros.length} cobro{cobros.length !== 1 ? "s" : ""} sin venta registrada
+          </p>
+          <p className="text-xs text-text-secondary mt-0.5">
+            La plata entró en Mercado Pago pero la venta no quedó asentada.
+            Verificalo contra el resumen de MP y cargá la venta a mano si
+            corresponde.
+          </p>
+
+          <div className="mt-3 flex flex-col gap-2">
+            {cobros.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center gap-3 flex-wrap text-xs bg-surface border border-border rounded-lg px-3 py-2"
+              >
+                <span className="font-bold text-text-primary">{pesos(c.monto)}</span>
+                <span className="text-text-secondary">{fecha(c.createdAt)}</span>
+                {c.terminal?.nombre && (
+                  <span className="text-text-secondary">{c.terminal.nombre}</span>
+                )}
+                {c.mpPaymentId && (
+                  <span className="font-mono text-text-muted">
+                    Pago {c.mpPaymentId}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

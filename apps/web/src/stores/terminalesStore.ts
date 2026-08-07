@@ -32,9 +32,27 @@ export interface EstadoPoint {
   terminalesEnPDV: number;
 }
 
+/**
+ * Cobro aprobado en Mercado Pago que no tiene venta registrada.
+ *
+ * Pasa si el navegador se cierra o se corta internet entre que la terminal
+ * aprueba el pago y que la caja alcanza a guardar la venta. La plata entró
+ * igual, así que hay que poder verlo para cargarlo a mano.
+ */
+export interface CobroHuerfano {
+  id: string;
+  referencia: string;
+  monto: string | number;
+  estado: string;
+  mpPaymentId: string | null;
+  createdAt: string;
+  terminal?: { nombre: string } | null;
+}
+
 interface TerminalesState {
   terminales: Terminal[];
   estadoPoint: EstadoPoint | null;
+  huerfanos: CobroHuerfano[];
   cargando: boolean;
   sincronizando: boolean;
   procesando: boolean;
@@ -62,6 +80,7 @@ function localIdActual(): string | undefined {
 export const useTerminalesStore = create<TerminalesState>((set, get) => ({
   terminales: [],
   estadoPoint: null,
+  huerfanos: [],
   cargando: false,
   sincronizando: false,
   procesando: false,
@@ -74,11 +93,23 @@ export const useTerminalesStore = create<TerminalesState>((set, get) => ({
 
     set({ cargando: true, error: null });
     try {
-      const [lista, estado] = await Promise.all([
+      // Los huérfanos van con `catch` propio: es información de control, y si
+      // falla (por ejemplo, un cajero sin permiso de admin) no tiene que
+      // tumbar la pantalla de terminales.
+      const [lista, estado, huerfanos] = await Promise.all([
         api.get<{ terminales: Terminal[] }>("/point/terminales", localId),
         api.get<EstadoPoint>("/point/estado", localId),
+        api
+          .get<{ huerfanos: CobroHuerfano[] }>("/point/cobros/huerfanos", localId)
+          .catch(() => ({ huerfanos: [] })),
       ]);
-      set({ terminales: lista.terminales, estadoPoint: estado, cargando: false });
+
+      set({
+        terminales: lista.terminales,
+        estadoPoint: estado,
+        huerfanos: huerfanos.huerfanos,
+        cargando: false,
+      });
     } catch (err) {
       set({
         cargando: false,

@@ -16,7 +16,7 @@
  */
 
 import type { FastifyPluginAsync } from "fastify";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { firmaValida, secretoWebhook } from "../lib/mpFirma.js";
 import { z } from "zod";
 import { prisma, type Prisma } from "@niagara/db";
 import { io } from "../index.js";
@@ -48,42 +48,6 @@ const crearCobroSchema = z.object({
   numeroTicket: z.string().max(32).optional(),
 });
 
-/**
- * Verifica la firma `x-signature` de MP.
- *
- * El manifest que MP firma es "id:<dataId>;request-id:<xRequestId>;ts:<ts>;"
- * con HMAC-SHA256 y el secreto del webhook. Si no hay secreto configurado no se
- * valida, pero se avisa: un webhook de pagos sin firma es un endpoint público
- * que cualquiera puede usar para marcar cobros como aprobados.
- */
-function firmaValida(
-  secreto: string,
-  // `| undefined` explícito: los headers de Fastify pueden faltar y con
-  // exactOptionalPropertyTypes omitir la clave no es lo mismo que pasarla vacía.
-  cabeceras: { signature: string | undefined; requestId: string | undefined },
-  dataId: string
-): boolean {
-  if (!cabeceras.signature) return false;
-
-  // Formato: "ts=1704908010,v1=618c85345248dd820d5fd456117c2ab2ef8c1aa1..."
-  const partes = new Map<string, string>(
-    cabeceras.signature.split(",").map((p): [string, string] => {
-      const [k, v] = p.split("=");
-      return [k?.trim() ?? "", v?.trim() ?? ""];
-    })
-  );
-
-  const ts = partes.get("ts");
-  const v1 = partes.get("v1");
-  if (!ts || !v1) return false;
-
-  const manifest = `id:${dataId};request-id:${cabeceras.requestId ?? ""};ts:${ts};`;
-  const esperado = createHmac("sha256", secreto).update(manifest).digest("hex");
-
-  const a = Buffer.from(esperado, "utf8");
-  const b = Buffer.from(v1, "utf8");
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
   // ══════════════════════════════════════════════════════════════
@@ -100,7 +64,7 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
 
     return {
       configurado: pointConfigurado(),
-      webhookFirmado: Boolean(process.env["MP_WEBHOOK_SECRET"]),
+      webhookFirmado: secretoWebhook() !== undefined,
       terminales,
       terminalesEnPDV: enPDV,
     };
@@ -453,7 +417,7 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
       return reply.status(200).send({ ok: true });
     }
 
-    const secreto = process.env["MP_WEBHOOK_SECRET"];
+    const secreto = secretoWebhook();
     if (secreto) {
       const ok = firmaValida(
         secreto,

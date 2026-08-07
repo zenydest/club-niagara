@@ -8,7 +8,7 @@
  * Offline-first: vende sin internet, sincroniza al reconectar.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@niagara/ui";
 import { useCajaStore } from "@/stores/cajaStore";
 import { useCashlessStore } from "@/stores/cashlessStore";
@@ -246,18 +246,54 @@ function ModalPago({
 
   // ── Cobro con terminal Point ────────────────────────────────
   const {
-    terminales,
+    terminales: todasLasTerminales,
     terminalId,
     cargarTerminales,
     setTerminal,
     cobrar: cobrarConPoint,
   } = useCobroPointStore();
 
+  const { barraSeleccionada } = useCajaStore();
   const [modalPoint, setModalPoint] = useState(false);
 
   useEffect(() => {
     void cargarTerminales();
   }, [cargarTerminales]);
+
+  /**
+   * Terminales de esta barra.
+   *
+   * Con dos barras y una terminal cada una, mostrar las dos es pedir que
+   * alguien cobre en la terminal de al lado: la plata entra igual, pero queda
+   * atribuida a la otra barra y el corte de caja no cierra.
+   *
+   * Si ninguna terminal está asignada a la barra elegida se muestran todas, en
+   * vez de dejar al cajero sin poder cobrar. Es el caso de un boliche que
+   * todavía no asignó las terminales.
+   */
+  const terminales = useMemo(() => {
+    if (!barraSeleccionada) return todasLasTerminales;
+
+    const deLaBarra = todasLasTerminales.filter(
+      (t) => t.barraId === barraSeleccionada.id
+    );
+    return deLaBarra.length > 0 ? deLaBarra : todasLasTerminales;
+  }, [todasLasTerminales, barraSeleccionada]);
+
+  const terminalesSinAsignar =
+    barraSeleccionada !== null &&
+    todasLasTerminales.length > 0 &&
+    !todasLasTerminales.some((t) => t.barraId === barraSeleccionada.id);
+
+  // Al cambiar de barra, la terminal guardada puede no pertenecer a la nueva.
+  // Se reasigna sola cuando hay una sola candidata; si hay varias se limpia
+  // para que el cajero elija a propósito y no cobre en la que quedó pegada.
+  useEffect(() => {
+    if (terminales.length === 0) return;
+    if (terminalId && terminales.some((t) => t.id === terminalId)) return;
+
+    setTerminal(terminales.length === 1 ? (terminales[0]?.id ?? null) : null);
+  }, [terminales, terminalId, setTerminal]);
 
   // Si no hay ninguna terminal en PDV, el cobro con tarjeta sigue siendo
   // manual, como era antes. Es lo que corresponde: el boliche puede tener un
@@ -463,6 +499,13 @@ function ModalPago({
                   Al confirmar, el monto le llega sola a la terminal. La venta se
                   registra recién cuando el pago sale aprobado.
                 </p>
+
+                {terminalesSinAsignar && (
+                  <p className="text-xs text-warning">
+                    Ninguna terminal está asignada a {barraSeleccionada?.nombre}.
+                    Asignalas en Terminales para que cada barra vea solo la suya.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="p-4 rounded-xl bg-surface-2 border border-border text-center space-y-1">

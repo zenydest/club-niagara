@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "eventos", label: "Eventos", icono: "eventos", roles: ["admin", "encargado"] },
   { id: "reservas", label: "Reservas VIP", icono: "reservas", roles: ["admin", "encargado", "rrpp"] },
   { id: "reportes", label: "Reportes", icono: "reportes", roles: ["admin", "encargado"] },
+  { id: "productos", label: "Carta", icono: "producto", roles: ["admin", "encargado"] },
   { id: "stock", label: "Stock", icono: "stock", roles: ["admin", "encargado", "barman"] },
   // Guardarropa existía como página pero faltaba en el menú, así que no había
   // forma de llegar a ella desde la app.

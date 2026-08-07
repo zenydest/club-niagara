@@ -2,9 +2,11 @@
  * Módulo 4 — Cashless
  *
  * Tabs:
- *   1. Tarjetas    — lista, crear, recargar, activar/desactivar
+ *   1. Tarjetas     — lista, crear, recargar, activar/desactivar
  *   2. Cobro rápido — consultar saldo y cobrar desde esta pantalla
- *   3. QR / MP      — generar QR de Mercado Pago para un monto
+ *
+ * Había una tercera, "QR / MP", que se quitó: el QR que dibujaba no codificaba
+ * nada y el pago nunca llegaba a la base. Ver el comentario en `TABS`.
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -25,45 +27,6 @@ const ARS = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
-// ── QR simple con SVG (para mostrar el qrData de MP) ─────────────
-// Usamos la librería nativa del browser cuando esté disponible.
-// Por ahora mostramos el código en texto y un placeholder visual.
-
-function QRPlaceholder({ valor, tamaño = 180 }: { valor: string; tamaño?: number }) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center border-2 border-lime/40 rounded-2xl bg-white"
-      style={{ width: tamaño, height: tamaño }}
-    >
-      {/* Grid simulado de QR */}
-      <svg viewBox="0 0 100 100" width={tamaño - 16} height={tamaño - 16}>
-        {/* Esquinas */}
-        {([
-          [5, 5], [65, 5], [5, 65],
-        ] as const).map(([x, y], i) => (
-          <g key={i}>
-            <rect x={x} y={y} width={30} height={30} rx={3} fill="#1a1a2e" />
-            <rect x={x + 5} y={y + 5} width={20} height={20} rx={2} fill="white" />
-            <rect x={x + 9} y={y + 9} width={12} height={12} rx={1} fill="#1a1a2e" />
-          </g>
-        ))}
-        {/* Puntos aleatorios simulados */}
-        {Array.from({ length: 40 }, (_, i) => {
-          const px = 5 + (i * 37) % 60;
-          const py = 38 + (i * 53) % 45;
-          if ((px < 40 && py < 40) || (px > 60 && py < 40) || (px < 40 && py > 60)) return null;
-          return <rect key={`p${i}`} x={px} y={py} width={5} height={5} fill="#1a1a2e" />;
-        })}
-        {/* Logo central */}
-        <rect x={40} y={40} width={20} height={20} rx={3} fill="#C2FF00" />
-        <text x={50} y={53} textAnchor="middle" fontSize={10} fill="#06060F" fontWeight="bold">N</text>
-      </svg>
-      {valor.includes("MOCK") && (
-        <p className="text-[9px] text-gray-500 mt-1 px-2 text-center">Simulado</p>
-      )}
-    </div>
-  );
-}
 
 // ── Tab 1: Lista de tarjetas ──────────────────────────────────────
 
@@ -538,103 +501,17 @@ function TabCobro() {
   );
 }
 
-// ── Tab 3: QR Mercado Pago ───────────────────────────────────────
-
-function TabQRMP() {
-  const { preferenciaMP, cargandoQR, crearPreferenciaMP, limpiarPreferenciaMP } = useCashlessStore();
-  const [monto, setMonto] = useState("");
-  const [descripcion, setDescripcion] = useState("Consumición Club Niágara");
-
-  const handleGenerar = async () => {
-    if (!monto || Number(monto) <= 0) return;
-    await crearPreferenciaMP(Number(monto), descripcion || undefined);
-  };
-
-  return (
-    <div className="max-w-md mx-auto space-y-4">
-      {/* Info sobre modo simulado */}
-      <div className="px-4 py-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-400 flex items-start gap-2">
-        <Icono nombre="alerta" tamano={16} />
-        <div>
-          <p className="font-semibold">Modo simulado</p>
-          <p className="text-text-secondary mt-0.5">
-            Configurá <code className="bg-surface px-1 rounded">MP_ACCESS_TOKEN</code> en las variables de Render para activar pagos reales.
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs text-text-secondary uppercase tracking-wider">Monto</label>
-          <input
-            type="number"
-            inputMode="numeric"
-            placeholder="0"
-            value={monto}
-            onChange={(e) => { setMonto(e.target.value); limpiarPreferenciaMP(); }}
-            className="mt-1 w-full px-4 py-3 rounded-xl bg-surface-2 border border-border text-text-primary text-xl font-bold focus:outline-none focus:ring-2 focus:ring-lime/40"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-text-secondary uppercase tracking-wider">Descripción</label>
-          <input
-            type="text"
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-lime/40"
-          />
-        </div>
-
-        <button
-          onClick={() => void handleGenerar()}
-          disabled={!monto || Number(monto) <= 0 || cargandoQR}
-          className="w-full py-3 rounded-xl bg-accent text-white font-bold text-sm hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-        >
-          {cargandoQR ? "Generando QR…" : "Generar QR de pago"}
-        </button>
-      </div>
-
-      {/* QR generado */}
-      {preferenciaMP && (
-        <div className="rounded-xl border border-lime/30 bg-surface p-6 text-center space-y-4">
-          <p className="text-sm font-bold text-text-primary">
-            QR para pago de {ARS(Number(monto))}
-          </p>
-
-          <div className="flex justify-center">
-            <QRPlaceholder valor={preferenciaMP.qrData ?? preferenciaMP.preferenciaId} tamaño={200} />
-          </div>
-
-          {preferenciaMP.simulado && (
-            <p className="text-xs text-yellow-400">
-              Este QR es simulado. Con MP configurado aparecerá el QR real.
-            </p>
-          )}
-
-          <div className="text-xs text-text-secondary font-mono bg-surface-2 rounded-lg px-3 py-2 break-all">
-            ID: {preferenciaMP.preferenciaId}
-          </div>
-
-          <button
-            onClick={limpiarPreferenciaMP}
-            className="text-xs text-text-secondary hover:text-lime transition-colors"
-          >
-            Generar otro
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Página principal ─────────────────────────────────────────────
 
-type Tab = "tarjetas" | "cobro" | "qrmp";
+type Tab = "tarjetas" | "cobro";
 
 const TABS: { id: Tab; label: string; icono: NombreIcono; roles: string[] }[] = [
   { id: "tarjetas", label: "Tarjetas", icono: "billetera", roles: ["admin", "encargado", "cajero"] },
   { id: "cobro", label: "Cobro rápido", icono: "dashboard", roles: ["admin", "encargado", "cajero", "barman"] },
-  { id: "qrmp", label: "QR / MP", icono: "qrMp", roles: ["admin", "encargado", "cajero", "barman"] },
+  // La pestaña "QR / MP" se sacó: mostraba un QR dibujado que no codificaba
+  // nada, y el webhook que tenía que acreditar el pago nunca se implementó.
+  // Un cobro que no llega a la base es peor que no ofrecer el cobro. El QR se
+  // cobra desde la app de Mercado Pago y el cajero lo marca en la caja.
 ];
 
 export function CashlessPage() {
@@ -685,7 +562,6 @@ export function CashlessPage() {
       {/* Contenido del tab */}
       {tabActual === "tarjetas" && <TabTarjetas />}
       {tabActual === "cobro" && <TabCobro />}
-      {tabActual === "qrmp" && <TabQRMP />}
     </div>
   );
 }
