@@ -32,6 +32,7 @@ import {
   pointConfigurado,
   posIdComoTexto,
   nombrePorDefecto,
+  metodoPagoDeOrden,
   MPPointError,
   type OrdenMP,
 } from "../lib/mpPoint.js";
@@ -299,21 +300,32 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
       return reply.status(404).send({ error: "Cobro no encontrado" });
     }
 
+    /**
+     * `metodoPago` sale de la última notificación guardada: es con qué pagó
+     * realmente el cliente en la terminal, que puede no ser lo que eligió el
+     * cajero. La caja lo usa para registrar la venta con el medio correcto.
+     */
+    const metodoDeNotificacion = (): "tarjeta" | "qr_mp" | null => {
+      const cruda = orden.ultimaNotificacion;
+      if (!cruda || typeof cruda !== "object") return null;
+      return metodoPagoDeOrden(cruda as unknown as OrdenMP);
+    };
+
     // Estado final: no hace falta volver a preguntar.
     const finalizado = ["processed", "canceled", "expired", "refunded"].includes(orden.estado);
     if (finalizado || refrescar !== "true") {
-      return { orden };
+      return { orden, metodoPago: metodoDeNotificacion() };
     }
 
     try {
       const ordenMP = await consultarOrden(orden.id);
       const actualizada = await guardarEstadoOrden(orden.id, ordenMP);
-      return { orden: actualizada };
+      return { orden: actualizada, metodoPago: metodoPagoDeOrden(ordenMP) };
     } catch (err) {
       if (err instanceof MPPointError) {
         // Se devuelve lo último que sabemos en vez de fallar: la caja necesita
         // seguir operando aunque MP no responda.
-        return { orden, avisoMP: err.message };
+        return { orden, metodoPago: metodoDeNotificacion(), avisoMP: err.message };
       }
       throw err;
     }

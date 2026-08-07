@@ -35,13 +35,32 @@ interface CredencialesCloudinary {
   apiSecret: string;
 }
 
+function limpiar(valor: string | undefined): string | undefined {
+  const crudo = valor?.trim().replace(/^["']|["']$/g, "");
+  return crudo ? crudo : undefined;
+}
+
 function leerCredenciales(): CredencialesCloudinary | null {
-  const cloudName = process.env["CLOUDINARY_CLOUD_NAME"];
-  const apiKey = process.env["CLOUDINARY_API_KEY"];
-  const apiSecret = process.env["CLOUDINARY_API_SECRET"];
+  const cloudName = limpiar(process.env["CLOUDINARY_CLOUD_NAME"]);
+  const apiKey = limpiar(process.env["CLOUDINARY_API_KEY"]);
+  const apiSecret = limpiar(process.env["CLOUDINARY_API_SECRET"]);
 
   if (!cloudName || !apiKey || !apiSecret) return null;
   return { cloudName, apiKey, apiSecret };
+}
+
+/**
+ * El cloud name va en la URL de subida, así que no puede tener espacios ni
+ * mayúsculas: Cloudinary lo genera en minúscula y sin separadores (algo como
+ * `wsersg4p`).
+ *
+ * Se valida porque es fácil confundirlo con el nombre de la API Key o con el
+ * del negocio. Cuando pasa, la subida falla con un 401 y un "Invalid
+ * Signature" que manda a revisar el secreto, que es justamente lo que está
+ * bien.
+ */
+function cloudNameSospechoso(cloudName: string): boolean {
+  return /[\s]/.test(cloudName) || cloudName !== cloudName.toLowerCase();
 }
 
 /**
@@ -62,11 +81,74 @@ function firmar(params: Record<string, string>, apiSecret: string): string {
   return createHash("sha1").update(aFirmar + apiSecret).digest("hex");
 }
 
+/**
+ * Le pregunta a Cloudinary si el par key/secret es válido.
+ *
+ * El resultado se cachea unos minutos: esto se llama cada vez que se abre el
+ * formulario de evento y no tiene sentido gastar una llamada por cada apertura
+ * para algo que cambia una vez cada varios meses.
+ */
+let cacheVerificacion: { valido: boolean; hasta: number } | null = null;
+const CACHE_MS = 5 * 60 * 1000;
+
+async function credencialesFuncionan(cred: CredencialesCloudinary): Promise<boolean> {
+  if (cacheVerificacion && Date.now() < cacheVerificacion.hasta) {
+    return cacheVerificacion.valido;
+  }
+
+  try {
+    const auth = Buffer.from(`${cred.apiKey}:${cred.apiSecret}`).toString("base64");
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cred.cloudName}/ping`, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+
+    cacheVerificacion = { valido: res.ok, hasta: Date.now() + CACHE_MS };
+    return res.ok;
+  } catch {
+    // Un problema de red no es lo mismo que credenciales malas: se asume que
+    // sirven y que el error real, si lo hay, aparecerá al subir.
+    return true;
+  }
+}
+
 export const registrarRutasUploads: FastifyPluginAsync = async (app) => {
 
-  /** GET /api/uploads/estado — para que el panel sepa si ofrecer la subida. */
+  /**
+   * GET /api/uploads/estado — si el panel puede ofrecer la subida.
+   *
+   * Además de mirar que las variables existan, le pregunta a Cloudinary si el
+   * par key/secret sirve. Sin esto, tener las tres variables cargadas parecía
+   * suficiente y el error recién aparecía al subir, como un "Invalid
+   * Signature" que apunta al código en vez de a las credenciales.
+   */
   app.get("/estado", async () => {
-    return { configurado: leerCredenciales() !== null };
+    const credenciales = leerCredenciales();
+    if (!credenciales) return { configurado: false, credencialesValidas: false };
+
+    if (cloudNameSospechoso(credenciales.cloudName)) {
+      return {
+        configurado: false,
+        credencialesValidas: false,
+        detalle:
+          `"${credenciales.cloudName}" no parece un Cloud name: van en minúscula ` +
+          "y sin espacios. Es el “Product Environment” del panel de Cloudinary.",
+      };
+    }
+
+    const validas = await credencialesFuncionan(credenciales);
+
+    return {
+      configurado: validas,
+      credencialesValidas: validas,
+      ...(validas
+        ? {}
+        : {
+            detalle:
+              "Cloudinary rechazó las credenciales. Revisá que la API Key y el " +
+              "API Secret sean del mismo par: en Settings → API Keys, cada key " +
+              "tiene su propio secret.",
+          }),
+    };
   });
 
   /**
@@ -99,6 +181,15 @@ export const registrarRutasUploads: FastifyPluginAsync = async (app) => {
 
     if (!query.success) {
       return reply.status(400).send({ error: "Carpeta inválida" });
+    }
+
+    if (cloudNameSospechoso(credenciales.cloudName)) {
+      return reply.status(503).send({
+        error:
+          `"${credenciales.cloudName}" no parece un Cloud name válido: van en ` +
+          "minúscula y sin espacios. Fijate el valor de “Product Environment” " +
+          "en el panel de Cloudinary — no es el nombre de la API Key ni el del negocio.",
+      });
     }
 
     const timestamp = Math.floor(Date.now() / 1000);

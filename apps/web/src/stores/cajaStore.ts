@@ -84,7 +84,17 @@ interface CajaState {
    * de la orden. Usar el mismo en los dos lados es lo que permite después
    * cruzar cobro y venta (ver `GET /point/cobros/huerfanos`).
    */
-  confirmarVenta: (eventoId?: string, ventaId?: string) => Promise<boolean>;
+  confirmarVenta: (
+    eventoId?: string,
+    ventaId?: string,
+    /**
+     * Pisa el método que eligió el cajero. Se usa después de cobrar con
+     * terminal: la terminal ofrece tarjeta y QR, así que lo que se marcó en la
+     * caja puede no ser con lo que terminó pagando el cliente. Sin esto, el
+     * desglose por medio de pago del corte no cierra contra el resumen de MP.
+     */
+    metodoPagoReal?: MetodoPago
+  ) => Promise<boolean>;
 
   // Acciones — sincronización
   setOnline: (online: boolean) => void;
@@ -232,8 +242,9 @@ export const useCajaStore = create<CajaState>((set, get) => ({
   setMetodoPago: (metodo) => set({ metodoPago: metodo, montoCobrado: 0 }),
   setMontoCobrado: (monto) => set({ montoCobrado: monto }),
 
-  confirmarVenta: async (eventoId, ventaId) => {
-    const { carrito, metodoPago, barraSeleccionada, online } = get();
+  confirmarVenta: async (eventoId, ventaId, metodoPagoReal) => {
+    const { carrito, metodoPago: metodoElegido, barraSeleccionada, online } = get();
+    const metodoPago = metodoPagoReal ?? metodoElegido;
     const localId = getLocalId();
 
     if (!carrito.length || !localId) return false;

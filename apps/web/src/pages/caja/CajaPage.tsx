@@ -295,11 +295,16 @@ function ModalPago({
     setTerminal(terminales.length === 1 ? (terminales[0]?.id ?? null) : null);
   }, [terminales, terminalId, setTerminal]);
 
-  // Si no hay ninguna terminal en PDV, el cobro con tarjeta sigue siendo
-  // manual, como era antes. Es lo que corresponde: el boliche puede tener un
-  // posnet común que no habla con el sistema.
+  // Si no hay ninguna terminal en PDV, el cobro sigue siendo manual, como era
+  // antes. Es lo que corresponde: el boliche puede tener un posnet común que
+  // no habla con el sistema.
   const hayTerminales = terminales.length > 0;
-  const cobroPointDisponible = metodoPago === "tarjeta" && hayTerminales;
+
+  // Tarjeta y QR van los dos por la terminal: el posnet ofrece las dos formas
+  // sobre la misma orden. Lo que cambia es qué eligió el cajero de antemano,
+  // y eso después se corrige con lo que MP informa que se usó realmente.
+  const metodoVaPorTerminal = metodoPago === "tarjeta" || metodoPago === "qr_mp";
+  const cobroPointDisponible = metodoVaPorTerminal && hayTerminales;
 
   // `!procesandoCashless` evita el doble débito: sin eso, un segundo clic
   // mientras el cobro está en vuelo vuelve a descontar saldo de la tarjeta.
@@ -345,7 +350,13 @@ function ModalPago({
 
       setModalPoint(false);
 
-      const ok = await confirmarVenta(eventoId, ventaId);
+      // Se registra con lo que MP dice que se usó, no con lo que tocó el
+      // cajero. Si MP no lo informa, queda el elegido.
+      const ok = await confirmarVenta(
+        eventoId,
+        ventaId,
+        ...(res.metodoReal ? [res.metodoReal] as const : [])
+      );
       if (ok) {
         limpiarConsulta();
         onExito();
@@ -465,13 +476,17 @@ function ModalPago({
             </div>
           )}
 
-          {metodoPago === "tarjeta" && (
+          {/* Tarjeta y QR comparten panel: los dos se cobran con la terminal.
+              Lo único que cambia es qué se le va a pedir al cliente. */}
+          {metodoVaPorTerminal && (
             hayTerminales ? (
               <div className="p-4 rounded-xl bg-surface-2 border border-border space-y-3">
                 <div className="flex items-center gap-2">
                   <Icono nombre="terminales" tamano={18} className="text-accent" />
                   <p className="text-sm font-medium text-text-primary">
-                    Cobrar con terminal
+                    {metodoPago === "qr_mp"
+                      ? "Cobrar con QR en la terminal"
+                      : "Cobrar con tarjeta en la terminal"}
                   </p>
                 </div>
 
@@ -496,8 +511,10 @@ function ModalPago({
                 </div>
 
                 <p className="text-xs text-text-secondary">
-                  Al confirmar, el monto le llega sola a la terminal. La venta se
-                  registra recién cuando el pago sale aprobado.
+                  {metodoPago === "qr_mp"
+                    ? "Al confirmar, el monto le llega a la terminal y ahí elegís Código QR para que el cliente lo escanee."
+                    : "Al confirmar, el monto le llega sola a la terminal."}{" "}
+                  La venta se registra recién cuando el pago sale aprobado.
                 </p>
 
                 {terminalesSinAsignar && (
@@ -509,31 +526,21 @@ function ModalPago({
               </div>
             ) : (
               <div className="p-4 rounded-xl bg-surface-2 border border-border text-center space-y-1">
-                <Icono nombre="tarjeta" tamano={26} className="mx-auto text-text-secondary" />
+                <Icono
+                  nombre={metodoPago === "qr_mp" ? "qrMp" : "tarjeta"}
+                  tamano={26}
+                  className="mx-auto text-text-secondary"
+                />
                 <p className="text-sm font-medium text-text-primary">
-                  Pasá la tarjeta en el posnet
+                  {metodoPago === "qr_mp"
+                    ? "Cobrá el QR desde la app de Mercado Pago"
+                    : "Pasá la tarjeta en el posnet"}
                 </p>
                 <p className="text-xs text-text-secondary">
                   Confirmá una vez que el pago esté aprobado
                 </p>
               </div>
             )
-          )}
-
-          {metodoPago === "qr_mp" && (
-            <div className="p-4 rounded-xl bg-surface-2 border border-border text-center space-y-2">
-              <Icono nombre="qrMp" tamano={26} className="mx-auto text-text-secondary" />
-              <p className="text-sm font-medium text-text-primary">
-                QR de Mercado Pago
-              </p>
-              <p className="text-xs text-text-secondary">
-                Las terminales Point en modo PDV solo aceptan tarjeta. El QR se
-                cobra desde la app de Mercado Pago.
-              </p>
-              <p className="text-xs text-accent font-medium">
-                Confirmá cuando veas el pago acreditado
-              </p>
-            </div>
           )}
 
           {metodoPago === "cashless" && (
@@ -642,6 +649,7 @@ function ModalPago({
       {modalPoint && (
         <ModalCobroPoint monto={total} onCerrar={() => setModalPoint(false)} />
       )}
+
     </div>
   );
 }

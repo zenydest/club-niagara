@@ -456,6 +456,36 @@ export function ordenPagada(orden: OrdenMP): boolean {
   return orden.status === "processed";
 }
 
+/**
+ * Con qué pagó realmente el cliente en la terminal.
+ *
+ * Hace falta porque la terminal deja elegir: el cajero manda el cobro y recién
+ * ahí el cliente decide si pasa la tarjeta o escanea el QR. Sin esto, la venta
+ * quedaba registrada con el método que había tocado el cajero, y el desglose
+ * por medio de pago del corte de caja no cerraba con el resumen de MP.
+ *
+ * Los tipos que devuelve MP:
+ *   credit_card / debit_card         → tarjeta
+ *   account_money / digital_wallet   → el cliente pagó desde la app (QR)
+ *
+ * Ante un tipo desconocido devuelve `null` y quien llama se queda con lo que
+ * había elegido el cajero: es preferible un método impreciso a perder la venta.
+ */
+export function metodoPagoDeOrden(orden: OrdenMP): "tarjeta" | "qr_mp" | null {
+  const tipo = orden.transactions?.payments?.[0]?.payment_method?.type;
+  if (!tipo) return null;
+
+  if (tipo === "credit_card" || tipo === "debit_card" || tipo === "prepaid_card") {
+    return "tarjeta";
+  }
+
+  if (tipo === "account_money" || tipo === "digital_wallet" || tipo === "bank_transfer") {
+    return "qr_mp";
+  }
+
+  return null;
+}
+
 /** ¿La orden terminó sin cobrar y ya no va a cambiar? */
 export function ordenCerradaSinPago(orden: OrdenMP): boolean {
   return orden.status === "canceled" || orden.status === "expired";

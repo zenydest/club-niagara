@@ -18,6 +18,7 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 import { Icono, type NombreIcono } from "@/components/Icono";
 import { CampoImagen } from "@/components/CampoImagen";
+import { CodigoQR } from "@/components/CodigoQR";
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -36,20 +37,15 @@ function BadgeEstado({ estado }: { estado: Evento["estado"] }) {
   );
 }
 
-// ── URL de QR (usando qrserver.com, sin dependencias) ────────────
-
+/**
+ * Los QR de las entradas se dibujan en el navegador con `CodigoQR`.
+ *
+ * Antes se pedían como imagen a `api.qrserver.com`, lo que significaba mandar
+ * el código de cada entrada a un servidor de terceros y depender de que ese
+ * servicio esté arriba para poder mostrarlo en la puerta.
+ */
 function QRCode({ valor, tamaño = 160 }: { valor: string; tamaño?: number }) {
-  const url = `https://api.qrserver.com/v1/create-qr-code/?size=${tamaño}x${tamaño}&data=${encodeURIComponent(valor)}&bgcolor=ffffff&color=000000&margin=4`;
-  return (
-    <img
-      src={url}
-      alt={`QR ${valor}`}
-      width={tamaño}
-      height={tamaño}
-      className="rounded-lg border border-border"
-      loading="lazy"
-    />
-  );
+  return <CodigoQR valor={valor} tamano={tamaño} descripcion={`Entrada ${valor}`} />;
 }
 
 // ═══════════════════════════════════════════════════════════════

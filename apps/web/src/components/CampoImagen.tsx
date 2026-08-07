@@ -148,11 +148,16 @@ export function CampoImagen({
   useEffect(() => {
     let vigente = true;
 
-    api.get<{ configurado: boolean }>("/uploads/estado", localId)
+    api.get<{ configurado: boolean; detalle?: string }>("/uploads/estado", localId)
       .then((r) => {
         if (!vigente) return;
         setPuedeSubir(r.configurado);
-        if (!r.configurado) setModo("url");
+        if (!r.configurado) {
+          setModo("url");
+          // El detalle dice *por qué* no se puede subir. Sin esto, la pestaña
+          // aparecía deshabilitada sin explicación y había que ir a los logs.
+          if (r.detalle) setError(r.detalle);
+        }
       })
       .catch(() => {
         if (!vigente) return;

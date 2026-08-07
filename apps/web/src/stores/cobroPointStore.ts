@@ -71,12 +71,19 @@ interface CobroPointState {
   cargarTerminales: () => Promise<void>;
   setTerminal: (terminalId: string | null) => void;
 
-  /** Arranca el cobro y no resuelve hasta que hay un resultado definitivo */
+  /**
+   * Arranca el cobro y no resuelve hasta que hay un resultado definitivo.
+   *
+   * `metodoReal` es con qué terminó pagando el cliente en la terminal, que
+   * puede no ser lo que eligió el cajero: la terminal ofrece tarjeta y QR, y
+   * la gente cambia de opinión con el aparato en la mano. Es `null` si MP no
+   * lo informó.
+   */
   cobrar: (input: {
     ventaId: string;
     monto: number;
     descripcion?: string;
-  }) => Promise<{ ok: boolean; error?: string }>;
+  }) => Promise<{ ok: boolean; error?: string; metodoReal?: "tarjeta" | "qr_mp" | null }>;
 
   cancelar: () => Promise<void>;
   reiniciar: () => void;
@@ -228,7 +235,7 @@ function esperarResultado(
   referencia: string,
   localId: string,
   set: Set
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; metodoReal?: "tarjeta" | "qr_mp" | null }> {
   const limite = Date.now() + TIMEOUT_COBRO_MS;
 
   return new Promise((resolve) => {
@@ -240,16 +247,16 @@ function esperarResultado(
       }
 
       try {
-        const { orden } = await api.get<{ orden: OrdenPoint }>(
-          `/point/cobros/${referencia}?refrescar=true`,
-          localId
-        );
+        const { orden, metodoPago } = await api.get<{
+          orden: OrdenPoint;
+          metodoPago: "tarjeta" | "qr_mp" | null;
+        }>(`/point/cobros/${referencia}?refrescar=true`, localId);
 
         set({ orden });
 
         if (orden.estado === "processed") {
           set({ estado: "pagado" });
-          resolve({ ok: true });
+          resolve({ ok: true, metodoReal: metodoPago });
           return;
         }
 
