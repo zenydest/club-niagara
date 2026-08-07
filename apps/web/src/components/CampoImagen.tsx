@@ -148,7 +148,9 @@ export function CampoImagen({
   useEffect(() => {
     let vigente = true;
 
-    api.get<{ configurado: boolean; detalle?: string }>("/uploads/estado", localId)
+    api.get<{ configurado: boolean; detalle?: string; advertencia?: string }>(
+      "/uploads/estado", localId
+    )
       .then((r) => {
         if (!vigente) return;
         setPuedeSubir(r.configurado);
@@ -157,6 +159,10 @@ export function CampoImagen({
           // El detalle dice *por qué* no se puede subir. Sin esto, la pestaña
           // aparecía deshabilitada sin explicación y había que ir a los logs.
           if (r.detalle) setError(r.detalle);
+        } else if (r.advertencia) {
+          // Se deja intentar igual: la advertencia es una pista para cuando
+          // falle, no un motivo para no dejar probar.
+          setError(r.advertencia);
         }
       })
       .catch(() => {

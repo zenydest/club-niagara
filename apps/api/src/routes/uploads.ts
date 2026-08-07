@@ -137,16 +137,27 @@ export const registrarRutasUploads: FastifyPluginAsync = async (app) => {
 
     const validas = await credencialesFuncionan(credenciales);
 
+    /**
+     * `configurado` NO depende del ping.
+     *
+     * El ping es de la Admin API y necesita permisos que una key pensada solo
+     * para subir puede no tener. Usarlo como condición para habilitar la
+     * subida dejaba afuera credenciales que funcionan perfecto — bloquear algo
+     * que anda es peor que dejar pasar un error que se va a ver igual al subir.
+     *
+     * Queda como advertencia: si el ping falla, lo más común sigue siendo que
+     * la key y el secret no sean del mismo par.
+     */
     return {
-      configurado: validas,
+      configurado: true,
       credencialesValidas: validas,
       ...(validas
         ? {}
         : {
-            detalle:
-              "Cloudinary rechazó las credenciales. Revisá que la API Key y el " +
-              "API Secret sean del mismo par: en Settings → API Keys, cada key " +
-              "tiene su propio secret.",
+            advertencia:
+              "No se pudo verificar las credenciales con Cloudinary. Si la subida " +
+              "falla, revisá que la API Key y el API Secret sean del mismo par " +
+              "(en Settings → API Keys cada key tiene el suyo).",
           }),
     };
   });
