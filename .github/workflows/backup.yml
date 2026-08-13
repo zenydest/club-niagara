@@ -31,11 +31,20 @@ jobs:
       - name: Instalar cliente de Postgres
         run: |
           sudo apt-get update
-          # La versión del cliente tiene que ser >= la del servidor, si no
-          # pg_dump se niega a correr.
-          sudo apt-get install -y postgresql-client-16
 
-      - name: Verificar que el secret exista
+          # La versión del cliente tiene que ser >= la del servidor: pg_dump
+          # aborta con "server version mismatch" contra uno más nuevo.
+          #
+          # Render usa Postgres 17. Si algún día lo suben, este paso falla con
+          # ese mismo mensaje y hay que subir el número acá.
+          sudo apt-get install -y postgresql-client-17
+
+          echo "Versión de pg_dump instalada:"
+          pg_dump --version
+
+      # Los mensajes describen la forma del valor, nunca el valor: los logs de
+      # Actions son visibles para cualquiera con acceso al repo.
+      - name: Verificar el secret
         env:
           DB_URL: ${{ secrets.DATABASE_URL_BACKUP }}
         run: |
@@ -44,6 +53,34 @@ jobs:
             echo "Cargalo en Settings → Secrets and variables → Actions."
             exit 1
           fi
+
+          # Sin el esquema, pg_dump toma el valor como nombre de una base local
+          # y falla buscando un socket en /var/run/postgresql. El error que da
+          # ("is the server running locally?") manda a buscar el problema al
+          # lado equivocado, así que se chequea acá.
+          case "$DB_URL" in
+            postgresql://*|postgres://*) ;;
+            *)
+              echo "El secret no arranca con postgresql:// ni postgres://."
+              echo "Tiene que ser la External Database URL completa de Render,"
+              echo "con esta forma:"
+              echo "  postgresql://usuario:clave@host.oregon-postgres.render.com/basename"
+              echo ""
+              echo "Largo del valor cargado: ${#DB_URL} caracteres."
+              exit 1
+              ;;
+          esac
+
+          # La URL interna de Render (sin punto en el host) solo resuelve dentro
+          # de su red; desde GitHub no llega.
+          case "$DB_URL" in
+            *.*) ;;
+            *)
+              echo "El host no tiene dominio: parece la Internal Database URL."
+              echo "Desde GitHub hay que usar la External."
+              exit 1
+              ;;
+          esac
 
       - name: Generar el dump
         env:
@@ -55,7 +92,9 @@ jobs:
           # Formato custom (-Fc): comprimido y restaurable con pg_restore,
           # permite restaurar tablas sueltas. Un .sql plano sería más fácil de
           # leer pero pesa varias veces más.
-          pg_dump "$DB_URL" -Fc -f "backup/$NOMBRE"
+          # `--dbname=` explícito en vez de posicional: deja claro que es una
+          # connection string y no un nombre de base.
+          pg_dump --dbname="$DB_URL" -Fc -f "backup/$NOMBRE"
 
           echo "Tamaño del dump:"
           ls -lh "backup/$NOMBRE"
