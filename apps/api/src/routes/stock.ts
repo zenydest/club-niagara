@@ -102,6 +102,40 @@ export const registrarRutasStock: FastifyPluginAsync = async (app) => {
     return reply.status(201).send({ deposito });
   });
 
+  /**
+   * DELETE /api/stock/depositos/:id
+   *
+   * Solo si está vacío de historia. Un depósito con movimientos es de dónde
+   * salió y entró la mercadería: borrarlo dejaría los movimientos apuntando a
+   * un lugar que no existe y el stock calculado dejaría de cuadrar.
+   */
+  app.delete("/depositos/:id", async (req, reply) => {
+    const { localId, staffActual } = req;
+    const { id } = req.params as { id: string };
+
+    if (staffActual.rol !== "admin") {
+      return reply.status(403).send({ error: "Solo el admin puede eliminar depósitos" });
+    }
+
+    const deposito = await prisma.deposito.findFirst({
+      where: { id, localId },
+      include: { _count: { select: { stockMovimientos: true } } },
+    });
+
+    if (!deposito) return reply.status(404).send({ error: "Depósito no encontrado" });
+
+    if (deposito._count.stockMovimientos > 0) {
+      return reply.status(409).send({
+        error:
+          `“${deposito.nombre}” tiene ${deposito._count.stockMovimientos} movimiento(s) ` +
+          "registrados y no se puede eliminar sin romper el cálculo de stock.",
+      });
+    }
+
+    await prisma.deposito.delete({ where: { id } });
+    return reply.status(204).send();
+  });
+
   // ══════════════════════════════════════════════════════════════
   // NIVEL DE STOCK
   // ══════════════════════════════════════════════════════════════

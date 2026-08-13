@@ -59,10 +59,15 @@ export function ModalComprar({ evento, onCerrar, onComprado }: Props) {
 
       if (modalidad === "online") {
         if (!res.linkPago) {
+          // La entrada ya quedó reservada, así que no se cancela nada: se le
+          // avisa al cliente que puede pagarla en la puerta.
           Alert.alert(
-            "Pago no disponible",
-            "El pago online todavía no está habilitado. Podés reservar y pagar en la puerta."
+            "Entrada reservada",
+            res.avisoPago ??
+              "No se pudo abrir el pago online. Tu entrada quedó reservada: mostrá el QR en la puerta y pagás al entrar."
           );
+          onComprado();
+          onCerrar();
           return;
         }
         await Linking.openURL(res.linkPago);

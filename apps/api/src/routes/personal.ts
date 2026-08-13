@@ -26,10 +26,20 @@ export const registrarRutasPersonal: FastifyPluginAsync = async (app) => {
   // STAFF
   // ══════════════════════════════════════════════════════════════
 
-  // GET /api/personal — listar staff
-  app.get("/", async (req) => {
-    const { localId } = req;
+  /**
+   * GET /api/personal — listar staff
+   *
+   * Devuelve los emails de acceso de todo el personal, así que va restringido.
+   * Con la lista de emails, alguien de adentro sabe exactamente contra qué
+   * cuentas probar contraseñas.
+   */
+  app.get("/", async (req, reply) => {
+    const { localId, staffActual } = req;
     const { soloActivos } = req.query as { soloActivos?: string };
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
 
     const staff = await prisma.staff.findMany({
       where: {
@@ -277,8 +287,13 @@ export const registrarRutasPersonal: FastifyPluginAsync = async (app) => {
   // ══════════════════════════════════════════════════════════════
 
   // GET /api/personal/comisiones?eventoId=&staffId=&pagada=
-  app.get("/comisiones", async (req) => {
-    const { localId } = req;
+  // Son montos a pagar: mismo criterio que el resto de la información de plata.
+  app.get("/comisiones", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
     const { eventoId, staffId, pagada } = req.query as {
       eventoId?: string;
       staffId?: string;

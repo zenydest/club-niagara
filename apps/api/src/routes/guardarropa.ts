@@ -80,6 +80,10 @@ export const registrarRutasGuardarropa: FastifyPluginAsync = async (app) => {
   app.post("/", async (req, reply) => {
     const { localId, staffActual } = req;
 
+    if (!["admin", "encargado", "cajero"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
     const body = z.object({
       numeroTicket: z.number().int().positive().optional(), // opcional: auto si no se provee
       descripcion: z.string().max(200).nullable().optional(),
@@ -136,8 +140,14 @@ export const registrarRutasGuardarropa: FastifyPluginAsync = async (app) => {
 
   // PATCH /api/guardarropa/:id/entregar
   app.patch("/:id/entregar", async (req, reply) => {
-    const { localId } = req;
+    const { localId, staffActual } = req;
     const { id } = req.params as { id: string };
+
+    // Marcar entregada una prenda que sigue en el perchero deja al dueño sin
+    // respaldo: el sistema dice que ya se la llevó. Solo quien atiende.
+    if (!["admin", "encargado", "cajero"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
 
     const ticket = await prisma.guardarropa.findUnique({ where: { id, localId } });
     if (!ticket) return reply.status(404).send({ error: "Ticket no encontrado" });

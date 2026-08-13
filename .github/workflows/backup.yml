@@ -1,0 +1,76 @@
+# ============================================================
+# Backup de la base — Club Niágara
+#
+# Corre todos los días a las 12:00 UTC (09:00 en Argentina). Esa hora es a
+# propósito: el boliche cierra de madrugada, así que al mediodía la base ya
+# tiene todo lo de la noche anterior y nadie está operando.
+#
+# El dump queda como artifact del run. GitHub los guarda 90 días, que es
+# bastante más que el "cero" que había hasta ahora.
+#
+# Requiere el secret DATABASE_URL_BACKUP en el repo:
+#   Settings → Secrets and variables → Actions → New repository secret
+# Tiene que ser la **External Database URL** de Render (la interna solo funciona
+# dentro de su red).
+# ============================================================
+name: Backup DB
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  # También se puede disparar a mano desde la pestaña Actions, útil antes de
+  # una migración o de un cambio grande.
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: Dump y guardar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar cliente de Postgres
+        run: |
+          sudo apt-get update
+          # La versión del cliente tiene que ser >= la del servidor, si no
+          # pg_dump se niega a correr.
+          sudo apt-get install -y postgresql-client-16
+
+      - name: Verificar que el secret exista
+        env:
+          DB_URL: ${{ secrets.DATABASE_URL_BACKUP }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "Falta el secret DATABASE_URL_BACKUP."
+            echo "Cargalo en Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Generar el dump
+        env:
+          DB_URL: ${{ secrets.DATABASE_URL_BACKUP }}
+        run: |
+          mkdir -p backup
+          NOMBRE="niagara-$(date +%Y-%m-%d).dump"
+
+          # Formato custom (-Fc): comprimido y restaurable con pg_restore,
+          # permite restaurar tablas sueltas. Un .sql plano sería más fácil de
+          # leer pero pesa varias veces más.
+          pg_dump "$DB_URL" -Fc -f "backup/$NOMBRE"
+
+          echo "Tamaño del dump:"
+          ls -lh "backup/$NOMBRE"
+
+          # Un dump de pocos bytes es un dump vacío: mejor fallar ruidoso que
+          # guardar 90 días de archivos inservibles.
+          TAMANO=$(stat -c%s "backup/$NOMBRE")
+          if [ "$TAMANO" -lt 1000 ]; then
+            echo "El dump pesa $TAMANO bytes. Algo salió mal."
+            exit 1
+          fi
+
+      - name: Guardar el backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 90

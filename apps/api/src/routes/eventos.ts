@@ -133,6 +133,72 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
     return { evento };
   });
 
+  /**
+   * DELETE /api/eventos/:id
+   *
+   * Solo borra eventos que no dejaron rastro: sin ventas, sin entradas
+   * vendidas, sin accesos, sin reservas y sin guardarropa.
+   *
+   * Un evento con movimiento **no se borra ni se puede forzar**. No es una
+   * restricción del código: esa información es la recaudación de una noche.
+   * Para sacarlo de la vista está el estado `cerrado`.
+   *
+   * Los tipos de entrada sí se borran con el evento, porque sin él no
+   * significan nada.
+   */
+  app.delete("/:id", async (req, reply) => {
+    const { localId } = req;
+    const { id } = req.params as { id: string };
+
+    if (req.staffActual.rol !== "admin") {
+      return reply.status(403).send({ error: "Solo el admin puede eliminar eventos" });
+    }
+
+    const evento = await prisma.evento.findFirst({
+      where: { id, localId },
+      include: {
+        _count: {
+          select: {
+            ventas: true,
+            entradasVendidas: true,
+            accesos: true,
+            reservas: true,
+            guardarropa: true,
+          },
+        },
+      },
+    });
+
+    if (!evento) return reply.status(404).send({ error: "Evento no encontrado" });
+
+    const c = evento._count;
+    const movimiento =
+      c.ventas + c.entradasVendidas + c.accesos + c.reservas + c.guardarropa;
+
+    if (movimiento > 0) {
+      return reply.status(409).send({
+        error:
+          "El evento tiene movimiento registrado y no se puede eliminar. " +
+          "Cambialo a “cerrado” para sacarlo de la vista.",
+        detalle: {
+          ventas: c.ventas,
+          entradasVendidas: c.entradasVendidas,
+          accesos: c.accesos,
+          reservas: c.reservas,
+          guardarropa: c.guardarropa,
+        },
+      });
+    }
+
+    // Los tipos primero: son hijos del evento y sin él no tienen sentido.
+    await prisma.$transaction([
+      prisma.entradaTipo.deleteMany({ where: { eventoId: id } }),
+      prisma.evento.delete({ where: { id } }),
+    ]);
+
+    return reply.status(204).send();
+  });
+
   // PATCH /api/eventos/:id/estado
   app.patch("/:id/estado", async (req, reply) => {
     const { localId } = req;

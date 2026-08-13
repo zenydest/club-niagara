@@ -158,8 +158,14 @@ export const registrarRutasVip: FastifyPluginAsync = async (app) => {
 
   // PATCH /api/vip/mesas/:id/estado
   app.patch("/mesas/:id/estado", async (req, reply) => {
-    const { localId } = req;
+    const { localId, staffActual } = req;
     const { id } = req.params as { id: string };
+
+    // Los mismos que manejan el salón. Sin esto, cualquiera con cuenta podía
+    // bloquear mesas o marcarlas libres en plena noche.
+    if (!["admin", "encargado", "cajero", "rrpp"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
 
     const body = z.object({
       estado: z.enum(["libre", "reservada", "ocupada", "bloqueada"]),
@@ -323,8 +329,14 @@ export const registrarRutasVip: FastifyPluginAsync = async (app) => {
 
   // PATCH /api/vip/reservas/:id/estado — confirmar / cancelar / completar
   app.patch("/reservas/:id/estado", async (req, reply) => {
-    const { localId } = req;
+    const { localId, staffActual } = req;
     const { id } = req.params as { id: string };
+
+    // Cancelar una reserva deja a alguien sin mesa un sábado. No es algo que
+    // deba poder hacer cualquiera con una sesión abierta.
+    if (!["admin", "encargado", "cajero", "rrpp"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
 
     const body = z.object({
       estado: z.enum(["pendiente", "confirmada", "cancelada", "completada"]),

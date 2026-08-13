@@ -173,8 +173,11 @@ export const api = {
       cantidad: number;
       total: number;
       modalidad: "puerta" | "online";
-      /** Presente solo en modalidad online */
-      linkPago?: string;
+      /** Link del checkout. `null` si MP no respondió: la entrada igual queda
+       *  reservada y se puede pagar en la puerta. */
+      linkPago?: string | null;
+      /** Explica por qué no hay link, cuando corresponde. */
+      avisoPago?: string | null;
     }>("/api/cliente/comprar", { method: "POST", body: JSON.stringify(body) }),
 
   /**

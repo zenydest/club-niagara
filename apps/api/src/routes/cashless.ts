@@ -42,9 +42,19 @@ const cobrarSchema = z.object({
 
 export const registrarRutasCashless: FastifyPluginAsync = async (app) => {
 
-  // GET /api/cashless/tarjetas — listar tarjetas del local
-  app.get("/tarjetas", async (req) => {
-    const { localId } = req;
+  /**
+   * GET /api/cashless/tarjetas — listar tarjetas del local
+   *
+   * Muestra los saldos de todas las tarjetas, así que queda para quienes
+   * administran el cashless. La consulta puntual por código (más abajo) sí es
+   * más amplia: el barman la necesita para cobrar.
+   */
+  app.get("/tarjetas", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado", "cajero"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
     const { activa, busqueda } = req.query as {
       activa?: string;
       busqueda?: string;

@@ -11,9 +11,19 @@ import { io } from "../index.js";
 import { ventaSchema } from "@niagara/core";
 
 export const registrarRutasVentas: FastifyPluginAsync = async (app) => {
-  // GET /api/ventas?eventoId=&desde=&hasta=&limite=
-  app.get("/", async (req) => {
-    const { localId } = req;
+  /**
+   * GET /api/ventas?eventoId=&desde=&hasta=&limite=
+   *
+   * Es el listado de toda la facturación del local, así que va restringido a
+   * gerencia. Antes no pedía rol: la sesión de un portero servía para pedir el
+   * historial completo de ventas.
+   */
+  app.get("/", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
     const { eventoId, desde, hasta, limite } = req.query as {
       eventoId?: string;
       desde?: string;

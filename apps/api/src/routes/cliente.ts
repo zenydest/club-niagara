@@ -19,6 +19,8 @@ import { prisma } from "@niagara/db";
 import { auth } from "../lib/auth.js";
 import { io } from "../index.js";
 import { generarSecretoQR } from "../lib/qrRotativo.js";
+import { randomUUID } from "node:crypto";
+import { crearPreferenciaEntradas } from "../lib/mpCheckout.js";
 
 // ── Schemas de validación ─────────────────────────────────────────
 
@@ -277,6 +279,16 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
 
     const precio = Number(tipo.precio);
 
+    /**
+     * Identificador del grupo de entradas de esta compra.
+     *
+     * Viaja a MP como `external_reference` y se guarda en cada entrada. Es lo
+     * único que después permite, cuando llega el webhook diciendo "se pagó",
+     * saber qué entradas habilitar: el aviso de MP trae el pago, no las
+     * entradas.
+     */
+    const referenciaCompra = randomUUID();
+
     const entradas = await Promise.all(
       Array.from({ length: cantidad }).map(() =>
         prisma.entradaVendida.create({
@@ -294,6 +306,7 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
             // portero al cobrar; en "online" lo confirma el webhook.
             metodoPago: modalidad === "online" ? "qr_mp" : "efectivo",
             pagada: false,
+            ...(modalidad === "online" && { mpPreferenceId: referenciaCompra }),
           },
         })
       )
@@ -313,6 +326,33 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
       metodoPago: modalidad === "online" ? "qr_mp" : "efectivo",
     });
 
+    /**
+     * El link de pago se genera después de crear las entradas, y si falla no
+     * se tira abajo la compra: las entradas quedan reservadas y el cliente
+     * puede pagar en la puerta. Perder la reserva porque MP no respondió sería
+     * peor que ofrecer un camino alternativo.
+     */
+    let linkPago: string | null = null;
+    let avisoPago: string | null = null;
+
+    if (modalidad === "online") {
+      try {
+        const pref = await crearPreferenciaEntradas({
+          referencia: referenciaCompra,
+          descripcion: `${tipo.evento.nombre} — ${tipo.nombre}`,
+          precioUnitario: precio,
+          cantidad,
+          emailComprador: cliente.user.email,
+        });
+        linkPago = pref.linkPago;
+      } catch (err) {
+        req.log.error({ err, referenciaCompra }, "No se pudo crear la preferencia de pago");
+        avisoPago =
+          "No se pudo abrir el pago online. Tu entrada quedó reservada: podés " +
+          "pagarla en la puerta.";
+      }
+    }
+
     return reply.status(201).send({
       entradas: entradas.map((e) => ({
         id: e.id,
@@ -322,6 +362,8 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
       cantidad,
       total,
       modalidad,
+      linkPago,
+      avisoPago,
     });
   });
 

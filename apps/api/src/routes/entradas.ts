@@ -257,9 +257,18 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
     });
   });
 
-  // GET /api/entradas/vendidas?eventoId=&entradaTipoId=&usada=&busqueda=
-  app.get("/vendidas", async (req) => {
-    const { localId } = req;
+  /**
+   * GET /api/entradas/vendidas?eventoId=&entradaTipoId=&usada=&busqueda=
+   *
+   * Devuelve nombre, email y teléfono de cada comprador. Es la base de datos
+   * de clientes del boliche: va restringida a quienes venden y controlan.
+   */
+  app.get("/vendidas", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado", "cajero", "portero"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
     const { eventoId, entradaTipoId, usada, busqueda, limite } = req.query as {
       eventoId?: string;
       entradaTipoId?: string;
@@ -299,8 +308,12 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
 
   // GET /api/entradas/qr/:qrCode — buscar entrada por código QR (portería)
   app.get("/qr/:qrCode", async (req, reply) => {
-    const { localId } = req;
+    const { localId, staffActual } = req;
     const { qrCode } = req.params as { qrCode: string };
+
+    if (!["portero", "admin", "encargado", "cajero"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
 
     const entrada = await prisma.entradaVendida.findUnique({
       where: { qrCode },
@@ -497,10 +510,23 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
     };
   });
 
-  // PATCH /api/entradas/vendidas/:id/usar — check-in manual
+  /**
+   * PATCH /api/entradas/vendidas/:id/usar — check-in manual
+   *
+   * Quemar una entrada la deja inservible: quien la compró no entra. Va
+   * restringido a los mismos roles que validan en la puerta.
+   *
+   * Antes no pedía rol: cualquiera con una cuenta del local podía invalidar
+   * entradas ajenas conociendo el id, y no hay forma de deshacerlo desde el
+   * panel.
+   */
   app.patch("/vendidas/:id/usar", async (req, reply) => {
-    const { localId } = req;
+    const { localId, staffActual } = req;
     const { id } = req.params as { id: string };
+
+    if (!["portero", "admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
 
     // Mismo quemado atómico que en /validar: un solo UPDATE condicionado.
     const quemada = await prisma.entradaVendida.updateMany({

@@ -30,7 +30,7 @@ const ARS = (n: number) =>
 export function ProductosPage() {
   const {
     productos, categorias, cargando, error,
-    cargar, darDeBaja, reactivar, limpiarError, procesando,
+    cargar, darDeBaja, reactivar, eliminarVarios, limpiarError, procesando,
   } = useProductosStore();
 
   const { staff } = useAuthStore();
@@ -41,6 +41,23 @@ export function ProductosPage() {
   const [busqueda, setBusqueda] = useState("");
   const [modal, setModal] = useState<{ producto: Producto | null } | null>(null);
   const [confirmarBaja, setConfirmarBaja] = useState<Producto | null>(null);
+
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  const [confirmarLote, setConfirmarLote] = useState(false);
+  const [resumenBorrado, setResumenBorrado] = useState<{
+    borrados: number;
+    dadosDeBaja: number;
+    nombresDadosDeBaja: string[];
+  } | null>(null);
+
+  const alternarSeleccion = (id: string) => {
+    setSeleccion((previa) => {
+      const nueva = new Set(previa);
+      if (nueva.has(id)) nueva.delete(id);
+      else nueva.add(id);
+      return nueva;
+    });
+  };
 
   useEffect(() => {
     void cargar(verInactivos);
@@ -121,6 +138,48 @@ export function ProductosPage() {
         </label>
       </div>
 
+      {/* Barra de selección. Solo aparece con algo tildado, para no ocupar
+          lugar cuando no se está borrando nada. */}
+      {esAdmin && seleccion.size > 0 && (
+        <div className="flex items-center justify-between gap-3 flex-wrap px-4 py-3 rounded-xl bg-accent/10 border border-accent/30">
+          <p className="text-sm text-text-primary">
+            {seleccion.size} producto{seleccion.size !== 1 ? "s" : ""} seleccionado
+            {seleccion.size !== 1 ? "s" : ""}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSeleccion(new Set())}
+              className="px-3 py-1.5 rounded-lg text-xs text-text-secondary hover:text-text-primary border border-border transition-colors"
+            >
+              Deseleccionar
+            </button>
+            <button
+              onClick={() => setConfirmarLote(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger text-white hover:brightness-110 transition-all"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {esAdmin && filtrados.length > 0 && (
+        <button
+          onClick={() =>
+            setSeleccion(
+              seleccion.size === filtrados.length
+                ? new Set()
+                : new Set(filtrados.map((p) => p.id))
+            )
+          }
+          className="self-start text-xs text-text-secondary hover:text-accent transition-colors"
+        >
+          {seleccion.size === filtrados.length
+            ? "Deseleccionar todos"
+            : `Seleccionar todos (${filtrados.length})`}
+        </button>
+      )}
+
       {cargando ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 4 }, (_, i) => (
@@ -151,11 +210,22 @@ export function ProductosPage() {
                   <div
                     key={p.id}
                     className={cn(
-                      "bg-surface border border-border rounded-xl px-4 py-3",
+                      "bg-surface border rounded-xl px-4 py-3",
                       "flex items-center gap-4",
+                      seleccion.has(p.id) ? "border-accent bg-accent/5" : "border-border",
                       !p.activo && "opacity-50"
                     )}
                   >
+                    {esAdmin && (
+                      <input
+                        type="checkbox"
+                        checked={seleccion.has(p.id)}
+                        onChange={() => alternarSeleccion(p.id)}
+                        className="accent-accent flex-shrink-0"
+                        aria-label={`Seleccionar ${p.nombre}`}
+                      />
+                    )}
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-text-primary">
@@ -236,6 +306,29 @@ export function ProductosPage() {
             const ok = await darDeBaja(confirmarBaja.id);
             if (ok) setConfirmarBaja(null);
           }}
+        />
+      )}
+
+      {confirmarLote && (
+        <ModalEliminarLote
+          cantidad={seleccion.size}
+          procesando={procesando}
+          onCancelar={() => setConfirmarLote(false)}
+          onConfirmar={async () => {
+            const res = await eliminarVarios([...seleccion]);
+            if (res) {
+              setConfirmarLote(false);
+              setSeleccion(new Set());
+              setResumenBorrado(res);
+            }
+          }}
+        />
+      )}
+
+      {resumenBorrado && (
+        <ModalResumenBorrado
+          resumen={resumenBorrado}
+          onCerrar={() => setResumenBorrado(null)}
         />
       )}
     </div>
@@ -462,6 +555,115 @@ function ModalConfirmarBaja({
             {procesando ? "Dando de baja…" : "Dar de baja"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Borrado en lote ──────────────────────────────────────────────
+
+function ModalEliminarLote({
+  cantidad,
+  procesando,
+  onCancelar,
+  onConfirmar,
+}: {
+  cantidad: number;
+  procesando: boolean;
+  onCancelar: () => void;
+  onConfirmar: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onCancelar} />
+
+      <div className="relative w-full max-w-sm bg-surface border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <Icono nombre="alerta" tamano={24} className="text-danger flex-shrink-0" />
+          <h2 className="text-base font-bold text-text-primary">
+            Eliminar {cantidad} producto{cantidad !== 1 ? "s" : ""}
+          </h2>
+        </div>
+
+        <p className="text-sm text-text-secondary">
+          Los que nunca se vendieron se borran para siempre. Los que ya tienen
+          ventas quedan dados de baja, porque los reportes viejos los necesitan.
+        </p>
+
+        <p className="text-sm text-danger font-medium">Esto no se puede deshacer.</p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancelar}
+            className="flex-1 py-2.5 rounded-xl border border-border text-text-secondary text-sm hover:border-text-secondary transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirmar}
+            disabled={procesando}
+            className="flex-1 py-2.5 rounded-xl bg-danger text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"
+          >
+            {procesando ? "Eliminando…" : "Eliminar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Cuenta qué pasó con cada grupo: no todos los productos terminan igual. */
+function ModalResumenBorrado({
+  resumen,
+  onCerrar,
+}: {
+  resumen: { borrados: number; dadosDeBaja: number; nombresDadosDeBaja: string[] };
+  onCerrar: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onCerrar} />
+
+      <div className="relative w-full max-w-sm bg-surface border border-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <Icono nombre="ok" tamano={24} className="text-success flex-shrink-0" />
+          <h2 className="text-base font-bold text-text-primary">Listo</h2>
+        </div>
+
+        <div className="space-y-2 text-sm">
+          {resumen.borrados > 0 && (
+            <p className="text-text-secondary">
+              <span className="text-text-primary font-semibold">{resumen.borrados}</span>{" "}
+              borrado{resumen.borrados !== 1 ? "s" : ""} definitivamente.
+            </p>
+          )}
+
+          {resumen.dadosDeBaja > 0 && (
+            <div>
+              <p className="text-text-secondary">
+                <span className="text-text-primary font-semibold">
+                  {resumen.dadosDeBaja}
+                </span>{" "}
+                dado{resumen.dadosDeBaja !== 1 ? "s" : ""} de baja en vez de borrado
+                {resumen.dadosDeBaja !== 1 ? "s" : ""}, porque tienen ventas
+                registradas:
+              </p>
+              <p className="text-xs text-text-muted mt-1">
+                {resumen.nombresDadosDeBaja.join(" · ")}
+              </p>
+              <p className="text-xs text-text-secondary mt-2">
+                Ya no aparecen en la caja. Se ven acá tildando “Ver dados de baja”.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={onCerrar}
+          className="w-full py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 transition-all"
+        >
+          Entendido
+        </button>
       </div>
     </div>
   );

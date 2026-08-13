@@ -51,6 +51,25 @@ export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
    * barra. Agrupa por staff y desglosa por método de pago, porque el efectivo
    * es lo único que después hay que contar a mano contra la caja física.
    */
+  /**
+   * Todo lo que muestra plata del local es solo para admin y encargado.
+   *
+   * El sidebar ya oculta Reportes para los demás roles, pero eso es apariencia:
+   * la sesión de un portero o un barman sirve igual para llamar al endpoint
+   * directo. Sin este chequeo, cualquiera con una cuenta veía la recaudación
+   * completa de la noche.
+   */
+  const soloGerencia = async (
+    req: { staffActual: { rol: string } },
+    reply: { status: (n: number) => { send: (b: unknown) => unknown } }
+  ): Promise<boolean> => {
+    if (!["admin", "encargado"].includes(req.staffActual.rol)) {
+      reply.status(403).send({ error: "Sin permisos para ver reportes" });
+      return false;
+    }
+    return true;
+  };
+
   app.get("/por-cajero", async (req, reply) => {
     const { localId, staffActual } = req;
 
@@ -132,7 +151,8 @@ export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
   // RESUMEN DE KPIs
   // ══════════════════════════════════════════════════════════════
 
-  app.get("/resumen", async (req) => {
+  app.get("/resumen", async (req, reply) => {
+    if (!(await soloGerencia(req, reply))) return;
     const { localId } = req;
     const { fechaDesde, fechaHasta, eventoId } = req.query as {
       fechaDesde?: string;
@@ -236,7 +256,8 @@ export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
   // LISTADO DE VENTAS
   // ══════════════════════════════════════════════════════════════
 
-  app.get("/ventas", async (req) => {
+  app.get("/ventas", async (req, reply) => {
+    if (!(await soloGerencia(req, reply))) return;
     const { localId } = req;
     const {
       fechaDesde, fechaHasta, barraId, metodoPago, page, limit,
@@ -297,7 +318,8 @@ export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
   // TOP PRODUCTOS
   // ══════════════════════════════════════════════════════════════
 
-  app.get("/productos-top", async (req) => {
+  app.get("/productos-top", async (req, reply) => {
+    if (!(await soloGerencia(req, reply))) return;
     const { localId } = req;
     const { fechaDesde, fechaHasta, limit } = req.query as {
       fechaDesde?: string;
@@ -345,7 +367,8 @@ export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
   // VENTAS POR HORA (para gráfico de barras)
   // ══════════════════════════════════════════════════════════════
 
-  app.get("/ventas-por-hora", async (req) => {
+  app.get("/ventas-por-hora", async (req, reply) => {
+    if (!(await soloGerencia(req, reply))) return;
     const { localId } = req;
     const { fechaDesde, fechaHasta } = req.query as {
       fechaDesde?: string;
@@ -386,7 +409,8 @@ export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
   // ══════════════════════════════════════════════════════════════
 
   // GET /api/reportes/cortes
-  app.get("/cortes", async (req) => {
+  app.get("/cortes", async (req, reply) => {
+    if (!(await soloGerencia(req, reply))) return;
     const { localId } = req;
     const { barraId, eventoId } = req.query as { barraId?: string; eventoId?: string };
 
@@ -505,7 +529,15 @@ export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
   });
 
   // PATCH /api/reportes/cortes/:id/cerrar — declarar efectivo real
+  /**
+   * Cerrar el corte es declarar cuánto efectivo hay realmente en la caja, y de
+   * ahí sale la diferencia contra lo esperado. Lo hace gerencia, no quien
+   * estuvo cobrando: es el control cruzado que evita que un faltante se tape
+   * declarando el número que cierra.
+   */
   app.patch("/cortes/:id/cerrar", async (req, reply) => {
+    if (!(await soloGerencia(req, reply))) return;
+
     const { localId } = req;
     const { id } = req.params as { id: string };
 

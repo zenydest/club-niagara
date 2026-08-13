@@ -11,7 +11,9 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { prisma } from "@niagara/db";
 import { firmaValida, secretoWebhook } from "../lib/mpFirma.js";
+import { consultarPago } from "../lib/mpCheckout.js";
 
 // Se lee en cada uso, no una vez al importar: si se carga la variable con el
 // proceso ya levantado, la constante quedaba en `undefined` y el panel seguía
@@ -187,25 +189,47 @@ export const registrarRutasMP: FastifyPluginAsync = async (app) => {
 
     if (modoReal()) {
       try {
-        // Consultar el pago en MP para verificar estado
-        const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-          headers: { Authorization: `Bearer ${tokenMP()}` },
-        });
-        const pago = await mpRes.json() as {
-          status?: string;
-          external_reference?: string;
-          transaction_amount?: number;
-        };
+        // Nunca se confía en el payload: se le vuelve a preguntar a MP cuál es
+        // el estado real del pago.
+        const pago = await consultarPago(paymentId);
 
-        app.log.info({ pago }, "Pago MP consultado");
+        app.log.info({ paymentId, estado: pago.status }, "Pago MP consultado");
 
-        if (pago.status === "approved") {
-          // TODO: actualizar recarga/venta con mpPaymentId y marcar como synced
-          // La lógica depende del external_reference (ventaId o recargaId)
-          app.log.info({ paymentId, ref: pago.external_reference }, "Pago aprobado");
+        if (pago.status === "approved" && pago.external_reference) {
+          /**
+           * `external_reference` es el id de compra que generamos al crear las
+           * entradas, y quedó guardado en `mpPreferenceId` de cada una. Es lo
+           * que permite pasar de "se pagó tal cosa" a "habilitá estas entradas".
+           *
+           * El `where` incluye `pagada: false` para que sea idempotente: MP
+           * reintenta los webhooks, y sin eso cada reintento volvería a tocar
+           * entradas ya confirmadas.
+           */
+          const resultado = await prisma.entradaVendida.updateMany({
+            where: { mpPreferenceId: pago.external_reference, pagada: false },
+            data: {
+              pagada: true,
+              mpPaymentId: paymentId,
+              metodoPago: "qr_mp",
+            },
+          });
+
+          if (resultado.count > 0) {
+            app.log.info(
+              { paymentId, ref: pago.external_reference, entradas: resultado.count },
+              "Entradas habilitadas por pago online"
+            );
+          } else {
+            // Ni error ni éxito: puede ser un reintento de algo ya procesado,
+            // o un pago que no corresponde a entradas de la app.
+            app.log.info(
+              { paymentId, ref: pago.external_reference },
+              "Pago aprobado sin entradas pendientes que coincidan"
+            );
+          }
         }
       } catch (err) {
-        app.log.error({ err }, "Error consultando pago MP");
+        app.log.error({ err, paymentId }, "Error procesando el pago de MP");
       }
     }
 

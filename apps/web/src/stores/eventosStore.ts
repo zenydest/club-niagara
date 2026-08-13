@@ -97,6 +97,12 @@ interface EventosState {
   cargarEvento: (id: string) => Promise<void>;
   crearEvento: (datos: Omit<Evento, "id" | "localId" | "aforoActual" | "estado" | "createdAt" | "updatedAt">) => Promise<Evento | null>;
   editarEvento: (id: string, datos: Partial<Evento>) => Promise<boolean>;
+  /**
+   * Solo funciona con eventos sin movimiento. Si ya tuvo ventas, entradas o
+   * accesos, la API lo rechaza y el error explica por qué: esa información es
+   * la recaudación de esa noche.
+   */
+  eliminarEvento: (id: string) => Promise<boolean>;
   cambiarEstado: (id: string, estado: Evento["estado"]) => Promise<boolean>;
   setEventoActual: (evento: Evento | null) => void;
 
@@ -209,6 +215,26 @@ export const useEventosStore = create<EventosState>((set) => ({
       return true;
     } catch (err) {
       set({ procesando: false, errorOperacion: err instanceof Error ? err.message : "Error al editar" });
+      return false;
+    }
+  },
+
+  eliminarEvento: async (id) => {
+    const localId = getLocalId();
+    set({ procesando: true, errorOperacion: null });
+    try {
+      await api.delete(`/eventos/${id}`, localId);
+      set((s) => ({
+        eventos: s.eventos.filter((e) => e.id !== id),
+        eventoActual: s.eventoActual?.id === id ? null : s.eventoActual,
+        procesando: false,
+      }));
+      return true;
+    } catch (err) {
+      set({
+        procesando: false,
+        errorOperacion: err instanceof Error ? err.message : "No se pudo eliminar el evento",
+      });
       return false;
     }
   },

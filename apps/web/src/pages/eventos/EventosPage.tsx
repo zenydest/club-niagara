@@ -203,11 +203,21 @@ const ESTADOS_TRANSICION: Record<Evento["estado"], Evento["estado"][]> = {
   cancelado: [],
 };
 
-function TabInfo({ evento, onEditar }: { evento: Evento; onEditar: () => void }) {
-  const { cambiarEstado, procesando } = useEventosStore();
+function TabInfo({
+  evento,
+  onEditar,
+  onEliminado,
+}: {
+  evento: Evento;
+  onEditar: () => void;
+  onEliminado: () => void;
+}) {
+  const { cambiarEstado, eliminarEvento, procesando, errorOperacion } = useEventosStore();
   const { staff } = useAuthStore();
   const esAdmin = staff && ["admin", "encargado"].includes(staff.rol);
   const siguientes = ESTADOS_TRANSICION[evento.estado];
+
+  const [confirmarEliminar, setConfirmarEliminar] = useState(false);
 
   const pctAforo = evento.capacidad > 0 ? Math.round((evento.aforoActual / evento.capacidad) * 100) : 0;
 
@@ -280,6 +290,71 @@ function TabInfo({ evento, onEditar }: { evento: Evento; onEditar: () => void })
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Eliminar. Solo tiene sentido en eventos que todavía no movieron nada:
+          la API rechaza el resto y explica por qué. */}
+      {esAdmin && (
+        <div className="bg-surface-2 border border-danger/20 rounded-xl p-4 space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-danger">Eliminar evento</h3>
+            <p className="text-xs text-text-secondary mt-1">
+              Solo se puede si no tuvo ventas, entradas ni ingresos. Si ya tuvo
+              movimiento, pasalo a “cerrado” en vez de borrarlo.
+            </p>
+          </div>
+
+          {errorOperacion && (
+            <p className="text-xs text-danger">{errorOperacion}</p>
+          )}
+
+          <button
+            onClick={() => setConfirmarEliminar(true)}
+            disabled={procesando}
+            className="px-4 py-2 rounded-xl text-sm font-semibold border border-danger/40 text-danger hover:bg-danger/10 disabled:opacity-50 transition-colors"
+          >
+            Eliminar
+          </button>
+        </div>
+      )}
+
+      {confirmarEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setConfirmarEliminar(false)}
+          />
+          <div className="relative w-full max-w-sm bg-surface border border-border rounded-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <Icono nombre="alerta" tamano={24} className="text-danger flex-shrink-0" />
+              <h2 className="text-base font-bold text-text-primary">
+                Eliminar {evento.nombre}
+              </h2>
+            </div>
+            <p className="text-sm text-text-secondary">
+              Se borra el evento y sus tipos de entrada. No se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmarEliminar(false)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-text-secondary text-sm hover:border-text-secondary transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  const ok = await eliminarEvento(evento.id);
+                  setConfirmarEliminar(false);
+                  if (ok) onEliminado();
+                }}
+                disabled={procesando}
+                className="flex-1 py-2.5 rounded-xl bg-danger text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"
+              >
+                {procesando ? "Eliminando…" : "Eliminar"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -802,7 +877,11 @@ function EventoDetalle({ evento, onVolver }: { evento: Evento; onVolver: () => v
       {/* Contenido */}
       {tab === "info" && (
         <>
-          <TabInfo evento={evento} onEditar={() => setEditandoEvento(true)} />
+          <TabInfo
+            evento={evento}
+            onEditar={() => setEditandoEvento(true)}
+            onEliminado={onVolver}
+          />
           {editandoEvento && (
             <ModalEvento
               evento={evento}

@@ -51,6 +51,16 @@ export const io = new SocketServer(httpServer, {
 
 // ── Fastify reutiliza el HTTP server vía serverFactory ────────
 const app = Fastify({
+  /**
+   * Render sirve la API detrás de su proxy, así que sin esto `req.ip` es
+   * siempre la IP del proxy. Consecuencia: el rate limit cuenta todas las
+   * peticiones del mundo en un solo balde, y el primero que abuse deja sin
+   * cupo a las cajas del boliche.
+   *
+   * Solo en producción: en local no hay proxy adelante y confiar en el header
+   * `X-Forwarded-For` permitiría falsear la IP a mano para saltear el límite.
+   */
+  trustProxy: process.env["NODE_ENV"] === "production",
   logger: {
     level: process.env["NODE_ENV"] === "production" ? "warn" : "info",
     // pino-pretty solo en desarrollo. Se usa spread condicional porque la
@@ -80,9 +90,21 @@ await app.register(cors, {
   allowedHeaders: ["Content-Type", "Authorization", "x-local-id"],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 });
+/**
+ * Detrás del proxy de Render, `req.ip` es la IP del proxy y no la del cliente:
+ * sin `trustProxy` todos comparten el mismo cupo, así que un solo atacante
+ * consume el límite y deja afuera a las cajas del boliche.
+ *
+ * Fastify toma la IP real del `X-Forwarded-For` cuando `trustProxy` está
+ * activo. Se limita a producción porque en local no hay proxy adelante y
+ * confiar en ese header permitiría falsear la IP a mano.
+ */
 await app.register(rateLimit, {
   max: 200,
   timeWindow: "1 minute",
+  // El login y el registro son públicos: ahí un cupo alto no sirve de nada
+  // contra fuerza bruta.
+  keyGenerator: (req) => req.ip,
 });
 
 // ── Health check ─────────────────────────────────────────────

@@ -76,9 +76,25 @@ export const auth = betterAuth({
   // Trusted origins para CORS
   trustedOrigins: (process.env["FRONTEND_URLS"] ?? "http://localhost:5173").split(","),
 
-  // Cookies cross-origin: Vercel (frontend) → Render (API) son dominios distintos.
-  // SameSite=None;Secure permite que el browser envíe la cookie en requests cross-site.
   advanced: {
+    /**
+     * De dónde sacar la IP real del cliente.
+     *
+     * Sin esto, Better Auth avisa en el log que "no pudo determinar la IP y
+     * usa un balde compartido por ruta". Eso vuelve inútil su rate limit
+     * contra fuerza bruta en el login: en vez de frenar a quien prueba
+     * contraseñas, el límite lo consumen entre todos y termina bloqueando a
+     * los cajeros.
+     *
+     * Render manda la IP real en `X-Forwarded-For`.
+     */
+    ipAddress: {
+      ipAddressHeaders: ["x-forwarded-for"],
+    },
+
+    // Cookies cross-origin: Vercel (frontend) → Render (API) son dominios
+    // distintos. SameSite=None;Secure permite que el browser mande la cookie
+    // en requests cross-site.
     defaultCookieAttributes: {
       sameSite: "none",
       secure: true,

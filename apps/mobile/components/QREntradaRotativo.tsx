@@ -1,9 +1,12 @@
 /**
  * QR de entrada con código rotativo.
  *
- * El QR se regenera cada 30 segundos, así que una captura de pantalla deja de
- * servir apenas termina la ventana. Debajo hay un contador para que el usuario
- * entienda por qué el código cambia solo y no crea que la app falla.
+ * El QR se regenera cada pocos segundos, así que una captura de pantalla deja
+ * de servir apenas termina la ventana. Debajo hay una barra que se vacía, para
+ * que el usuario entienda que el código cambia solo y no crea que la app falla.
+ *
+ * La barra no lleva el número de segundos: mostrarlo le daba a quien quisiera
+ * pasarle la captura a otro el dato exacto de cuánto margen tenía.
  *
  * Si la entrada no tiene secreto —emitidas antes de esta función— cae al QR
  * fijo de siempre.
@@ -101,8 +104,11 @@ export function QREntradaRotativo({
               style={{ width: `${progreso * 100}%` }}
             />
           </View>
+          {/* La barra ya muestra que el código se está por renovar. El número
+              exacto de segundos no se dice a propósito: le daba a quien quiera
+              pasar una captura el dato justo de cuánto le queda de margen. */}
           <Text className="text-muted text-xs mt-2">
-            El código cambia en {restantes}s · No sirve una captura
+            El código se renueva solo · No sirve una captura
           </Text>
         </View>
       )}

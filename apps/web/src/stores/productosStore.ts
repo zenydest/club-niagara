@@ -48,6 +48,16 @@ interface ProductosState {
   editar: (id: string, datos: Partial<DatosProducto> & { activo?: boolean }) => Promise<boolean>;
   darDeBaja: (id: string) => Promise<boolean>;
   reactivar: (id: string) => Promise<boolean>;
+  /**
+   * Elimina varios de una. Los que nunca se vendieron se borran de la base;
+   * los que tienen historia quedan inactivos, porque las ventas viejas los
+   * referencian y los reportes se romperían.
+   */
+  eliminarVarios: (ids: string[]) => Promise<{
+    borrados: number;
+    dadosDeBaja: number;
+    nombresDadosDeBaja: string[];
+  } | null>;
   limpiarError: () => void;
 }
 
@@ -171,6 +181,32 @@ export const useProductosStore = create<ProductosState>((set, get) => ({
 
   /** Deshace una baja. El backend lo acepta como un campo más del PATCH. */
   reactivar: async (id) => get().editar(id, { activo: true }),
+
+  eliminarVarios: async (ids) => {
+    const localId = getLocalId();
+    if (!localId) return null;
+
+    set({ procesando: true, error: null });
+    try {
+      const res = await api.post<{
+        borrados: number;
+        dadosDeBaja: number;
+        nombresDadosDeBaja: string[];
+      }>("/productos/eliminar", { ids }, localId);
+
+      set({ procesando: false });
+      // Se recarga en vez de tocar la lista a mano: unos se borraron y otros
+      // quedaron inactivos, y reproducir esa mezcla acá es pedir un bug.
+      await get().cargar();
+      return res;
+    } catch (err) {
+      set({
+        procesando: false,
+        error: err instanceof Error ? err.message : "No se pudieron eliminar",
+      });
+      return null;
+    }
+  },
 
   limpiarError: () => set({ error: null }),
 }));
