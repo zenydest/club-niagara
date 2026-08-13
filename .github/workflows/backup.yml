@@ -27,20 +27,21 @@ jobs:
     name: Dump y guardar
     runs-on: ubuntu-latest
 
+    # El job corre dentro de la imagen oficial de Postgres, que ya trae
+    # `pg_dump` de la misma versión que el servidor.
+    #
+    # Es más simple que instalarlo con apt: el runner de Ubuntu trae el cliente
+    # 16 y no tiene el repositorio de PostgreSQL configurado, así que pedir el
+    # 17 falla con "Unable to locate package". Y la versión importa: pg_dump
+    # aborta contra un servidor más nuevo que él.
+    #
+    # Si Render actualiza la base, cambiar el tag por el que corresponda.
+    container:
+      image: postgres:17
+
     steps:
-      - name: Instalar cliente de Postgres
-        run: |
-          sudo apt-get update
-
-          # La versión del cliente tiene que ser >= la del servidor: pg_dump
-          # aborta con "server version mismatch" contra uno más nuevo.
-          #
-          # Render usa Postgres 17. Si algún día lo suben, este paso falla con
-          # ese mismo mensaje y hay que subir el número acá.
-          sudo apt-get install -y postgresql-client-17
-
-          echo "Versión de pg_dump instalada:"
-          pg_dump --version
+      - name: Ver versión de pg_dump
+        run: pg_dump --version
 
       # Los mensajes describen la forma del valor, nunca el valor: los logs de
       # Actions son visibles para cualquiera con acceso al repo.
