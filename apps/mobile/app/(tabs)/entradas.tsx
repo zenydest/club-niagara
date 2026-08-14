@@ -4,7 +4,7 @@
 
 import React, { useState } from "react";
 import {
-  View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity,
+  View, Text, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity, Alert,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,8 +21,9 @@ const ESTADO_EVENTO: Record<string, string> = {
   cancelado: "Cancelado",
 };
 
-function EntradaItem({ entrada }: { entrada: EntradaConQR }) {
+function EntradaItem({ entrada, onCambio }: { entrada: EntradaConQR; onCambio: () => void }) {
   const [qrVisible, setQrVisible] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
 
   const fecha = new Date(entrada.evento.fechaInicio);
   const fechaStr = fecha.toLocaleDateString("es-AR", {
@@ -31,7 +32,42 @@ function EntradaItem({ entrada }: { entrada: EntradaConQR }) {
     month:   "long",
   });
 
-  const esActiva = !entrada.usada && entrada.evento.estado !== "cerrado" && entrada.evento.estado !== "cancelado";
+  const esActiva =
+    !entrada.usada &&
+    !entrada.cancelada &&
+    entrada.evento.estado !== "cerrado" &&
+    entrada.evento.estado !== "cancelado";
+
+  const cancelar = () => {
+    Alert.alert(
+      "Cancelar entrada",
+      entrada.pagada
+        ? "Ya pagaste esta entrada. Al cancelarla, el boliche te va a devolver la plata; puede tardar unos días. ¿Seguro?"
+        : "Se libera tu lugar y el QR deja de servir. ¿Seguro?",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Cancelar entrada",
+          style: "destructive",
+          onPress: async () => {
+            setCancelando(true);
+            try {
+              const res = await api.cancelarEntrada(entrada.id);
+              Alert.alert("Listo", res.mensaje);
+              onCambio();
+            } catch (err) {
+              Alert.alert(
+                "No se pudo cancelar",
+                err instanceof Error ? err.message : "Intentá de nuevo"
+              );
+            } finally {
+              setCancelando(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View className={`border rounded-2xl p-5 mb-4 ${
@@ -50,12 +86,30 @@ function EntradaItem({ entrada }: { entrada: EntradaConQR }) {
           </Text>
         </View>
         <View className={`px-2 py-1 rounded-full ${
-          entrada.usada ? "bg-gray-700" : "bg-lima/20 border border-lima/40"
+          entrada.cancelada
+            ? "bg-red-500/20 border border-red-500/40"
+            : entrada.usada
+              ? "bg-gray-700"
+              : entrada.pagada
+                ? "bg-lima/20 border border-lima/40"
+                : "bg-yellow-500/20 border border-yellow-500/40"
         }`}>
           <Text className={`text-xs font-bold ${
-            entrada.usada ? "text-muted" : "text-lima"
+            entrada.cancelada
+              ? "text-red-400"
+              : entrada.usada
+                ? "text-muted"
+                : entrada.pagada
+                  ? "text-lima"
+                  : "text-yellow-400"
           }`}>
-            {entrada.usada ? "Usada" : "Válida"}
+            {entrada.cancelada
+              ? "Cancelada"
+              : entrada.usada
+                ? "Usada"
+                : entrada.pagada
+                  ? "Válida"
+                  : "Pagás en la puerta"}
           </Text>
         </View>
       </View>
@@ -106,6 +160,33 @@ function EntradaItem({ entrada }: { entrada: EntradaConQR }) {
           </Text>
         </View>
       )}
+
+      {entrada.cancelada && (
+        <View className="mt-3 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+          <Text className="text-red-400 text-xs text-center">
+            Cancelaste esta entrada. El QR ya no sirve para entrar.
+          </Text>
+        </View>
+      )}
+
+      {/* Cancelar. `cancelable` lo decide el servidor: depende de que no esté
+          usada y de que el evento no haya empezado, y la hora del celular no
+          es confiable para esa cuenta. */}
+      {entrada.cancelable && (
+        <TouchableOpacity
+          onPress={cancelar}
+          disabled={cancelando}
+          className="mt-3 border border-red-500/40 rounded-xl py-3 items-center active:opacity-70"
+        >
+          {cancelando ? (
+            <ActivityIndicator color="#F87171" />
+          ) : (
+            <Text className="text-red-400 text-sm font-semibold">
+              Cancelar entrada
+            </Text>
+          )}
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -128,8 +209,10 @@ export default function EntradasScreen() {
   });
 
   const entradas = data?.entradas ?? [];
-  const activas  = entradas.filter((e) => !e.usada);
-  const usadas   = entradas.filter((e) => e.usada);
+  // Las canceladas van al historial junto con las usadas: ninguna de las dos
+  // sirve para entrar, y arriba solo tienen que quedar las que sí.
+  const activas  = entradas.filter((e) => !e.usada && !e.cancelada);
+  const usadas   = entradas.filter((e) => e.usada || e.cancelada);
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
@@ -178,7 +261,9 @@ export default function EntradasScreen() {
             <Text className="text-muted text-xs uppercase tracking-wider mb-3">
               Próximas ({activas.length})
             </Text>
-            {activas.map((e) => <EntradaItem key={e.id} entrada={e} />)}
+            {activas.map((e) => (
+              <EntradaItem key={e.id} entrada={e} onCambio={() => void refetch()} />
+            ))}
           </>
         )}
 
@@ -188,7 +273,9 @@ export default function EntradasScreen() {
             <Text className="text-muted text-xs uppercase tracking-wider mb-3 mt-2">
               Historial ({usadas.length})
             </Text>
-            {usadas.map((e) => <EntradaItem key={e.id} entrada={e} />)}
+            {usadas.map((e) => (
+              <EntradaItem key={e.id} entrada={e} onCambio={() => void refetch()} />
+            ))}
           </>
         )}
 

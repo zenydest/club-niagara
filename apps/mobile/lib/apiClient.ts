@@ -122,6 +122,11 @@ export interface EntradaConQR {
   qrSecret:    string | null;
   localId:     string;
   usada:       boolean;
+  pagada:      boolean;
+  cancelada:   boolean;
+  /** Si todavía se puede cancelar. Lo calcula el servidor: depende de la hora
+   *  del evento y la del celular puede estar mal. */
+  cancelable:  boolean;
   precioPagado: string;
   createdAt:   string;
   evento: {
@@ -179,6 +184,14 @@ export const api = {
       /** Explica por qué no hay link, cuando corresponde. */
       avisoPago?: string | null;
     }>("/api/cliente/comprar", { method: "POST", body: JSON.stringify(body) }),
+
+  /** Cancela una entrada del cliente. La API valida que sea suya y que no
+   *  esté usada ni vencida. */
+  cancelarEntrada: (id: string) =>
+    request<{ ok: boolean; reembolsoPendiente: boolean; mensaje: string }>(
+      `/api/cliente/entradas/${id}/cancelar`,
+      { method: "POST" }
+    ),
 
   /**
    * Entradas compradas con QR.

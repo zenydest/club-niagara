@@ -21,6 +21,7 @@ import { io } from "../index.js";
 import { generarSecretoQR } from "../lib/qrRotativo.js";
 import { randomUUID } from "node:crypto";
 import { crearPreferenciaEntradas } from "../lib/mpCheckout.js";
+import { cancelarEntrada, mensajeRechazo } from "../lib/cancelarEntrada.js";
 
 // ── Schemas de validación ─────────────────────────────────────────
 
@@ -367,6 +368,53 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
     });
   });
 
+  /**
+   * POST /api/cliente/entradas/:id/cancelar (protegido)
+   *
+   * El cliente cancela una entrada suya. Se verifica que sea suya: sin eso,
+   * conociendo un id cualquiera podría cancelarle la entrada a otro.
+   */
+  app.post("/entradas/:id/cancelar", async (req, reply) => {
+    const localId = getLocalId(req, reply);
+    if (!localId) return;
+
+    const sesion = await autenticarCliente(req, reply);
+    if (!sesion) return;
+
+    const { id } = req.params as { id: string };
+
+    const cliente = await prisma.cliente.findUnique({
+      where: { localId_userId: { localId, userId: sesion.userId } },
+    });
+    if (!cliente) return reply.status(404).send({ error: "Perfil no encontrado" });
+
+    const entrada = await prisma.entradaVendida.findFirst({
+      where: { id, localId, clienteId: cliente.id },
+      select: { id: true },
+    });
+    if (!entrada) {
+      return reply.status(404).send({ error: "Esa entrada no es tuya o no existe" });
+    }
+
+    const res = await cancelarEntrada({
+      entradaId: id,
+      localId,
+      canceladaPor: "cliente",
+    });
+
+    if (!res.ok && res.motivo) {
+      return reply.status(409).send({ error: mensajeRechazo(res.motivo) });
+    }
+
+    return {
+      ok: true,
+      reembolsoPendiente: res.reembolsoPendiente ?? false,
+      mensaje: res.reembolsoPendiente
+        ? "Entrada cancelada. El boliche te va a devolver la plata; puede tardar unos días."
+        : "Entrada cancelada.",
+    };
+  });
+
   // ══════════════════════════════════════════════════════════════
   // GET /api/cliente/perfil (protegido)
   // ══════════════════════════════════════════════════════════════
@@ -489,16 +537,29 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
     // Por eso viaja el `qrSecret`. Solo se entrega al dueño autenticado de la
     // entrada: no aparece en ningún endpoint del panel ni en el listado de
     // vendidas, así que ni el staff puede reconstruir el código de un cliente.
+    const ahora = new Date();
+
     const resultado = entradas.map((e) => ({
       id:           e.id,
       qrCode:       e.qrCode,
       qrSecret:     e.qrSecret,
       localId,
       usada:        e.usada,
+      pagada:       e.pagada,
+      cancelada:    e.canceladaAt !== null,
       precioPagado: e.precioPagado,
       createdAt:    e.createdAt,
       evento:       e.evento,
       tipoEntrada:  e.entradaTipo,
+      /**
+       * Si el cliente todavía puede cancelarla. Se calcula en el servidor y no
+       * en la app: la hora del celular puede estar mal, y de la respuesta
+       * depende si se muestra o no un botón que después la API rechazaría.
+       */
+      cancelable:
+        e.canceladaAt === null &&
+        !e.usada &&
+        new Date(e.evento.fechaInicio) > ahora,
     }));
 
     return {

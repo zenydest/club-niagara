@@ -583,6 +583,24 @@ model EntradaVendida {
   /// procesar dos veces la misma notificación.
   mpPaymentId     String?    @map("mp_payment_id")
 
+  /// Cuándo se canceló, si se canceló.
+  ///
+  /// La entrada no se borra: si estaba paga hay plata de por medio y hace
+  /// falta el registro para saber a quién devolverle. Una entrada cancelada
+  /// no habilita el ingreso y libera el cupo del tipo de entrada.
+  canceladaAt     DateTime?  @map("cancelada_at")
+
+  /// Quién canceló: "cliente" desde la app, o el id del staff desde el panel.
+  canceladaPor    String?    @map("cancelada_por")
+
+  /// Queda en `true` al cancelar una entrada que ya estaba paga.
+  ///
+  /// Es la lista de "hay que devolver esta plata": el reembolso se hace a mano
+  /// desde Mercado Pago y después se marca acá. No se automatiza a propósito —
+  /// devolver plata sin que una persona lo apruebe es la clase de cosa que se
+  /// descubre tarde.
+  reembolsoPendiente Boolean @default(false) @map("reembolso_pendiente")
+
   createdAt       DateTime   @default(now()) @map("created_at")
 
   local       Local    @relation(fields: [localId], references: [id], onDelete: Cascade)
@@ -592,6 +610,7 @@ model EntradaVendida {
   rrpp        Staff?   @relation("EntradaVendidaRrpp", fields: [rrppId], references: [id])
   accesos     Acceso[]
 
+  @@index([localId, reembolsoPendiente])
   @@map("entradas_vendidas")
 }
 

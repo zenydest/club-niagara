@@ -66,6 +66,8 @@ export interface ResultadoValidacion {
     | "codigo_faltante"
     /** Reserva de la app todavía sin pagar: hay que cobrarla en la puerta */
     | "impaga"
+    /** Se canceló desde la app o el panel: no entra, y no se puede forzar */
+    | "cancelada"
     | "sin_conexion"
     | "error";
   entrada: EntradaValidada | null;

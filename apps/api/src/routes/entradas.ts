@@ -20,6 +20,7 @@ import { z } from "zod";
 import { prisma } from "@niagara/db";
 import { io } from "../index.js";
 import { codigoValido, generarSecretoQR } from "../lib/qrRotativo.js";
+import { cancelarEntrada, mensajeRechazo } from "../lib/cancelarEntrada.js";
 
 // ── Schemas ──────────────────────────────────────────────────────
 
@@ -399,6 +400,20 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       };
     }
 
+    /**
+     * Cancelada: no entra, y no hay forma de forzarlo desde la puerta.
+     *
+     * Se chequea antes que el pago: una entrada cancelada que además estaba
+     * paga tiene una devolución en curso, y dejarla entrar sería regalar el
+     * ingreso y la plata.
+     */
+    if (entrada.canceladaAt) {
+      return {
+        resultado: "cancelada",
+        entrada: { ...entrada, precioPagado: Number(entrada.precioPagado) },
+      };
+    }
+
     // Entrada emitida antes del código rotativo: se valida solo por `qrCode`,
     // así que una captura vieja sirve igual. No se rechaza —dejar gente afuera
     // por una migración sería peor— pero se avisa en la puerta para que el
@@ -508,6 +523,100 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       sinCodigoRotativo,
       entrada: { ...entrada, precioPagado: Number(entrada.precioPagado), usada: true },
     };
+  });
+
+  /**
+   * POST /api/entradas/vendidas/:id/cancelar — cancelar desde el panel.
+   *
+   * El staff puede cancelar aunque el evento ya haya empezado: sirve para
+   * arreglar un caso puntual. El cliente desde la app no puede, para que
+   * nadie cancele a las 3 de la mañana después de arrepentirse en la fila.
+   */
+  app.post("/vendidas/:id/cancelar", async (req, reply) => {
+    const { localId, staffActual } = req;
+    const { id } = req.params as { id: string };
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const res = await cancelarEntrada({
+      entradaId: id,
+      localId,
+      canceladaPor: staffActual.id,
+      ignorarVencimiento: true,
+    });
+
+    if (!res.ok && res.motivo) {
+      return reply.status(409).send({ error: mensajeRechazo(res.motivo) });
+    }
+
+    return {
+      ok: true,
+      reembolsoPendiente: res.reembolsoPendiente ?? false,
+      monto: res.monto ?? 0,
+    };
+  });
+
+  /**
+   * GET /api/entradas/reembolsos — entradas canceladas con plata por devolver.
+   *
+   * El reembolso se hace a mano desde Mercado Pago. Esta lista es para no
+   * olvidarse: sin ella, la plata queda del boliche y el cliente reclama.
+   */
+  app.get("/reembolsos", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const pendientes = await prisma.entradaVendida.findMany({
+      where: { localId, reembolsoPendiente: true },
+      orderBy: { canceladaAt: "desc" },
+      include: {
+        evento: { select: { nombre: true } },
+        entradaTipo: { select: { nombre: true } },
+      },
+    });
+
+    return {
+      reembolsos: pendientes.map((e) => ({
+        id: e.id,
+        cliente: e.clienteNombre,
+        email: e.clienteEmail,
+        evento: e.evento.nombre,
+        tipo: e.entradaTipo.nombre,
+        monto: Number(e.precioPagado),
+        canceladaAt: e.canceladaAt,
+        mpPaymentId: e.mpPaymentId,
+      })),
+      total: pendientes.length,
+      montoTotal: pendientes.reduce((acc, e) => acc + Number(e.precioPagado), 0),
+    };
+  });
+
+  /** PATCH /api/entradas/vendidas/:id/reembolsado — marcar la plata devuelta. */
+  app.patch("/vendidas/:id/reembolsado", async (req, reply) => {
+    const { localId, staffActual } = req;
+    const { id } = req.params as { id: string };
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const actualizada = await prisma.entradaVendida.updateMany({
+      where: { id, localId, reembolsoPendiente: true },
+      data: { reembolsoPendiente: false },
+    });
+
+    if (actualizada.count === 0) {
+      return reply.status(404).send({
+        error: "No hay un reembolso pendiente para esa entrada",
+      });
+    }
+
+    return { ok: true };
   });
 
   /**

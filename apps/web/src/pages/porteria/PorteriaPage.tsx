@@ -34,6 +34,9 @@ const RESULTADO_CONFIG: Record<
   codigo_faltante: { titulo: "Pedí el QR de la app", icono: "qr", clase: "bg-warning text-background" },
   // Reserva de la app sin pagar: no es un rechazo, es "cobrale y pasa".
   impaga: { titulo: "Falta pagar", icono: "efectivo", clase: "bg-warning text-background" },
+  // Cancelada: no se cobra en la puerta ni se deja pasar. Si el cliente
+  // reclama, se resuelve en la oficina, no en la fila.
+  cancelada: { titulo: "Entrada cancelada", icono: "cerrar", clase: "bg-danger text-white" },
   sin_conexion: { titulo: "Sin conexión", icono: "alerta", clase: "bg-warning text-background" },
   error: { titulo: "Error", icono: "alerta", clase: "bg-danger text-white" },
 };
