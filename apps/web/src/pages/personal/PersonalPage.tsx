@@ -15,7 +15,13 @@ import {
 } from "@/stores/personalStore";
 import { useAuthStore } from "@/stores/authStore";
 
-type Tab = "staff" | "comisiones";
+type Tab = "staff" | "clientes" | "comisiones";
+
+const ETIQUETA_TAB: Record<Tab, string> = {
+  staff: "Staff",
+  clientes: "Clientes de la app",
+  comisiones: "Comisiones RRPP",
+};
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -67,7 +73,7 @@ export function PersonalPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-surface-2 rounded-xl p-1 w-fit">
-        {(["staff", "comisiones"] as Tab[]).map((t) => (
+        {(["staff", "clientes", "comisiones"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -76,12 +82,13 @@ export function PersonalPage() {
               tab === t ? "bg-accent text-white shadow" : "text-text-secondary hover:text-text-primary"
             )}
           >
-            {t === "staff" ? "Staff" : "Comisiones RRPP"}
+            {ETIQUETA_TAB[t]}
           </button>
         ))}
       </div>
 
       {tab === "staff"      && <TabStaff esAdmin={esAdmin} />}
+      {tab === "clientes"   && <TabClientes />}
       {tab === "comisiones" && <TabComisiones esAdmin={esAdmin} />}
     </div>
   );
@@ -420,6 +427,187 @@ function ModalEditarStaff({ miembro, onCerrar, esAdmin, esMio }: {
         </div>
       </form>
     </Modal>
+  );
+}
+
+// ── Tab Clientes de la app ────────────────────────────────────────
+
+/**
+ * Gente que se registró desde la app, con lo que compró cada uno.
+ *
+ * Es distinto del staff: acá no se crea ni se edita nada, solo se consulta.
+ * Sirve para saber quién viene seguido y para encontrar a alguien cuando
+ * reclama por una entrada.
+ */
+function TabClientes() {
+  const { clientes, cargandoClientes, cargarClientes } = usePersonalStore();
+  const [busqueda, setBusqueda] = useState("");
+  const [expandido, setExpandido] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Se espera a que deje de tipear: sin esto sale una consulta por tecla.
+    const t = setTimeout(() => void cargarClientes(busqueda), 350);
+    return () => clearTimeout(t);
+  }, [busqueda, cargarClientes]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="relative max-w-md">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">
+          <Icono nombre="buscar" tamano={16} />
+        </span>
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre, email o teléfono…"
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-sm placeholder:text-text-tertiary focus:outline-none focus:border-accent transition-colors"
+        />
+      </div>
+
+      {cargandoClientes ? (
+        <Skeleton />
+      ) : clientes.length === 0 ? (
+        <div className="bg-surface border border-border rounded-2xl p-8 text-center">
+          <Icono nombre="personal" tamano={40} className="mx-auto mb-3 text-text-muted" />
+          <p className="text-text-primary font-semibold">
+            {busqueda ? "Nadie coincide con la búsqueda" : "Todavía no se registró nadie"}
+          </p>
+          <p className="text-sm text-text-secondary mt-2">
+            {busqueda
+              ? "Probá con otro nombre o email."
+              : "Acá van a aparecer los que se registren desde la app."}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-text-secondary">
+            {clientes.length} cliente{clientes.length !== 1 ? "s" : ""}
+          </p>
+
+          {clientes.map((c) => {
+            const abierto = expandido === c.id;
+
+            return (
+              <div
+                key={c.id}
+                className="bg-surface border border-border rounded-xl overflow-hidden"
+              >
+                <button
+                  onClick={() => setExpandido(abierto ? null : c.id)}
+                  className="w-full px-4 py-3 flex items-center gap-4 text-left hover:bg-surface-2 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-purple/20 border border-purple/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-purple-200">
+                      {c.nombre.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-text-primary">
+                      {c.nombre} {c.apellido}
+                    </p>
+                    <p className="text-xs text-text-secondary truncate">
+                      {c.email}
+                      {c.telefono && ` · ${c.telefono}`}
+                    </p>
+                  </div>
+
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold text-accent">
+                      {c.entradas.total} entrada{c.entradas.total !== 1 ? "s" : ""}
+                    </p>
+                    <p className="text-xs text-text-secondary">
+                      {formatPeso(c.entradas.gastado)}
+                    </p>
+                  </div>
+
+                  {/* Las impagas se marcan en el listado: es lo que el portero
+                      va a tener que cobrar en la puerta. */}
+                  {c.entradas.impagas > 0 && (
+                    <span className="px-2 py-0.5 rounded text-[10px] bg-warning/15 text-warning border border-warning/30 flex-shrink-0">
+                      {c.entradas.impagas} sin pagar
+                    </span>
+                  )}
+
+                  <Icono
+                    nombre={abierto ? "volver" : "avanzar"}
+                    tamano={16}
+                    className="text-text-secondary flex-shrink-0"
+                  />
+                </button>
+
+                {abierto && (
+                  <div className="px-4 pb-4 border-t border-border pt-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                      <Dato etiqueta="Pagadas" valor={String(c.entradas.pagadas)} />
+                      <Dato etiqueta="Sin pagar" valor={String(c.entradas.impagas)} />
+                      <Dato etiqueta="Usadas" valor={String(c.entradas.usadas)} />
+                      <Dato etiqueta="Tarjetas" valor={String(c.tarjetas)} />
+                    </div>
+
+                    <p className="text-xs text-text-secondary mb-2">
+                      Registrado el{" "}
+                      {new Date(c.registradoEn).toLocaleDateString("es-AR", {
+                        day: "2-digit", month: "long", year: "numeric",
+                      })}
+                    </p>
+
+                    {c.ultimas.length > 0 && (
+                      <>
+                        <p className="text-xs uppercase tracking-wider text-text-secondary mb-2">
+                          Últimas entradas
+                        </p>
+                        <div className="flex flex-col gap-1.5">
+                          {c.ultimas.map((e) => (
+                            <div
+                              key={e.id}
+                              className="flex items-center gap-2 text-xs bg-surface-2 rounded-lg px-3 py-2"
+                            >
+                              <span className="flex-1 text-text-primary truncate">
+                                {e.evento}
+                              </span>
+                              <span className="text-text-secondary">
+                                {formatPeso(e.precio)}
+                              </span>
+                              <span
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded text-[10px] border",
+                                  e.pagada
+                                    ? "bg-success/15 text-success border-success/30"
+                                    : "bg-warning/15 text-warning border-warning/30"
+                                )}
+                              >
+                                {e.pagada ? "Pagada" : "Sin pagar"}
+                              </span>
+                              {e.usada && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-surface text-text-secondary border border-border">
+                                  Usada
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <div className="bg-surface-2 rounded-lg px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wider text-text-secondary">
+        {etiqueta}
+      </p>
+      <p className="text-sm font-bold text-text-primary mt-0.5">{valor}</p>
+    </div>
   );
 }
 

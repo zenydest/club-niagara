@@ -8,9 +8,10 @@ import {
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { api } from "@/lib/apiClient";
 import { useAuthStore } from "@/stores/authStore";
+import { Icono } from "@/components/Icono";
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
@@ -57,9 +58,22 @@ export default function PerfilScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
-      <View className="px-5 pt-4 pb-3">
-        <Text className="text-lima text-xs font-bold tracking-widest uppercase">Mi cuenta</Text>
-        <Text className="text-white text-2xl font-black mt-0.5">Perfil</Text>
+      <View className="px-5 pt-4 pb-3 flex-row items-start justify-between">
+        <View>
+          <Text className="text-lima text-xs font-bold tracking-widest uppercase">Mi cuenta</Text>
+          <Text className="text-white text-2xl font-black mt-0.5">Perfil</Text>
+        </View>
+
+        <TouchableOpacity
+          // El cast es por los tipos generados de expo-router: se arman al
+          // levantar el dev server, así que una ruta recién creada no figura
+          // ahí hasta la próxima corrida. La ruta existe (`app/ajustes.tsx`).
+          onPress={() => router.push("/ajustes" as Href)}
+          className="w-10 h-10 rounded-xl bg-surface border border-border items-center justify-center active:opacity-70"
+          accessibilityLabel="Ajustes"
+        >
+          <Icono nombre="ajustes" tamano={20} color="#8888AA" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView className="flex-1 px-5">

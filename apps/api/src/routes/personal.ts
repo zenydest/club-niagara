@@ -283,6 +283,98 @@ export const registrarRutasPersonal: FastifyPluginAsync = async (app) => {
   });
 
   // ══════════════════════════════════════════════════════════════
+  // CLIENTES DE LA APP
+  // ══════════════════════════════════════════════════════════════
+
+  /**
+   * GET /api/personal/clientes?busqueda=
+   *
+   * Los que se registraron desde la app, con lo que compró cada uno.
+   *
+   * Va acá y no en una ruta propia porque es la misma pantalla de "gente":
+   * staff de un lado, clientes del otro.
+   *
+   * Solo gerencia: son datos personales (nombre, email, teléfono) y el
+   * historial de consumo de cada persona.
+   */
+  app.get("/clientes", async (req, reply) => {
+    const { localId, staffActual } = req;
+    const { busqueda } = req.query as { busqueda?: string };
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const texto = busqueda?.trim();
+
+    const clientes = await prisma.cliente.findMany({
+      where: {
+        localId,
+        ...(texto && {
+          OR: [
+            { nombre: { contains: texto, mode: "insensitive" as const } },
+            { apellido: { contains: texto, mode: "insensitive" as const } },
+            { telefono: { contains: texto } },
+            { user: { email: { contains: texto, mode: "insensitive" as const } } },
+          ],
+        }),
+      },
+      include: {
+        user: { select: { email: true } },
+        entradas: {
+          select: {
+            id: true,
+            pagada: true,
+            usada: true,
+            precioPagado: true,
+            createdAt: true,
+            evento: { select: { nombre: true, fechaInicio: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        _count: { select: { tarjetas: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    return {
+      clientes: clientes.map((c) => {
+        // Los totales se calculan acá y no en el panel: son los mismos números
+        // para cualquiera que consulte, y evita que cada pantalla los saque a
+        // su manera.
+        const pagadas = c.entradas.filter((e) => e.pagada);
+
+        return {
+          id: c.id,
+          nombre: c.nombre,
+          apellido: c.apellido,
+          email: c.user.email,
+          telefono: c.telefono,
+          registradoEn: c.createdAt,
+          tarjetas: c._count.tarjetas,
+          entradas: {
+            total: c.entradas.length,
+            pagadas: pagadas.length,
+            impagas: c.entradas.length - pagadas.length,
+            usadas: c.entradas.filter((e) => e.usada).length,
+            gastado: pagadas.reduce((acc, e) => acc + Number(e.precioPagado), 0),
+          },
+          ultimas: c.entradas.slice(0, 5).map((e) => ({
+            id: e.id,
+            evento: e.evento.nombre,
+            fecha: e.evento.fechaInicio,
+            precio: Number(e.precioPagado),
+            pagada: e.pagada,
+            usada: e.usada,
+          })),
+        };
+      }),
+      total: clientes.length,
+    };
+  });
+
+  // ══════════════════════════════════════════════════════════════
   // COMISIONES RRPP
   // ══════════════════════════════════════════════════════════════
 

@@ -89,6 +89,9 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          {/* Fuera de los tabs: se abre desde el engranaje de Perfil y vuelve
+              con el botón de atrás, sin ocupar un lugar en la barra. */}
+          <Stack.Screen name="ajustes" options={{ animation: "slide_from_right" }} />
         </Stack>
 
         {/* La carga va SUPERPUESTA, no en lugar del Stack.

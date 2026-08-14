@@ -13,12 +13,14 @@ import {
   AlertTriangle,
   Calendar,
   Check,
+  ChevronLeft,
   ChevronRight,
   CreditCard,
   Disc3,
   type LucideIcon,
   MapPin,
   QrCode,
+  Settings,
   Ticket,
   User,
   Users,
@@ -38,6 +40,8 @@ export const ICONOS = {
   cerrar: X,
   alerta: AlertTriangle,
   avanzar: ChevronRight,
+  volver: ChevronLeft,
+  ajustes: Settings,
 } as const;
 
 export type NombreIcono = keyof typeof ICONOS;

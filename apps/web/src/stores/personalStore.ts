@@ -24,6 +24,32 @@ export interface StaffMiembro {
   _count?: { ventas: number; accesos: number };
 }
 
+/** Cliente registrado desde la app, con su historial de compras. */
+export interface ClienteApp {
+  id: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string | null;
+  registradoEn: string;
+  tarjetas: number;
+  entradas: {
+    total: number;
+    pagadas: number;
+    impagas: number;
+    usadas: number;
+    gastado: number;
+  };
+  ultimas: {
+    id: string;
+    evento: string;
+    fecha: string;
+    precio: number;
+    pagada: boolean;
+    usada: boolean;
+  }[];
+}
+
 export interface ComisionRrpp {
   id: string;
   staffId: string;
@@ -68,6 +94,10 @@ interface PersonalState {
   ) => Promise<{ sesionesCerradas: boolean } | null>;
   cambiarEstado: (id: string, activo: boolean) => Promise<boolean>;
 
+  clientes: ClienteApp[];
+  cargandoClientes: boolean;
+  cargarClientes: (busqueda?: string) => Promise<void>;
+
   cargarComisiones: (filtros?: { eventoId?: string; staffId?: string; pagada?: boolean }) => Promise<void>;
   calcularComision: (datos: { staffId: string; eventoId: string; porcentajeComision: number }) => Promise<ComisionRrpp | null>;
   pagarComision: (id: string) => Promise<boolean>;
@@ -84,8 +114,10 @@ function getLocalId() {
 export const usePersonalStore = create<PersonalState>((set) => ({
   staff: [],
   comisiones: [],
+  clientes: [],
   cargando: false,
   cargandoComisiones: false,
+  cargandoClientes: false,
   procesando: false,
   error: null,
 
@@ -161,6 +193,25 @@ export const usePersonalStore = create<PersonalState>((set) => ({
     } catch (err) {
       set({ procesando: false, error: err instanceof Error ? err.message : "Error al cambiar estado" });
       return false;
+    }
+  },
+
+  cargarClientes: async (busqueda) => {
+    const localId = getLocalId();
+    set({ cargandoClientes: true, error: null });
+    try {
+      const qs = busqueda?.trim()
+        ? `?busqueda=${encodeURIComponent(busqueda.trim())}`
+        : "";
+      const data = await api.get<{ clientes: ClienteApp[] }>(
+        `/personal/clientes${qs}`, localId
+      );
+      set({ clientes: data.clientes, cargandoClientes: false });
+    } catch (err) {
+      set({
+        cargandoClientes: false,
+        error: err instanceof Error ? err.message : "Error al cargar los clientes",
+      });
     }
   },
 
