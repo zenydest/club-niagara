@@ -39,7 +39,15 @@ async function request<T>(
   const token = await leerToken();
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    /**
+     * El `Content-Type` va solo si hay body.
+     *
+     * Fastify rechaza con 400 ("Body cannot be empty when content-type is set
+     * to 'application/json'") un pedido que declara JSON y llega sin cuerpo.
+     * Pasaba en todos los POST sin datos, como cancelar una entrada, y el
+     * error que veía el usuario era un "Bad Request" sin explicación.
+     */
+    ...(options.body !== undefined && { "Content-Type": "application/json" }),
     "x-local-id":   LOCAL_ID,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     // Permite sobrescribir headers individuales desde el caller

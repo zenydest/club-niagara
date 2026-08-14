@@ -81,6 +81,35 @@ const app = Fastify({
 });
 
 // ── Plugins globales ─────────────────────────────────────────
+/**
+ * Acepta POST y PATCH sin cuerpo aunque declaren `application/json`.
+ *
+ * Por defecto Fastify los rechaza con 400 ("Body cannot be empty..."), y hay
+ * varias acciones que no necesitan datos: cancelar una entrada, marcar un
+ * reembolso, sincronizar terminales. El cliente igual manda el header, así que
+ * el error aparecía como un "Bad Request" sin pista de qué faltaba.
+ *
+ * Se trata como `{}`, que es lo que esos endpoints esperan.
+ */
+app.addContentTypeParser(
+  "application/json",
+  { parseAs: "string" },
+  (_req, cuerpo, hecho) => {
+    const texto = typeof cuerpo === "string" ? cuerpo.trim() : "";
+    if (!texto) return hecho(null, {});
+
+    try {
+      hecho(null, JSON.parse(texto));
+    } catch {
+      const err = new Error("El cuerpo del pedido no es JSON válido") as Error & {
+        statusCode?: number;
+      };
+      err.statusCode = 400;
+      hecho(err, undefined);
+    }
+  }
+);
+
 await app.register(helmet, { contentSecurityPolicy: false });
 await app.register(cookie);
 await app.register(cors, {
