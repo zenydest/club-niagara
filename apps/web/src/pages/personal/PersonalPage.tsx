@@ -440,9 +440,15 @@ function ModalEditarStaff({ miembro, onCerrar, esAdmin, esMio }: {
  * reclama por una entrada.
  */
 function TabClientes() {
-  const { clientes, cargandoClientes, cargarClientes } = usePersonalStore();
+  const {
+    clientes, cargandoClientes, cargarClientes,
+    reembolsos, reembolsosMonto, cargarReembolsos,
+    cancelarEntrada, marcarReembolsado, procesando,
+  } = usePersonalStore();
+
   const [busqueda, setBusqueda] = useState("");
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [confirmar, setConfirmar] = useState<{ id: string; evento: string; pagada: boolean } | null>(null);
 
   useEffect(() => {
     // Se espera a que deje de tipear: sin esto sale una consulta por tecla.
@@ -450,8 +456,57 @@ function TabClientes() {
     return () => clearTimeout(t);
   }, [busqueda, cargarClientes]);
 
+  useEffect(() => {
+    void cargarReembolsos();
+  }, [cargarReembolsos]);
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Plata por devolver. Va arriba de todo y solo aparece si hay algo:
+          es lo único de esta pantalla que requiere que alguien haga algo. */}
+      {reembolsos.length > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-4">
+          <div className="flex items-start gap-2">
+            <Icono nombre="alerta" tamano={18} className="text-warning flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-warning">
+                {reembolsos.length} devolución{reembolsos.length !== 1 ? "es" : ""} pendiente
+                {reembolsos.length !== 1 ? "s" : ""} · {formatPeso(reembolsosMonto)}
+              </p>
+              <p className="text-xs text-text-secondary mt-0.5">
+                Entradas canceladas que ya estaban pagas. Devolvé la plata desde
+                Mercado Pago y marcá cada una acá.
+              </p>
+
+              <div className="mt-3 flex flex-col gap-2">
+                {reembolsos.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-3 flex-wrap text-xs bg-surface border border-border rounded-lg px-3 py-2"
+                  >
+                    <span className="font-bold text-text-primary">{formatPeso(r.monto)}</span>
+                    <span className="text-text-secondary flex-1 min-w-0 truncate">
+                      {r.cliente ?? "—"} · {r.evento}
+                    </span>
+                    {r.mpPaymentId && (
+                      <span className="font-mono text-text-muted">
+                        Pago {r.mpPaymentId}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => void marcarReembolsado(r.id)}
+                      disabled={procesando}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-success/40 text-success hover:bg-success/10 disabled:opacity-40 transition-colors"
+                    >
+                      Ya devolví
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="relative max-w-md">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">
           <Icono nombre="buscar" tamano={16} />
@@ -584,6 +639,24 @@ function TabClientes() {
                                   Usada
                                 </span>
                               )}
+
+                              {/* Una entrada usada no se cancela: ya entró. */}
+                              {!e.usada && (
+                                <button
+                                  onClick={() =>
+                                    setConfirmar({
+                                      id: e.id,
+                                      evento: e.evento,
+                                      pagada: e.pagada,
+                                    })
+                                  }
+                                  className="text-text-secondary hover:text-danger transition-colors"
+                                  title="Cancelar entrada"
+                                  aria-label="Cancelar entrada"
+                                >
+                                  <Icono nombre="cerrar" tamano={13} />
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -594,6 +667,52 @@ function TabClientes() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {confirmar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setConfirmar(null)}
+          />
+          <div className="relative w-full max-w-sm bg-surface border border-border rounded-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <Icono nombre="alerta" tamano={24} className="text-danger flex-shrink-0" />
+              <h2 className="text-base font-bold text-text-primary">Cancelar entrada</h2>
+            </div>
+
+            <p className="text-sm text-text-secondary">
+              {confirmar.evento}. El QR deja de servir y se libera el cupo.
+            </p>
+
+            {confirmar.pagada && (
+              <p className="text-sm text-warning">
+                Esta entrada está paga. Al cancelarla vas a tener que devolver la
+                plata desde Mercado Pago: va a quedar en la lista de devoluciones
+                pendientes.
+              </p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmar(null)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-text-secondary text-sm hover:border-text-secondary transition-colors"
+              >
+                Volver
+              </button>
+              <button
+                onClick={async () => {
+                  const res = await cancelarEntrada(confirmar.id);
+                  if (res) setConfirmar(null);
+                }}
+                disabled={procesando}
+                className="flex-1 py-2.5 rounded-xl bg-danger text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"
+              >
+                {procesando ? "Cancelando…" : "Cancelar entrada"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

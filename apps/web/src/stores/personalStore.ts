@@ -50,6 +50,18 @@ export interface ClienteApp {
   }[];
 }
 
+/** Entrada cancelada con plata que el boliche todavía no devolvió. */
+export interface Reembolso {
+  id: string;
+  cliente: string | null;
+  email: string | null;
+  evento: string;
+  tipo: string;
+  monto: number;
+  canceladaAt: string | null;
+  mpPaymentId: string | null;
+}
+
 export interface ComisionRrpp {
   id: string;
   staffId: string;
@@ -98,6 +110,14 @@ interface PersonalState {
   cargandoClientes: boolean;
   cargarClientes: (busqueda?: string) => Promise<void>;
 
+  reembolsos: Reembolso[];
+  reembolsosMonto: number;
+  cargarReembolsos: () => Promise<void>;
+  /** Cancela una entrada desde el panel. Devuelve si quedó plata por devolver. */
+  cancelarEntrada: (entradaId: string) => Promise<{ reembolsoPendiente: boolean } | null>;
+  /** Marca que ya se devolvió la plata de esa entrada. */
+  marcarReembolsado: (entradaId: string) => Promise<boolean>;
+
   cargarComisiones: (filtros?: { eventoId?: string; staffId?: string; pagada?: boolean }) => Promise<void>;
   calcularComision: (datos: { staffId: string; eventoId: string; porcentajeComision: number }) => Promise<ComisionRrpp | null>;
   pagarComision: (id: string) => Promise<boolean>;
@@ -111,10 +131,12 @@ function getLocalId() {
 
 // ── Store ─────────────────────────────────────────────────────────
 
-export const usePersonalStore = create<PersonalState>((set) => ({
+export const usePersonalStore = create<PersonalState>((set, get) => ({
   staff: [],
   comisiones: [],
   clientes: [],
+  reembolsos: [],
+  reembolsosMonto: 0,
   cargando: false,
   cargandoComisiones: false,
   cargandoClientes: false,
@@ -212,6 +234,61 @@ export const usePersonalStore = create<PersonalState>((set) => ({
         cargandoClientes: false,
         error: err instanceof Error ? err.message : "Error al cargar los clientes",
       });
+    }
+  },
+
+  cargarReembolsos: async () => {
+    const localId = getLocalId();
+    try {
+      const data = await api.get<{ reembolsos: Reembolso[]; montoTotal: number }>(
+        "/entradas/reembolsos", localId
+      );
+      set({ reembolsos: data.reembolsos, reembolsosMonto: data.montoTotal });
+    } catch {
+      // Es información de control: si falla, no vale la pena romper la
+      // pantalla de clientes por esto.
+    }
+  },
+
+  cancelarEntrada: async (entradaId) => {
+    const localId = getLocalId();
+    set({ procesando: true, error: null });
+    try {
+      const res = await api.post<{ reembolsoPendiente: boolean }>(
+        `/entradas/vendidas/${entradaId}/cancelar`, {}, localId
+      );
+      set({ procesando: false });
+      // La ficha del cliente y la lista de reembolsos cambian las dos.
+      await Promise.all([get().cargarClientes(), get().cargarReembolsos()]);
+      return { reembolsoPendiente: res.reembolsoPendiente };
+    } catch (err) {
+      set({
+        procesando: false,
+        error: err instanceof Error ? err.message : "No se pudo cancelar la entrada",
+      });
+      return null;
+    }
+  },
+
+  marcarReembolsado: async (entradaId) => {
+    const localId = getLocalId();
+    set({ procesando: true, error: null });
+    try {
+      await api.patch(`/entradas/vendidas/${entradaId}/reembolsado`, {}, localId);
+      set((s) => ({
+        reembolsos: s.reembolsos.filter((r) => r.id !== entradaId),
+        reembolsosMonto: s.reembolsos
+          .filter((r) => r.id !== entradaId)
+          .reduce((acc, r) => acc + r.monto, 0),
+        procesando: false,
+      }));
+      return true;
+    } catch (err) {
+      set({
+        procesando: false,
+        error: err instanceof Error ? err.message : "No se pudo marcar como devuelto",
+      });
+      return false;
     }
   },
 
