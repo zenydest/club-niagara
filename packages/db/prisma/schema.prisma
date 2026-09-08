@@ -191,6 +191,9 @@ model Local {
   comisionesRrpp   ComisionRrpp[]
   cortesCaja       CorteCaja[]
   clientes         Cliente[]
+  dispositivosPush DispositivoPush[]
+  lotesCortesias   LoteCortesias[]
+  cortesias        Cortesia[]
   terminales       Terminal[]
   ordenesPoint     OrdenPoint[]
 
@@ -219,6 +222,7 @@ model Staff {
   accesos          Acceso[]
   recargas         Recarga[]
   entradasVendidas EntradaVendida[] @relation("EntradaVendidaRrpp")
+  lotesCortesias   LoteCortesias[]  @relation("LoteCortesiasRrpp")
   stockMovimientos StockMovimiento[]
   guardarropa      Guardarropa[]
   comisionesRrpp   ComisionRrpp[]
@@ -243,6 +247,12 @@ model Evento {
   estado      EstadoEvento @default(borrador)
   imagenUrl   String?      @map("imagen_url")
   aforoActual Int          @default(0) @map("aforo_actual")
+
+  /// Cuándo se mandó el recordatorio a los que compraron entrada.
+  ///
+  /// Es lo que evita mandarlo dos veces: la tarea que los envía corre cada
+  /// hora, y sin esta marca cada corrida volvería a avisar por el mismo evento.
+  recordatorioAt DateTime? @map("recordatorio_at")
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
@@ -256,6 +266,7 @@ model Evento {
   guardarropa     Guardarropa[]
   comisionesRrpp  ComisionRrpp[]
   cortesCaja      CorteCaja[]
+  lotesCortesias  LoteCortesias[]
 
   @@map("eventos")
 }
@@ -758,7 +769,104 @@ model Cliente {
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   tarjetas TarjetaCashless[]
   entradas EntradaVendida[]
+  dispositivos DispositivoPush[]
 
   @@unique([localId, userId])
   @@map("clientes")
+}
+
+/// Tanda de accesos gratuitos generados de una vez para repartir.
+///
+/// El flujo real del boliche: se generan 200 cortesías, se le pasan a un RRPP
+/// y él las reparte por WhatsApp. Quien la recibe abre un link y muestra el QR
+/// en la puerta — sin cuenta, sin app, sin registro.
+///
+/// El lote existe para poder darlas de baja juntas, saber quién repartió qué,
+/// y poner una hora límite distinta por tanda.
+model LoteCortesias {
+  id        String  @id @default(uuid())
+  localId   String  @map("local_id")
+  eventoId  String  @map("evento_id")
+
+  /// Cómo identificar esta tanda: "RRPP Juan", "Sorteo Instagram".
+  nombre    String
+
+  /// A quién se le entregó. Null si se repartió sin intermediario.
+  rrppId    String? @map("rrpp_id")
+
+  /// Hora máxima de ingreso. Después de esta hora el código no valida.
+  ///
+  /// Es el requerimiento central: las cortesías valen hasta la 1:30 y no
+  /// después. Va por lote para poder dar tandas con horarios distintos.
+  validaHasta DateTime @map("valida_hasta")
+
+  /// Baja de todo el lote de una. Sirve si un RRPP se va o si los códigos se
+  /// filtraron: se anulan los que quedan sin tocar los ya usados.
+  anuladoAt DateTime? @map("anulado_at")
+
+  creadoPor String?  @map("creado_por")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  local     Local            @relation(fields: [localId], references: [id], onDelete: Cascade)
+  evento    Evento           @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  rrpp      Staff?           @relation("LoteCortesiasRrpp", fields: [rrppId], references: [id])
+  cortesias Cortesia[]
+
+  @@index([localId, eventoId])
+  @@map("lotes_cortesias")
+}
+
+/// Un acceso gratuito suelto, de un solo uso.
+///
+/// No tiene cliente asociado a propósito: la gracia es que no haga falta
+/// registrarse. Si quien la usa da su nombre en la puerta, el portero lo puede
+/// anotar, pero no es obligatorio.
+model Cortesia {
+  id      String @id @default(uuid())
+  localId String @map("local_id")
+  loteId  String @map("lote_id")
+
+  /// Lo que va en el link y en el QR. Corto y legible para poder dictarlo por
+  /// teléfono si el escáner falla: se generan sin caracteres ambiguos (0/O, 1/I).
+  codigo  String @unique
+
+  usada     Boolean   @default(false)
+  usadaAt   DateTime? @map("usada_at")
+
+  /// Nombre que dio en la puerta, si lo dio. Opcional siempre.
+  nombreIngreso String? @map("nombre_ingreso")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  local Local         @relation(fields: [localId], references: [id], onDelete: Cascade)
+  lote  LoteCortesias @relation(fields: [loteId], references: [id], onDelete: Cascade)
+
+  @@index([localId, usada])
+  @@map("cortesias")
+}
+
+/// Celular de un cliente registrado para recibir avisos.
+///
+/// Va en su propia tabla y no como campo del cliente porque una persona puede
+/// tener la app en más de un dispositivo, y porque los tokens se invalidan
+/// solos: cuando Expo avisa que uno murió, se borra esa fila sin tocar al
+/// cliente.
+model DispositivoPush {
+  id         String   @id @default(uuid())
+  localId    String   @map("local_id")
+  clienteId  String   @map("cliente_id")
+
+  /// Token de Expo (ExponentPushToken[...]). Único: si el mismo celular vuelve
+  /// a registrarse, se actualiza la fila en vez de duplicarla.
+  token      String   @unique
+
+  plataforma String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  local   Local   @relation(fields: [localId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([localId])
+  @@map("dispositivos_push")
 }

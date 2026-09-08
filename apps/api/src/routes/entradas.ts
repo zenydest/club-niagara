@@ -19,7 +19,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
 import { io } from "../index.js";
-import { codigoValido, generarSecretoQR } from "../lib/qrRotativo.js";
+import { codigoValido } from "../lib/qrRotativo.js";
 import { cancelarEntrada, mensajeRechazo } from "../lib/cancelarEntrada.js";
 
 // ── Schemas ──────────────────────────────────────────────────────
@@ -220,9 +220,22 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
             eventoId,
             entradaTipoId,
             clienteId: clienteVinculado?.id ?? null,
-            // Secreto propio por entrada: el código rotativo de una no sirve
-            // para otra, aunque sean del mismo evento y del mismo comprador.
-            qrSecret: generarSecretoQR(),
+            /**
+             * Sin código rotativo, a propósito.
+             *
+             * Estas entradas se venden en el panel y se entregan por link de
+             * WhatsApp: quien las muestra abre una página web, que no puede
+             * calcular el código rotativo sin tener el secreto — y ponerlo en
+             * la página lo dejaría a la vista de cualquiera con el enlace.
+             *
+             * Las compradas desde la app sí lo llevan (ver `routes/cliente.ts`):
+             * ahí la app lo calcula y una captura de pantalla se vence sola.
+             *
+             * La protección de estas es que son de un solo uso: si el link se
+             * reenvía, entra el primero que llega. El portero además ve el
+             * aviso de que ese QR no tiene código rotativo.
+             */
+            qrSecret: null,
             clienteNombre,
             clienteEmail: clienteEmail ?? null,
             clienteTelefono: clienteTelefono ?? null,
@@ -522,6 +535,54 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       resultado: "ok",
       sinCodigoRotativo,
       entrada: { ...entrada, precioPagado: Number(entrada.precioPagado), usada: true },
+    };
+  });
+
+  /**
+   * GET /api/entradas/publica/:qrCode — página del QR para el comprador.
+   *
+   * **Sin autenticación**: es el link que se manda por WhatsApp al vender una
+   * entrada. Quien lo abre ve el QR sin instalar nada ni registrarse.
+   *
+   * Devuelve el `qrSecret` porque la página necesita calcular el código
+   * rotativo igual que hace la app. Eso significa que quien tiene el link
+   * tiene la entrada — es el modelo que pidió el cliente. La protección real
+   * es que sea de un solo uso: si el link se reenvía, entra el primero que
+   * llega.
+   *
+   * Solo se expone lo mínimo: nada del comprador, del precio ni del evento más
+   * allá de lo que hace falta para mostrar la pantalla.
+   */
+  app.get("/publica/:qrCode", async (req, reply) => {
+    const { qrCode } = req.params as { qrCode: string };
+
+    const entrada = await prisma.entradaVendida.findUnique({
+      where: { qrCode },
+      include: {
+        evento: {
+          select: { nombre: true, fechaInicio: true, imagenUrl: true, estado: true },
+        },
+        entradaTipo: { select: { nombre: true } },
+      },
+    });
+
+    if (!entrada) {
+      return reply.status(404).send({ error: "Esta entrada no existe" });
+    }
+
+    return {
+      qrCode: entrada.qrCode,
+      qrSecret: entrada.qrSecret,
+      localId: entrada.localId,
+      usada: entrada.usada,
+      pagada: entrada.pagada,
+      cancelada: entrada.canceladaAt !== null,
+      nombre: entrada.clienteNombre,
+      tipo: entrada.entradaTipo.nombre,
+      evento: entrada.evento,
+      // La app corrige el desfasaje del reloj del celular con este valor; la
+      // página web hace lo mismo.
+      serverTime: Date.now(),
     };
   });
 

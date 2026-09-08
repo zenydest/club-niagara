@@ -37,6 +37,11 @@ const RESULTADO_CONFIG: Record<
   // Cancelada: no se cobra en la puerta ni se deja pasar. Si el cliente
   // reclama, se resuelve en la oficina, no en la fila.
   cancelada: { titulo: "Entrada cancelada", icono: "cerrar", clase: "bg-danger text-white" },
+  // Cortesías: el lote se dio de baja.
+  anulada: { titulo: "Pase dado de baja", icono: "cerrar", clase: "bg-danger text-white" },
+  // Llegó tarde: pierde la cortesía y paga la entrada. No es un rechazo, es
+  // "cobrale la entrada normal".
+  fuera_de_horario: { titulo: "Venció el horario · Cobrar entrada", icono: "reloj", clase: "bg-warning text-background" },
   sin_conexion: { titulo: "Sin conexión", icono: "alerta", clase: "bg-warning text-background" },
   error: { titulo: "Error", icono: "alerta", clase: "bg-danger text-white" },
 };

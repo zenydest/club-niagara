@@ -34,6 +34,15 @@ const RUTAS_PUBLICAS = [
   // routes/cliente.ts. Con el plugin activo, registro y login devolvían 401 y
   // la app móvil no podía ni crear una cuenta.
   "/api/cliente/",
+  // Tareas programadas: las llama GitHub Actions, no un usuario. No hay sesión
+  // ni local; se protegen con el secreto compartido que valida la propia ruta.
+  "/api/tareas/",
+  // La página del código free la abre cualquiera desde un link de WhatsApp:
+  // no hay sesión ni app. Solo devuelve los datos de ese código.
+  "/api/cortesias/publica/",
+  // Ídem para las entradas vendidas: el comprador abre el link que le mandaron
+  // por WhatsApp, sin cuenta ni app.
+  "/api/entradas/publica/",
 ];
 
 /** Convierte IncomingHttpHeaders de Node.js a Web API Headers */

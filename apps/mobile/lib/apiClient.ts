@@ -193,6 +193,13 @@ export const api = {
       avisoPago?: string | null;
     }>("/api/cliente/comprar", { method: "POST", body: JSON.stringify(body) }),
 
+  /** Registra este celular para recibir avisos de eventos nuevos. */
+  registrarPush: (body: { token: string; plataforma: "ios" | "android" }) =>
+    request<{ ok: boolean }>("/api/cliente/push/registrar", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
   /** Cancela una entrada del cliente. La API valida que sea suya y que no
    *  esté usada ni vencida. */
   cancelarEntrada: (id: string) =>

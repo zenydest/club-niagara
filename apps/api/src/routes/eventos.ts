@@ -8,6 +8,7 @@ import { z } from "zod";
 import { prisma } from "@niagara/db";
 import type { EstadoEvento } from "@niagara/db";
 import { io } from "../index.js";
+import { avisarAClientes } from "../lib/push.js";
 
 /**
  * `.nullish()` y no `.optional()` en los campos que pueden venir vacíos.
@@ -216,16 +217,53 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
       return reply.status(403).send({ error: "Sin permisos" });
     }
 
+    const anterior = await prisma.evento.findFirst({
+      where: { id, localId },
+      select: { estado: true },
+    });
+
     const evento = await prisma.evento.update({
       where: { id, localId },
       data: { estado: body.data.estado },
     });
 
-    // Notificar en tiempo real a todos los clientes del local
+    // Notificar en tiempo real a los paneles abiertos
     io.to(`local:${localId}`).emit("evento:estado_cambiado", {
       eventoId: id,
       estado: body.data.estado,
     });
+
+    /**
+     * Aviso a los celulares cuando el evento sale a la venta.
+     *
+     * Solo en la transición desde borrador: sin ese chequeo, cada vez que
+     * alguien tocara el estado —incluso volviendo a preventa desde en_vivo—
+     * les llegaría otra notificación por lo mismo. Nada quema más una app que
+     * avisar de más.
+     *
+     * No se espera el resultado: si Expo tarda o falla, el evento ya quedó
+     * publicado igual.
+     */
+    const salioALaVenta =
+      anterior?.estado === "borrador" &&
+      (body.data.estado === "preventa" || body.data.estado === "en_vivo");
+
+    if (salioALaVenta) {
+      const cuando = new Date(evento.fechaInicio).toLocaleDateString("es-AR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
+
+      void avisarAClientes({
+        localId,
+        titulo: evento.nombre,
+        cuerpo: `Entradas a la venta · ${cuando}`,
+        datos: { tipo: "evento", eventoId: id },
+      }).catch(() => {
+        // Ya se registra adentro; acá solo se evita el rechazo sin manejar.
+      });
+    }
 
     return { evento };
   });

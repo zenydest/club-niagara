@@ -68,6 +68,10 @@ export interface ResultadoValidacion {
     | "impaga"
     /** Se canceló desde la app o el panel: no entra, y no se puede forzar */
     | "cancelada"
+    /** Cortesía: el lote se dio de baja */
+    | "anulada"
+    /** Cortesía: llegó después de la hora límite. Tiene que pagar la entrada. */
+    | "fuera_de_horario"
     | "sin_conexion"
     | "error";
   entrada: EntradaValidada | null;
@@ -80,6 +84,12 @@ export interface ResultadoValidacion {
   sinCodigoRotativo?: boolean;
   /** Cuánto hay que cobrar cuando el resultado es "impaga" */
   aCobrar?: number;
+  /** El código escaneado era un pase de cortesía, no una entrada vendida. */
+  esCortesia?: boolean;
+  /** Nombre de la tanda, para saber qué RRPP lo repartió. */
+  lote?: string;
+  /** Hora límite del pase. Se muestra cuando llegó tarde. */
+  validaHasta?: string;
 }
 
 interface PorteriaState {
@@ -241,6 +251,44 @@ export const usePorteriaStore = create<PorteriaState>((set, get) => ({
         if (payload.codigo) codigo = payload.codigo;
       } catch {
         // No era JSON: se usa el texto tal cual como identificador.
+      }
+
+      /**
+       * Cortesías: el QR de un pase free trae solo el código, corto y en
+       * mayúsculas (8 caracteres del alfabeto sin ambigüedades). Las entradas,
+       * en cambio, llevan un UUID o un JSON.
+       *
+       * Se distinguen por la forma en vez de pedirle al portero que elija el
+       * tipo antes de escanear: en la puerta, con fila, nadie va a acordarse
+       * de cambiar de modo según quién llegue.
+       */
+      const pareceCortesia = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/.test(
+        qrCode.trim().toUpperCase()
+      );
+
+      if (pareceCortesia) {
+        const res = await api.post<{
+          resultado: string;
+          lote?: string;
+          validaHasta?: string;
+          usadaAt?: string;
+        }>(
+          "/cortesias/validar",
+          { codigo: qrCode.trim().toUpperCase() },
+          staff.localId
+        );
+
+        if (res.resultado === "ok" && eventoSeleccionado) {
+          void get().seleccionarEvento(eventoSeleccionado);
+        }
+
+        return {
+          resultado: res.resultado as ResultadoValidacion["resultado"],
+          entrada: null,
+          esCortesia: true,
+          ...(res.lote !== undefined && { lote: res.lote }),
+          ...(res.validaHasta !== undefined && { validaHasta: res.validaHasta }),
+        };
       }
 
       const res = await api.post<{

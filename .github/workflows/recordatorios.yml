@@ -1,0 +1,54 @@
+# ============================================================
+# Recordatorios de eventos — Club Niágara
+#
+# Llama cada hora al endpoint que avisa a los clientes de los eventos que
+# arrancan dentro de las próximas horas.
+#
+# Corre acá y no en Render porque el plan free no tiene cron jobs. La API
+# decide a quién avisar y marca cada evento, así que llamarla de más no manda
+# avisos repetidos.
+#
+# Requiere dos secrets en el repo:
+#   API_URL         — https://club-niagara-api.onrender.com
+#   TAREAS_SECRETO  — el mismo valor que la variable TAREAS_SECRETO en Render
+# ============================================================
+name: Recordatorios
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  recordatorios:
+    name: Avisar eventos próximos
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Llamar a la tarea
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          SECRETO: ${{ secrets.TAREAS_SECRETO }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$SECRETO" ]; then
+            echo "Faltan los secrets API_URL o TAREAS_SECRETO."
+            exit 1
+          fi
+
+          # `--max-time` largo a propósito: Render en plan free duerme el
+          # servicio por inactividad y la primera llamada puede tardar
+          # bastante en despertarlo.
+          RESPUESTA=$(curl -sS -X POST "$API_URL/api/tareas/recordatorios" \
+            -H "x-tarea-secreto: $SECRETO" \
+            --max-time 120 \
+            -w "\n%{http_code}")
+
+          CODIGO=$(echo "$RESPUESTA" | tail -n1)
+          CUERPO=$(echo "$RESPUESTA" | sed '$d')
+
+          echo "HTTP $CODIGO"
+          echo "$CUERPO"
+
+          if [ "$CODIGO" != "200" ]; then
+            exit 1
+          fi

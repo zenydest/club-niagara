@@ -6,7 +6,7 @@
     "icon": "./assets/logo.png",
     "slug": "noxa-club",
     "version": "1.0.0",
-    "scheme": "noxa",
+    "scheme": "clubniagara",
     "orientation": "portrait",
     "platforms": [
       "ios",
@@ -20,10 +20,10 @@
     "runtimeVersion": "1.0.0",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.niagara.noxa"
+      "bundleIdentifier": "com.clubniagara.app"
     },
     "android": {
-      "package": "com.niagara.noxa",
+      "package": "com.clubniagara.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#06060F"
@@ -32,6 +32,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo.png",
+          "color": "#1E50FF"
+        }
+      ],
       [
         "expo-splash-screen",
         {

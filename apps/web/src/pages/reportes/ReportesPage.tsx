@@ -11,6 +11,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "@niagara/ui";
 import { Icono, type NombreIcono } from "@/components/Icono";
+import { exportarCSV, fechaParaExcel } from "@/lib/exportar";
 import {
   useReportesStore,
   METODO_PAGO_CONFIG,
@@ -423,6 +424,30 @@ function TabVentas() {
         <p className="text-sm text-text-secondary self-center">
           {ventasTotal} venta{ventasTotal !== 1 ? "s" : ""}
         </p>
+
+        {/* Exporta lo que está en pantalla, que es la página actual del
+            listado. Si se quiere todo el período hay que subir el límite, no
+            hay una descarga aparte que traiga más. */}
+        <button
+          onClick={() =>
+            exportarCSV({
+              nombre: "ventas",
+              columnas: [
+                { titulo: "Fecha", valor: (v) => fechaParaExcel(v.createdAt) },
+                { titulo: "Método", valor: (v) => METODO_PAGO_CONFIG[v.metodoPago]?.label ?? v.metodoPago },
+                { titulo: "Total", valor: (v) => v.total },
+                { titulo: "Barra", valor: (v) => v.barra?.nombre ?? "" },
+                { titulo: "Cajero", valor: (v) => v.staff ? `${v.staff.nombre} ${v.staff.apellido}` : "" },
+                { titulo: "Ítems", valor: (v) => v.items?.length ?? 0 },
+              ],
+              filas: ventas,
+            })
+          }
+          disabled={ventas.length === 0}
+          className="ml-auto px-3 py-2 rounded-xl text-xs font-semibold border border-border text-text-secondary hover:text-accent hover:border-accent/40 disabled:opacity-40 transition-colors self-center"
+        >
+          Descargar planilla
+        </button>
       </div>
 
       {/* Lista */}

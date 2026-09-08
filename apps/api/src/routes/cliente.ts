@@ -415,6 +415,56 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
     };
   });
 
+  /**
+   * POST /api/cliente/push/registrar (protegido)
+   *
+   * La app manda su token de Expo al iniciar sesión. Se guarda contra el
+   * cliente para poder avisarle de eventos nuevos.
+   *
+   * Es idempotente: el mismo celular reenvía el token cada vez que abre, y si
+   * ya existe solo se actualiza la fecha. Sin eso la tabla se llenaría de
+   * duplicados del mismo dispositivo.
+   */
+  app.post("/push/registrar", async (req, reply) => {
+    const localId = getLocalId(req, reply);
+    if (!localId) return;
+
+    const sesion = await autenticarCliente(req, reply);
+    if (!sesion) return;
+
+    const body = z.object({
+      // Formato de Expo: ExponentPushToken[xxxxxxxx]
+      token: z.string().min(10).max(200),
+      plataforma: z.enum(["ios", "android"]).optional(),
+    }).safeParse(req.body);
+
+    if (!body.success) {
+      return reply.status(400).send({ error: body.error.flatten() });
+    }
+
+    const cliente = await prisma.cliente.findUnique({
+      where: { localId_userId: { localId, userId: sesion.userId } },
+    });
+    if (!cliente) return reply.status(404).send({ error: "Perfil no encontrado" });
+
+    await prisma.dispositivoPush.upsert({
+      where: { token: body.data.token },
+      update: {
+        clienteId: cliente.id,
+        localId,
+        ...(body.data.plataforma && { plataforma: body.data.plataforma }),
+      },
+      create: {
+        localId,
+        clienteId: cliente.id,
+        token: body.data.token,
+        plataforma: body.data.plataforma ?? null,
+      },
+    });
+
+    return { ok: true };
+  });
+
   // ══════════════════════════════════════════════════════════════
   // GET /api/cliente/perfil (protegido)
   // ══════════════════════════════════════════════════════════════

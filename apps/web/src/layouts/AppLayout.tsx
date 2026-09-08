@@ -12,6 +12,7 @@ import { ReportesPage } from "@/pages/reportes/ReportesPage";
 import { GuardarropaPage } from "@/pages/guardarropa/GuardarropaPage";
 import { StockPage } from "@/pages/stock/StockPage";
 import { ProductosPage } from "@/pages/productos/ProductosPage";
+import { CortesiasPage } from "@/pages/cortesias/CortesiasPage";
 import { PersonalPage } from "@/pages/personal/PersonalPage";
 import { TerminalesPage } from "@/pages/terminales/TerminalesPage";
 import { ROL_LABELS } from "@niagara/core";
@@ -26,6 +27,7 @@ type Pagina =
   | "reservas"
   | "reportes"
   | "guardarropa"
+  | "cortesias"
   | "productos"
   | "stock"
   | "terminales"
@@ -59,6 +61,8 @@ export function AppLayout() {
         return <ReportesPage />;
       case "guardarropa":
         return <GuardarropaPage />;
+      case "cortesias":
+        return <CortesiasPage />;
       case "productos":
         return <ProductosPage />;
       case "stock":

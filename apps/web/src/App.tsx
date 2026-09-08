@@ -2,6 +2,28 @@ import React, { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { AppLayout } from "@/layouts/AppLayout";
+import { PaseQR } from "@/paginas-publicas/PaseQR";
+
+/**
+ * Rutas que abre gente de la calle desde un link de WhatsApp.
+ *
+ *   /free/CODIGO   — pase de cortesía
+ *   /entrada/UUID  — entrada vendida
+ *
+ * Se resuelven leyendo la URL y no con un router: son dos rutas fijas y el
+ * resto del panel no usa navegación por URL, así que sumar react-router sería
+ * traer una dependencia entera para esto.
+ */
+function rutaPublica(): { tipo: "free" | "entrada"; codigo: string } | null {
+  const partes = window.location.pathname.split("/").filter(Boolean);
+  const [seccion, codigo] = partes;
+
+  if (!codigo) return null;
+  if (seccion === "free") return { tipo: "free", codigo };
+  if (seccion === "entrada") return { tipo: "entrada", codigo };
+
+  return null;
+}
 
 /**
  * Componente raíz de la app web Club Niágara.
@@ -10,10 +32,19 @@ import { AppLayout } from "@/layouts/AppLayout";
 export function App() {
   const { usuario, cargando, inicializar } = useAuthStore();
 
+  const publica = rutaPublica();
+
   // Inicializar la sesión al montar la app
   useEffect(() => {
+    // En las páginas públicas no se pide sesión: son para gente que no tiene
+    // cuenta, y consultarla haría aparecer el login por un instante.
+    if (publica) return;
     void inicializar();
-  }, [inicializar]);
+  }, [inicializar, publica]);
+
+  if (publica) {
+    return <PaseQR tipo={publica.tipo} codigo={publica.codigo} />;
+  }
 
   // Pantalla de carga inicial
   if (cargando && !usuario) {

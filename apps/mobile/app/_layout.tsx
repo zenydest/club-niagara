@@ -11,6 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { leerToken, api } from "@/lib/apiClient";
+import { registrarParaAvisos } from "@/lib/push";
 import { useAuthStore } from "@/stores/authStore";
 import { queryClient } from "@/lib/queryClient";
 import { PantallaCarga } from "@/components/PantallaCarga";
@@ -54,6 +55,19 @@ function AuthGuard() {
     };
     void verificar();
   }, [inicializar]);
+
+  /**
+   * Registro para avisos push, una vez que hay sesión.
+   *
+   * Acá y no en la pantalla de login porque también cubre la sesión
+   * restaurada al abrir la app. El token de Expo puede cambiar —al reinstalar,
+   * al restaurar un backup— así que se reenvía en cada arranque con sesión: el
+   * endpoint es idempotente y no duplica nada.
+   */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void registrarParaAvisos();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!navegadorRaiz?.key) return;
