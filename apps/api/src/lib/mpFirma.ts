@@ -10,6 +10,7 @@
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { envLimpio } from "./env.js";
 
 export interface CabecerasFirma {
   // `| undefined` explícito: los headers de Fastify pueden faltar y con
@@ -53,6 +54,5 @@ export function firmaValida(
 
 /** Lee el secreto del webhook, limpio de comillas y espacios. */
 export function secretoWebhook(): string | undefined {
-  const crudo = process.env["MP_WEBHOOK_SECRET"]?.trim().replace(/^["']|["']$/g, "");
-  return crudo ? crudo : undefined;
+  return envLimpio("MP_WEBHOOK_SECRET");
 }

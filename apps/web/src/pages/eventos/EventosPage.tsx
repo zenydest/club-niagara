@@ -344,10 +344,11 @@ function TabInfo({
                 Cancelar
               </button>
               <button
-                onClick={async () => {
-                  const ok = await eliminarEvento(evento.id);
-                  setConfirmarEliminar(false);
-                  if (ok) onEliminado();
+                onClick={() => {
+                  void eliminarEvento(evento.id).then((ok) => {
+                    setConfirmarEliminar(false);
+                    if (ok) onEliminado();
+                  });
                 }}
                 disabled={procesando}
                 className="flex-1 py-2.5 rounded-xl bg-danger text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"

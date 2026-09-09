@@ -302,9 +302,10 @@ export function ProductosPage() {
           producto={confirmarBaja}
           procesando={procesando}
           onCancelar={() => setConfirmarBaja(null)}
-          onConfirmar={async () => {
-            const ok = await darDeBaja(confirmarBaja.id);
-            if (ok) setConfirmarBaja(null);
+          onConfirmar={() => {
+            void darDeBaja(confirmarBaja.id).then((ok) => {
+              if (ok) setConfirmarBaja(null);
+            });
           }}
         />
       )}
@@ -314,13 +315,14 @@ export function ProductosPage() {
           cantidad={seleccion.size}
           procesando={procesando}
           onCancelar={() => setConfirmarLote(false)}
-          onConfirmar={async () => {
-            const res = await eliminarVarios([...seleccion]);
-            if (res) {
-              setConfirmarLote(false);
-              setSeleccion(new Set());
-              setResumenBorrado(res);
-            }
+          onConfirmar={() => {
+            void eliminarVarios([...seleccion]).then((res) => {
+              if (res) {
+                setConfirmarLote(false);
+                setSeleccion(new Set());
+                setResumenBorrado(res);
+              }
+            });
           }}
         />
       )}

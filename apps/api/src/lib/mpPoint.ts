@@ -17,6 +17,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { tokenMP } from "./env.js";
 
 const MP_BASE_URL = "https://api.mercadopago.com";
 
@@ -32,11 +33,6 @@ const MP_BASE_URL = "https://api.mercadopago.com";
  * guarda las comillas como parte del valor. MP devuelve un 401 y el error que
  * se ve es "token inválido", que manda a buscar el problema al lado equivocado.
  */
-function tokenMP(): string | undefined {
-  const crudo = process.env["MP_ACCESS_TOKEN"]?.trim().replace(/^["']|["']$/g, "");
-  return crudo ? crudo : undefined;
-}
-
 /** true si hay credenciales de MP configuradas */
 export function pointConfigurado(): boolean {
   return tokenMP() !== undefined;
@@ -82,7 +78,9 @@ export function nombrePorDefecto(terminal: TerminalMP): string {
   if (externo) return externo;
 
   const serie = terminal.id.split("__")[1]?.trim();
-  return serie || terminal.id;
+  if (serie) return serie;
+
+  return terminal.id;
 }
 
 /**

@@ -12,7 +12,7 @@
 import React, { useEffect, useState } from "react";
 import { Icono } from "@/components/Icono";
 
-const API = import.meta.env["VITE_API_URL"] ?? "";
+const API = import.meta.env.VITE_API_URL ?? "";
 
 interface TipoEntrada {
   id: string;
@@ -54,9 +54,12 @@ export function ComprarEntrada({ eventoId, rrpp }: { eventoId: string; rrpp?: st
 
     fetch(`${API}/api/publico/eventos/${eventoId}`)
       .then(async (res) => {
-        const cuerpo = await res.json();
+        const cuerpo = (await res.json()) as {
+          evento: EventoPublico;
+          error?: string;
+        };
         if (!res.ok) throw new Error(cuerpo.error ?? "El evento no está disponible");
-        return cuerpo as { evento: EventoPublico };
+        return cuerpo;
       })
       .then((d) => {
         if (!vigente) return;
@@ -95,7 +98,7 @@ export function ComprarEntrada({ eventoId, rrpp }: { eventoId: string; rrpp?: st
         }),
       });
 
-      const cuerpo = await res.json();
+      const cuerpo = (await res.json()) as { linkPago: string; error?: string };
       if (!res.ok) throw new Error(cuerpo.error ?? "No se pudo completar la compra");
 
       // Se va a Mercado Pago. Vuelve a /pago-ok cuando termina.

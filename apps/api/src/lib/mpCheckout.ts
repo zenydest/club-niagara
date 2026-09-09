@@ -11,6 +11,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { tokenMP } from "./env.js";
 
 const MP_BASE_URL = "https://api.mercadopago.com";
 
@@ -19,11 +20,6 @@ export class MPCheckoutError extends Error {
     super(message);
     this.name = "MPCheckoutError";
   }
-}
-
-function tokenMP(): string | undefined {
-  const crudo = process.env["MP_ACCESS_TOKEN"]?.trim().replace(/^["']|["']$/g, "");
-  return crudo ? crudo : undefined;
 }
 
 export function checkoutConfigurado(): boolean {

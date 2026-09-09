@@ -219,9 +219,10 @@ function FilaLote({
                 Volver
               </button>
               <button
-                onClick={async () => {
-                  const ok = await anularLote(lote.id);
-                  if (ok) setConfirmar(false);
+                onClick={() => {
+                  void anularLote(lote.id).then((ok) => {
+                    if (ok) setConfirmar(false);
+                  });
                 }}
                 disabled={procesando}
                 className="flex-1 py-2.5 rounded-xl bg-danger text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"

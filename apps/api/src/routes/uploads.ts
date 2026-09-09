@@ -17,6 +17,7 @@
 
 import type { FastifyPluginAsync } from "fastify";
 import { createHash } from "node:crypto";
+import { envLimpio } from "../lib/env.js";
 import { z } from "zod";
 
 /** Carpetas permitidas. Es una lista blanca a propósito: el nombre de la
@@ -35,10 +36,6 @@ interface CredencialesCloudinary {
   apiSecret: string;
 }
 
-function limpiar(valor: string | undefined): string | undefined {
-  const crudo = valor?.trim().replace(/^["']|["']$/g, "");
-  return crudo ? crudo : undefined;
-}
 
 /**
  * Lee `CLOUDINARY_URL`, que es el formato que da el panel de Cloudinary:
@@ -51,7 +48,7 @@ function limpiar(valor: string | undefined): string | undefined {
  * "Invalid Signature" que parece un bug del código.
  */
 function credencialesDesdeUrl(): CredencialesCloudinary | null {
-  const url = limpiar(process.env["CLOUDINARY_URL"]);
+  const url = envLimpio("CLOUDINARY_URL");
   if (!url) return null;
 
   const match = /^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/.exec(url);
@@ -67,9 +64,9 @@ function leerCredenciales(): CredencialesCloudinary | null {
   const desdeUrl = credencialesDesdeUrl();
   if (desdeUrl) return desdeUrl;
 
-  const cloudName = limpiar(process.env["CLOUDINARY_CLOUD_NAME"]);
-  const apiKey = limpiar(process.env["CLOUDINARY_API_KEY"]);
-  const apiSecret = limpiar(process.env["CLOUDINARY_API_SECRET"]);
+  const cloudName = envLimpio("CLOUDINARY_CLOUD_NAME");
+  const apiKey = envLimpio("CLOUDINARY_API_KEY");
+  const apiSecret = envLimpio("CLOUDINARY_API_SECRET");
 
   if (!cloudName || !apiKey || !apiSecret) return null;
   return { cloudName, apiKey, apiSecret };

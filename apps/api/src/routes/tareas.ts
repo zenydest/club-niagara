@@ -13,13 +13,13 @@
 import type { FastifyPluginAsync } from "fastify";
 import { prisma } from "@niagara/db";
 import { avisarAClientes } from "../lib/push.js";
+import { envLimpio } from "../lib/env.js";
 
 /** Cuántas horas antes del evento se manda el recordatorio. */
 const HORAS_ANTES = 4;
 
 function secretoTareas(): string | undefined {
-  const crudo = process.env["TAREAS_SECRETO"]?.trim().replace(/^["']|["']$/g, "");
-  return crudo ? crudo : undefined;
+  return envLimpio("TAREAS_SECRETO");
 }
 
 export const registrarRutasTareas: FastifyPluginAsync = async (app) => {

@@ -17,7 +17,7 @@ import React, { useEffect, useState } from "react";
 import { CodigoQR } from "@/components/CodigoQR";
 import { Icono } from "@/components/Icono";
 
-const API = import.meta.env["VITE_API_URL"] ?? "";
+const API = import.meta.env.VITE_API_URL ?? "";
 
 type Tipo = "free" | "entrada";
 

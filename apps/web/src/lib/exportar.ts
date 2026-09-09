@@ -50,7 +50,9 @@ export function exportarCSV<T>(input: {
    * Sin él, "Cortesía" se abre como "CortesÃ­a" y el cliente cree que el
    * sistema guarda mal los datos.
    */
-  const contenido = `﻿${encabezado}\n${cuerpo}`;
+  // Escrito como escape y no como carácter literal: invisible en el editor, es
+  // imposible darse cuenta de que está si alguien lo borra sin querer.
+  const contenido = `\uFEFF${encabezado}\n${cuerpo}`;
 
   const blob = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);

@@ -7,6 +7,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
+import { textoONull } from "../lib/texto.js";
 
 const productoSchema = z.object({
   nombre: z.string().min(2),
@@ -147,9 +148,9 @@ export const registrarRutasProductos: FastifyPluginAsync = async (app) => {
         ...(d.nombre !== undefined && { nombre: d.nombre }),
         ...(d.categoria !== undefined && { categoria: d.categoria }),
         ...(d.precio !== undefined && { precio: d.precio }),
-        ...(d.descripcion !== undefined && { descripcion: d.descripcion || null }),
+        ...(d.descripcion !== undefined && { descripcion: textoONull(d.descripcion) }),
         ...(d.costo !== undefined && { costo: d.costo ?? null }),
-        ...(d.imagenUrl !== undefined && { imagenUrl: d.imagenUrl || null }),
+        ...(d.imagenUrl !== undefined && { imagenUrl: textoONull(d.imagenUrl) }),
         ...(d.activo !== undefined && { activo: d.activo }),
       },
     });

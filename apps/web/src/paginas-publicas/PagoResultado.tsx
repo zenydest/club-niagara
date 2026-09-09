@@ -9,7 +9,7 @@
 import React, { useEffect, useState } from "react";
 import { Icono } from "@/components/Icono";
 
-const API = import.meta.env["VITE_API_URL"] ?? "";
+const API = import.meta.env.VITE_API_URL ?? "";
 
 /** Cada cuánto se vuelve a preguntar, y cuántas veces. */
 const ESPERA_MS = 2000;

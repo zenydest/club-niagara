@@ -14,16 +14,12 @@ import { z } from "zod";
 import { prisma } from "@niagara/db";
 import { firmaValida, secretoWebhook } from "../lib/mpFirma.js";
 import { consultarPago } from "../lib/mpCheckout.js";
+import { tokenMP } from "../lib/env.js";
 
 // Se lee en cada uso, no una vez al importar: si se carga la variable con el
 // proceso ya levantado, la constante quedaba en `undefined` y el panel seguía
 // diciendo "modo simulado" con el token bien puesto. Mismo criterio que en
 // `lib/mpPoint.ts`.
-function tokenMP(): string | undefined {
-  const crudo = process.env["MP_ACCESS_TOKEN"]?.trim().replace(/^["']|["']$/g, "");
-  return crudo ? crudo : undefined;
-}
-
 function modoReal(): boolean {
   return tokenMP() !== undefined;
 }

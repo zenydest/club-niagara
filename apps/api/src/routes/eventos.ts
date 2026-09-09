@@ -9,6 +9,7 @@ import { prisma } from "@niagara/db";
 import type { EstadoEvento } from "@niagara/db";
 import { io } from "../index.js";
 import { avisarAClientes } from "../lib/push.js";
+import { textoONull } from "../lib/texto.js";
 
 /**
  * `.nullish()` y no `.optional()` en los campos que pueden venir vacíos.
@@ -94,9 +95,7 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
         fechaInicio: new Date(body.data.fechaInicio),
         fechaFin: body.data.fechaFin ? new Date(body.data.fechaFin) : null,
         capacidad: body.data.capacidad,
-        // Cadena vacía y "sin imagen" son lo mismo; en la base va `null` para
-        // no tener dos formas de representar lo mismo.
-        imagenUrl: body.data.imagenUrl || null,
+        imagenUrl: textoONull(body.data.imagenUrl),
       },
     });
 
@@ -127,7 +126,9 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
           fechaFin: body.data.fechaFin ? new Date(body.data.fechaFin) : null,
         }),
         ...(body.data.capacidad && { capacidad: body.data.capacidad }),
-        ...(body.data.imagenUrl !== undefined && { imagenUrl: body.data.imagenUrl || null }),
+        ...(body.data.imagenUrl !== undefined && {
+          imagenUrl: textoONull(body.data.imagenUrl),
+        }),
       },
     });
 

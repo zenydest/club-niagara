@@ -45,9 +45,7 @@ interface DetectorCodigos {
   detect: (fuente: CanvasImageSource) => Promise<{ rawValue: string }[]>;
 }
 
-interface ConstructorDetector {
-  new (opciones?: { formats?: string[] }): DetectorCodigos;
-}
+type ConstructorDetector = new (opciones?: { formats?: string[] }) => DetectorCodigos;
 
 function obtenerDetectorNativo(): ConstructorDetector | null {
   const g = globalThis as { BarcodeDetector?: ConstructorDetector };
