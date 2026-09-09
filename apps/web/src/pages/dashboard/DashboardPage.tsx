@@ -86,7 +86,8 @@ interface MiConsumo {
 export function DashboardPage() {
   const { staff } = useAuthStore();
 
-  if (staff?.rol === "cajero") return <DashboardCajero />;
+  // Cajero y barman ven lo mismo: lo que despacharon en su turno.
+  if (staff?.rol === "cajero" || staff?.rol === "barman") return <DashboardCajero />;
   return <DashboardGerencia />;
 }
 
