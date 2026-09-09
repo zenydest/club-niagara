@@ -11,6 +11,7 @@ import {
   useEventosStore,
   ESTADO_CONFIG,
   TIPO_ENTRADA_CONFIG,
+  linkEntrada,
   type Evento,
   type TipoEntrada,
   type EntradaVendida,
@@ -723,8 +724,39 @@ function TabVendidas({ evento }: { evento: Evento }) {
   const [busqueda, setBusqueda] = useState("");
   const [filtroUsada, setFiltroUsada] = useState<"todas" | "si" | "no">("todas");
   const [qrVisible, setQrVisible] = useState<string | null>(null);
+  const [copiada, setCopiada] = useState<string | null>(null);
 
   const busquedaTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Copia el link de la entrada para mandárselo a quien la compró.
+   *
+   * La entrada se entrega por link, no por QR en pantalla: el comprador abre
+   * la página en su celular y muestra ahí el código. Es de un solo uso, así
+   * que si el link circula de más entra el primero que llega.
+   */
+  const copiarLink = async (entrada: EntradaVendida) => {
+    try {
+      await navigator.clipboard.writeText(linkEntrada(entrada.qrCode));
+      setCopiada(entrada.id);
+      setTimeout(() => setCopiada(null), 2000);
+    } catch {
+      // Sin permiso de portapapeles queda el QR y el código a la vista.
+    }
+  };
+
+  /** Abre WhatsApp con el mensaje listo, si la persona dejó teléfono. */
+  const abrirWhatsapp = (entrada: EntradaVendida) => {
+    // wa.me quiere el número sin `+`, espacios ni guiones.
+    const numero = (entrada.clienteTelefono ?? "").replace(/\D/g, "");
+    const mensaje = `Hola ${entrada.clienteNombre}, tu entrada para ${evento.nombre}: ${linkEntrada(entrada.qrCode)}`;
+
+    window.open(
+      `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
 
   useEffect(() => {
     void cargarVendidas(evento.id);
@@ -835,6 +867,20 @@ function TabVendidas({ evento }: { evento: Evento }) {
                 >
                   QR
                 </button>
+                <button
+                  onClick={() => void copiarLink(v)}
+                  className="px-2.5 py-1 rounded-lg text-xs text-text-secondary hover:text-accent border border-transparent hover:border-accent/40 transition-all"
+                >
+                  {copiada === v.id ? "¡Copiado!" : "Link"}
+                </button>
+                {v.clienteTelefono && (
+                  <button
+                    onClick={() => abrirWhatsapp(v)}
+                    className="px-2.5 py-1 rounded-lg text-xs text-green-400 hover:bg-green-500/10 border border-transparent hover:border-green-500/40 transition-all"
+                  >
+                    WhatsApp
+                  </button>
+                )}
                 {!v.usada && (
                   <button
                     onClick={() => void marcarUsada(v.id)}

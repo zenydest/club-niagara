@@ -49,6 +49,20 @@ export interface TipoEntrada {
   ocupaLugar: boolean;
 }
 
+/**
+ * Link de la entrada, para mandarle a quien la compró.
+ *
+ * Mismo criterio que `linkCortesia`: se arma con el origen actual, así en
+ * producción sale el dominio de Vercel y en desarrollo el localhost sin
+ * configurar nada.
+ *
+ * La entrada es de un solo uso: si el link se reenvía, entra el primero que
+ * llega y el resto rebota en la puerta.
+ */
+export function linkEntrada(qrCode: string): string {
+  return `${window.location.origin}/entrada/${qrCode}`;
+}
+
 export interface EntradaVendida {
   id: string;
   localId: string;
