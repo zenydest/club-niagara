@@ -719,7 +719,7 @@ function TabVender({ evento }: { evento: Evento }) {
 // ═══════════════════════════════════════════════════════════════
 
 function TabVendidas({ evento }: { evento: Evento }) {
-  const { vendidas, cargandoVendidas, procesando, cargarVendidas, marcarUsada } = useEventosStore();
+  const { vendidas, resumenVendidas, cargandoVendidas, procesando, cargarVendidas, marcarUsada } = useEventosStore();
   const [busqueda, setBusqueda] = useState("");
   const [filtroUsada, setFiltroUsada] = useState<"todas" | "si" | "no">("todas");
   const [qrVisible, setQrVisible] = useState<string | null>(null);
@@ -749,16 +749,16 @@ function TabVendidas({ evento }: { evento: Evento }) {
     });
   };
 
-  const totalRecaudado = vendidas.reduce((acc, v) => acc + v.precioPagado, 0);
-
+  // Los tres números salen del resumen que calcula la API sobre todas las
+  // entradas del filtro. Sumarlos acá contaría solo la página cargada.
   return (
     <div className="space-y-4">
       {/* Resumen */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Total vendidas", valor: vendidas.length },
-          { label: "Usadas", valor: vendidas.filter((v) => v.usada).length },
-          { label: "Recaudado", valor: ARS(totalRecaudado) },
+          { label: "Total vendidas", valor: resumenVendidas.total },
+          { label: "Usadas", valor: resumenVendidas.usadas },
+          { label: "Recaudado", valor: ARS(resumenVendidas.recaudado) },
         ].map((k) => (
           <div key={k.label} className="bg-surface-2 border border-border rounded-xl p-3 text-center">
             <p className="text-base font-bold text-text-primary">{k.valor}</p>
@@ -854,6 +854,15 @@ function TabVendidas({ evento }: { evento: Evento }) {
               )}
             </div>
           ))}
+
+          {/* El listado viene cortado; sin este aviso el de la puerta cree que
+              la entrada que busca no existe cuando en realidad no se cargó. */}
+          {resumenVendidas.total > vendidas.length && (
+            <p className="text-xs text-text-muted text-center pt-2">
+              Mostrando {vendidas.length} de {resumenVendidas.total}. Usá el
+              buscador para encontrar una entrada puntual.
+            </p>
+          )}
         </div>
       )}
     </div>

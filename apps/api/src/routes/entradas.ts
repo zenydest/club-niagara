@@ -324,32 +324,57 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
       limite?: string;
     };
 
-    const vendidas = await prisma.entradaVendida.findMany({
-      where: {
-        localId,
-        ...(eventoId && { eventoId }),
-        ...(entradaTipoId && { entradaTipoId }),
-        ...(usada !== undefined && { usada: usada === "true" }),
-        ...(busqueda && {
-          OR: [
-            { clienteNombre: { contains: busqueda, mode: "insensitive" } },
-            { clienteEmail: { contains: busqueda, mode: "insensitive" } },
-            { clienteTelefono: { contains: busqueda, mode: "insensitive" } },
-            { qrCode: { contains: busqueda, mode: "insensitive" } },
-          ],
-        }),
-      },
-      include: {
-        entradaTipo: { select: { nombre: true, tipo: true } },
-        rrpp: { select: { nombre: true, apellido: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: Number(limite ?? 100),
-    });
+    const filtro = {
+      localId,
+      ...(eventoId && { eventoId }),
+      ...(entradaTipoId && { entradaTipoId }),
+      ...(usada !== undefined && { usada: usada === "true" }),
+      ...(busqueda && {
+        OR: [
+          { clienteNombre: { contains: busqueda, mode: "insensitive" as const } },
+          { clienteEmail: { contains: busqueda, mode: "insensitive" as const } },
+          { clienteTelefono: { contains: busqueda, mode: "insensitive" as const } },
+          { qrCode: { contains: busqueda, mode: "insensitive" as const } },
+        ],
+      }),
+    };
+
+    const cuantas = Number(limite ?? 100);
+
+    /**
+     * El listado viene paginado, pero los totales se calculan sobre **todas**
+     * las que matchean el filtro, no sobre la página.
+     *
+     * Antes se devolvía `total: vendidas.length` y el panel sumaba la
+     * recaudación de lo que había recibido. Con más entradas que el límite eso
+     * mostraba la noche cortada al tamaño de la página: 300 vendidas se veían
+     * como 100, y la recaudación como un tercio de la real.
+     */
+    const [vendidas, resumen, usadas] = await Promise.all([
+      prisma.entradaVendida.findMany({
+        where: filtro,
+        include: {
+          entradaTipo: { select: { nombre: true, tipo: true } },
+          rrpp: { select: { nombre: true, apellido: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: cuantas,
+      }),
+      prisma.entradaVendida.aggregate({
+        where: filtro,
+        _count: { id: true },
+        _sum: { precioPagado: true },
+      }),
+      prisma.entradaVendida.count({ where: { ...filtro, usada: true } }),
+    ]);
 
     return {
       vendidas: vendidas.map((e) => ({ ...e, precioPagado: Number(e.precioPagado) })),
-      total: vendidas.length,
+      total: resumen._count.id,
+      usadas,
+      recaudado: Number(resumen._sum.precioPagado ?? 0),
+      // Cuántas trae esta página, para que el panel pueda avisar que hay más.
+      mostradas: vendidas.length,
     };
   });
 

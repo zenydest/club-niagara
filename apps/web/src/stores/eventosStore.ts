@@ -88,6 +88,12 @@ interface EventosState {
 
   // Entradas vendidas
   vendidas: EntradaVendida[];
+  /**
+   * Totales de **todas** las que matchean el filtro, no de las que se
+   * trajeron: el listado viene paginado y sumar lo recibido mostraba la noche
+   * cortada al tamaño de la página.
+   */
+  resumenVendidas: { total: number; usadas: number; recaudado: number };
   cargandoVendidas: boolean;
 
   // Staff RRPP disponibles para asignar
@@ -156,6 +162,7 @@ export const useEventosStore = create<EventosState>((set) => ({
   cargandoTipos: false,
 
   vendidas: [],
+  resumenVendidas: { total: 0, usadas: 0, recaudado: 0 },
   cargandoVendidas: false,
 
   staffRrpp: [],
@@ -261,7 +268,13 @@ export const useEventosStore = create<EventosState>((set) => ({
     }
   },
 
-  setEventoActual: (evento) => set({ eventoActual: evento, tipos: [], vendidas: [] }),
+  setEventoActual: (evento) =>
+    set({
+      eventoActual: evento,
+      tipos: [],
+      vendidas: [],
+      resumenVendidas: { total: 0, usadas: 0, recaudado: 0 },
+    }),
 
   // ── Tipos de entrada ────────────────────────────────────────
 
@@ -329,6 +342,15 @@ export const useEventosStore = create<EventosState>((set) => ({
       // Agregar las nuevas entradas al listado local
       set((s) => ({
         vendidas: [...data.entradas, ...s.vendidas],
+        // El resumen se mueve con la venta: si no, el panel muestra la fila
+        // nueva pero el total de arriba queda en el número anterior.
+        resumenVendidas: {
+          ...s.resumenVendidas,
+          total: s.resumenVendidas.total + data.entradas.length,
+          recaudado:
+            s.resumenVendidas.recaudado +
+            data.entradas.reduce((acc, e) => acc + e.precioPagado, 0),
+        },
         procesando: false,
         // Actualizar cantidadVendida del tipo
         tipos: s.tipos.map((t) =>
@@ -355,11 +377,22 @@ export const useEventosStore = create<EventosState>((set) => ({
       if (filtros?.usada !== undefined) params.set("usada", String(filtros.usada));
       if (filtros?.entradaTipoId) params.set("entradaTipoId", filtros.entradaTipoId);
 
-      const data = await api.get<{ vendidas: EntradaVendida[] }>(
-        `/entradas/vendidas?${params.toString()}`,
-        localId
-      );
-      set({ vendidas: data.vendidas, cargandoVendidas: false });
+      const data = await api.get<{
+        vendidas: EntradaVendida[];
+        total: number;
+        usadas: number;
+        recaudado: number;
+      }>(`/entradas/vendidas?${params.toString()}`, localId);
+
+      set({
+        vendidas: data.vendidas,
+        resumenVendidas: {
+          total: data.total,
+          usadas: data.usadas,
+          recaudado: data.recaudado,
+        },
+        cargandoVendidas: false,
+      });
     } catch {
       set({ cargandoVendidas: false });
     }
