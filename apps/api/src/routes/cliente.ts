@@ -22,6 +22,7 @@ import { generarSecretoQR } from "../lib/qrRotativo.js";
 import { randomUUID } from "node:crypto";
 import { crearPreferenciaEntradas } from "../lib/mpCheckout.js";
 import { cancelarEntrada, mensajeRechazo } from "../lib/cancelarEntrada.js";
+import { reservarCupo, mensajeRechazoCupo } from "../lib/reservarCupo.js";
 
 // ── Schemas de validación ─────────────────────────────────────────
 
@@ -295,27 +296,13 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
      */
     const referenciaCompra = randomUUID();
 
-    /**
-     * Reservar el cupo y crear las entradas, juntas y en una transacción.
-     *
-     * Antes eran dos queries sueltas —crear y después incrementar—: dos compras
-     * simultáneas leían el mismo saldo y pasaban las dos, y si el incremento
-     * fallaba el contador quedaba desfasado de las entradas ya creadas. Ahora la
-     * condición viaja adentro del UPDATE; cero filas actualizadas significa que
-     * no había lugar y no se crea nada.
-     */
-    const entradas = await prisma.$transaction(async (tx) => {
-      const filas = await tx.$executeRaw`
-        UPDATE entradas_tipo
-           SET cantidad_vendida = cantidad_vendida + ${cantidad}
-         WHERE id = ${entradaTipoId}::uuid
-           AND (cantidad_total IS NULL
-                OR cantidad_vendida + ${cantidad} <= cantidad_total)
-      `;
+    // Reservar el lugar y crear las entradas, juntas y en una transacción: si
+    // algo falla en el medio no queda el contador movido sin entradas.
+    const salida = await prisma.$transaction(async (tx) => {
+      const reserva = await reservarCupo(tx, entradaTipoId, cantidad);
+      if (!reserva.ok) return reserva;
 
-      if (filas === 0) return null;
-
-      return Promise.all(
+      const creadas = await Promise.all(
         Array.from({ length: cantidad }).map(() =>
           tx.entradaVendida.create({
             data: {
@@ -337,22 +324,19 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
           })
         )
       );
+
+      return { ok: true as const, entradas: creadas };
     });
 
-    if (entradas === null) {
-      const actual = await prisma.entradaTipo.findUnique({
-        where: { id: entradaTipoId },
-        select: { cantidadTotal: true, cantidadVendida: true },
-      });
-
-      const cupo = actual?.cantidadTotal ?? null;
-      const vendidas = actual?.cantidadVendida ?? 0;
-
+    if (!salida.ok) {
       return reply.status(422).send({
-        error: "Sin cupo disponible",
-        disponibles: cupo === null ? 0 : Math.max(0, cupo - vendidas),
+        error: mensajeRechazoCupo(salida),
+        disponibles: salida.disponibles,
+        motivo: salida.motivo,
       });
     }
+
+    const entradas = salida.entradas;
 
     const total = precio * cantidad;
 

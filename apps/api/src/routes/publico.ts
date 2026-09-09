@@ -19,6 +19,7 @@ import { z } from "zod";
 import { prisma } from "@niagara/db";
 import { io } from "../index.js";
 import { crearPreferenciaEntradas } from "../lib/mpCheckout.js";
+import { reservarCupo, mensajeRechazoCupo } from "../lib/reservarCupo.js";
 
 export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
 
@@ -39,6 +40,7 @@ export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
         descripcion: true,
         fechaInicio: true,
         imagenUrl: true,
+        capacidad: true,
         entradasTipo: {
           where: { activo: true },
           orderBy: { precio: "asc" },
@@ -49,6 +51,7 @@ export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
             precio: true,
             cantidadTotal: true,
             cantidadVendida: true,
+            ocupaLugar: true,
           },
         },
       },
@@ -58,21 +61,50 @@ export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
       return reply.status(404).send({ error: "El evento no está disponible" });
     }
 
+    /**
+     * Lugares que quedan en el salón, compartidos por todos los tipos que
+     * ocupan lugar.
+     *
+     * Sin esto, con 300 de capacidad y los tipos sin tope propio, la página
+     * diría "quedan todas" hasta el último momento y después la compra se
+     * rechazaría: el comprador llena el formulario para que le digan que no.
+     */
+    const lugaresOcupados = evento.entradasTipo
+      .filter((t) => t.ocupaLugar)
+      .reduce((acc, t) => acc + t.cantidadVendida, 0);
+
+    const lugaresLibres = Math.max(0, evento.capacidad - lugaresOcupados);
+
+    const { capacidad: _capacidad, ...datosEvento } = evento;
+
     return {
       evento: {
-        ...evento,
-        entradasTipo: evento.entradasTipo.map((t) => ({
-          id: t.id,
-          nombre: t.nombre,
-          tipo: t.tipo,
-          precio: Number(t.precio),
-          // Se informa cuántas quedan, no cuántas se vendieron: al comprador le
-          // sirve saber si llega, no el negocio del boliche.
-          disponibles:
+        ...datosEvento,
+        entradasTipo: evento.entradasTipo.map((t) => {
+          // El tope propio del tipo, si tiene uno.
+          const enElTipo =
             t.cantidadTotal === null
               ? null
-              : Math.max(0, t.cantidadTotal - t.cantidadVendida),
-        })),
+              : Math.max(0, t.cantidadTotal - t.cantidadVendida);
+
+          // Manda el más chico de los dos: de nada sirve que queden 200 de este
+          // tipo si en el salón entran 10.
+          const disponibles = !t.ocupaLugar
+            ? enElTipo
+            : enElTipo === null
+              ? lugaresLibres
+              : Math.min(enElTipo, lugaresLibres);
+
+          return {
+            id: t.id,
+            nombre: t.nombre,
+            tipo: t.tipo,
+            precio: Number(t.precio),
+            // Se informa cuántas quedan, no cuántas se vendieron: al comprador
+            // le sirve saber si llega, no el negocio del boliche.
+            disponibles,
+          };
+        }),
       },
     };
   });
@@ -139,33 +171,13 @@ export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
     const referenciaCompra = randomUUID();
     const precio = Number(tipo.precio);
 
-    /**
-     * El cupo se reserva con un UPDATE condicional, no con el chequeo de arriba.
-     *
-     * Leer `cantidadVendida` y después incrementarlo son dos pasos, y entre uno
-     * y otro entra la compra de al lado: las dos ven el mismo saldo, las dos lo
-     * dan por bueno y las dos incrementan. En una preventa que se agota eso es
-     * sobreventa, con la entrada ya cobrada y alguien que se queda afuera.
-     *
-     * Acá la condición viaja adentro del propio UPDATE. Postgres bloquea la fila
-     * mientras la modifica, así que las compras simultáneas se ordenan solas y
-     * la que no entra no actualiza ninguna fila. Cero filas = no había lugar.
-     *
-     * Se compara contra el `cantidad_total` de la fila y no contra el valor que
-     * se leyó antes, para que bajar el cupo desde el panel a mitad de venta
-     * también cuente.
-     */
-    const reservado = await prisma.$transaction(async (tx) => {
-      const filas = await tx.$executeRaw`
-        UPDATE entradas_tipo
-           SET cantidad_vendida = cantidad_vendida + ${cantidad}
-         WHERE id = ${entradaTipoId}::uuid
-           AND (cantidad_total IS NULL
-                OR cantidad_vendida + ${cantidad} <= cantidad_total)
-      `;
+    // La reserva del cupo y la creación de las entradas van juntas: si algo
+    // falla en el medio, no queda ni el lugar descontado ni la entrada suelta.
+    const reserva = await prisma.$transaction(async (tx) => {
+      const resultado = await reservarCupo(tx, entradaTipoId, cantidad);
 
-      // Sin cupo no se crea nada: la transacción termina sin escribir entradas.
-      if (filas === 0) return false;
+      // Sin lugar no se crea nada: la transacción termina sin escribir entradas.
+      if (!resultado.ok) return resultado;
 
       await Promise.all(
         Array.from({ length: cantidad }).map(() =>
@@ -190,24 +202,14 @@ export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
         )
       );
 
-      return true;
+      return resultado;
     });
 
-    if (!reservado) {
-      // Se relee para responder con el número real: entre el intento y esta
-      // respuesta el cupo ya puede haber cambiado otra vez.
-      const actual = await prisma.entradaTipo.findUnique({
-        where: { id: entradaTipoId },
-        select: { cantidadTotal: true, cantidadVendida: true },
-      });
-
-      const cupo = actual?.cantidadTotal ?? null;
-      const vendidas = actual?.cantidadVendida ?? 0;
-      const disponibles = cupo === null ? 0 : Math.max(0, cupo - vendidas);
-
+    if (!reserva.ok) {
       return reply.status(422).send({
-        error: disponibles <= 0 ? "Se agotaron" : `Quedan solo ${disponibles}`,
-        disponibles,
+        error: mensajeRechazoCupo(reserva),
+        disponibles: reserva.disponibles,
+        motivo: reserva.motivo,
       });
     }
 

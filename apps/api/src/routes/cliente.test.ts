@@ -1,14 +1,13 @@
 /**
- * Reserva de cupo en la compra desde la app del cliente (POST /comprar).
+ * Compra desde la app del cliente (POST /comprar).
  *
- * Es el tercer camino que escribe `cantidad_vendida`, junto con la venta
- * pública y la del panel. Antes de la transacción, este era el peor de los
- * tres: creaba las entradas y recién después incrementaba el contador, en dos
- * queries sueltas.
+ * Es el tercer camino que reserva lugares, junto con la venta pública y la del
+ * panel. La reserva en sí se prueba en `lib/reservarCupo.test.ts`.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import Fastify from "fastify";
+import type * as ReservarCupo from "../lib/reservarCupo.js";
 
 const mocks = vi.hoisted(() => {
   const emit = vi.fn();
@@ -18,15 +17,13 @@ const mocks = vi.hoisted(() => {
     prisma: {
       session: { findUnique: vi.fn() },
       cliente: { findUnique: vi.fn() },
-      entradaTipo: { findFirst: vi.fn(), findUnique: vi.fn() },
+      entradaTipo: { findFirst: vi.fn() },
       $transaction: vi.fn(),
     },
     io: { to: vi.fn(() => ({ emit })) },
     crearPreferenciaEntradas: vi.fn(),
-    tx: {
-      $executeRaw: vi.fn(),
-      entradaVendida: { create: vi.fn() },
-    },
+    reservarCupo: vi.fn(),
+    tx: { entradaVendida: { create: vi.fn() } },
   };
 });
 
@@ -44,6 +41,10 @@ vi.mock("../lib/cancelarEntrada.js", () => ({
   cancelarEntrada: vi.fn(),
   mensajeRechazo: vi.fn(() => "rechazado"),
 }));
+vi.mock("../lib/reservarCupo.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReservarCupo>()),
+  reservarCupo: mocks.reservarCupo,
+}));
 
 const { registrarRutasCliente } = await import("./cliente.js");
 
@@ -59,11 +60,11 @@ function tanda(overrides: Partial<Record<string, unknown>> = {}) {
     id: ENTRADA_TIPO_ID,
     localId: "local-1",
     eventoId: "evento-1",
-    nombre: "General",
-    precio: 15000,
-    cantidadTotal: 100,
+    nombre: "Prioridad",
+    precio: 3000,
+    cantidadTotal: null,
     cantidadVendida: 0,
-    evento: { id: "evento-1", nombre: "Sábado", estado: "preventa" },
+    evento: { id: "evento-1", nombre: "Apertura", estado: "preventa" },
     ...overrides,
   };
 }
@@ -99,36 +100,12 @@ beforeEach(() => {
     pagada: false,
   });
   mocks.crearPreferenciaEntradas.mockResolvedValue({ linkPago: "https://mp/checkout" });
+  mocks.reservarCupo.mockResolvedValue({ ok: true });
 });
 
-describe("POST /comprar (app del cliente) — reserva de cupo", () => {
-  it("no crea ninguna entrada si el cupo se acabó entre el chequeo y el UPDATE", async () => {
-    mocks.prisma.entradaTipo.findFirst.mockResolvedValue(
-      tanda({ cantidadTotal: 100, cantidadVendida: 99 })
-    );
-    mocks.tx.$executeRaw.mockResolvedValue(0);
-    mocks.prisma.entradaTipo.findUnique.mockResolvedValue({
-      cantidadTotal: 100,
-      cantidadVendida: 100,
-    });
-
-    const app = await construirApp();
-    const res = await app.inject({
-      method: "POST",
-      url: "/comprar",
-      headers: CABECERAS,
-      payload: { entradaTipoId: ENTRADA_TIPO_ID, cantidad: 1, modalidad: "puerta" },
-    });
-
-    expect(res.statusCode).toBe(422);
-    expect(res.json()).toMatchObject({ error: "Sin cupo disponible", disponibles: 0 });
-    expect(mocks.tx.entradaVendida.create).not.toHaveBeenCalled();
-    expect(mocks.emit).not.toHaveBeenCalled();
-  });
-
+describe("POST /comprar (app del cliente)", () => {
   it("crea una entrada por unidad y devuelve el link de pago", async () => {
     mocks.prisma.entradaTipo.findFirst.mockResolvedValue(tanda());
-    mocks.tx.$executeRaw.mockResolvedValue(1);
 
     const app = await construirApp();
     const res = await app.inject({
@@ -140,26 +117,37 @@ describe("POST /comprar (app del cliente) — reserva de cupo", () => {
 
     expect(res.statusCode).toBe(201);
     expect(mocks.tx.entradaVendida.create).toHaveBeenCalledTimes(2);
-    expect(res.json()).toMatchObject({ linkPago: "https://mp/checkout", total: 30000 });
+    expect(res.json()).toMatchObject({ linkPago: "https://mp/checkout", total: 6000 });
+    expect(mocks.reservarCupo).toHaveBeenCalledWith(mocks.tx, ENTRADA_TIPO_ID, 2);
   });
 
-  it("manda al UPDATE la cantidad pedida y el id de la tanda", async () => {
+  it("no crea ninguna entrada si el salón se llenó", async () => {
     mocks.prisma.entradaTipo.findFirst.mockResolvedValue(tanda());
-    mocks.tx.$executeRaw.mockResolvedValue(1);
+    mocks.reservarCupo.mockResolvedValue({
+      ok: false,
+      motivo: "evento_lleno",
+      disponibles: 3,
+    });
 
     const app = await construirApp();
-    await app.inject({
+    const res = await app.inject({
       method: "POST",
       url: "/comprar",
       headers: CABECERAS,
-      payload: { entradaTipoId: ENTRADA_TIPO_ID, cantidad: 3, modalidad: "puerta" },
+      payload: { entradaTipoId: ENTRADA_TIPO_ID, cantidad: 5, modalidad: "puerta" },
     });
 
-    const [, ...valores] = mocks.tx.$executeRaw.mock.calls[0] as unknown[];
-    expect(valores).toEqual([3, ENTRADA_TIPO_ID, 3]);
+    expect(res.statusCode).toBe(422);
+    expect(res.json()).toMatchObject({
+      error: "Quedan solo 3 lugares para este evento",
+      motivo: "evento_lleno",
+      disponibles: 3,
+    });
+    expect(mocks.tx.entradaVendida.create).not.toHaveBeenCalled();
+    expect(mocks.emit).not.toHaveBeenCalled();
   });
 
-  it("corta antes de abrir la transacción si ya estaba agotada", async () => {
+  it("corta antes de pedir lugar si el tipo ya estaba agotado", async () => {
     mocks.prisma.entradaTipo.findFirst.mockResolvedValue(
       tanda({ cantidadTotal: 20, cantidadVendida: 20 })
     );
@@ -173,6 +161,6 @@ describe("POST /comprar (app del cliente) — reserva de cupo", () => {
     });
 
     expect(res.statusCode).toBe(422);
-    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.reservarCupo).not.toHaveBeenCalled();
   });
 });

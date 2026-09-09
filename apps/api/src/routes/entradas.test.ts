@@ -1,14 +1,14 @@
 /**
- * Reserva de cupo en la venta desde el panel (POST /vender).
+ * Venta de entradas desde el panel (POST /vender).
  *
- * Mismo control que la venta pública, con la diferencia de que acá hay staff
- * autenticado. Igual que en `publico.test.ts`, esto prueba el control de flujo:
- * la atomicidad la garantiza Postgres y no se puede ver con Prisma mockeado.
+ * La reserva del cupo se prueba en `lib/reservarCupo.test.ts`. Acá se prueba lo
+ * que hace la ruta con el resultado, con staff autenticado.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
+import type * as ReservarCupo from "../lib/reservarCupo.js";
 
 const mocks = vi.hoisted(() => {
   const emit = vi.fn();
@@ -21,10 +21,8 @@ const mocks = vi.hoisted(() => {
       $transaction: vi.fn(),
     },
     io: { to: vi.fn(() => ({ emit })) },
-    tx: {
-      $executeRaw: vi.fn(),
-      entradaVendida: { create: vi.fn() },
-    },
+    reservarCupo: vi.fn(),
+    tx: { entradaVendida: { create: vi.fn() } },
   };
 });
 
@@ -38,6 +36,10 @@ vi.mock("../lib/cancelarEntrada.js", () => ({
   cancelarEntrada: vi.fn(),
   mensajeRechazo: vi.fn(() => "rechazado"),
 }));
+vi.mock("../lib/reservarCupo.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof ReservarCupo>()),
+  reservarCupo: mocks.reservarCupo,
+}));
 
 const { registrarRutasEntradas } = await import("./entradas.js");
 
@@ -48,7 +50,7 @@ function tanda(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: ENTRADA_TIPO_ID,
     activo: true,
-    cantidadTotal: 100,
+    cantidadTotal: null,
     cantidadVendida: 0,
     ...overrides,
   };
@@ -60,7 +62,7 @@ function cuerpoVenta(cantidad = 1) {
     entradaTipoId: ENTRADA_TIPO_ID,
     clienteNombre: "Ana Pérez",
     metodoPago: "efectivo",
-    precioPagado: 15000,
+    precioPagado: 3000,
     cantidad,
   };
 }
@@ -92,33 +94,14 @@ beforeEach(() => {
   );
   mocks.tx.entradaVendida.create.mockResolvedValue({
     id: "entrada-1",
-    precioPagado: 15000,
+    precioPagado: 3000,
   });
+  mocks.reservarCupo.mockResolvedValue({ ok: true });
 });
 
-describe("POST /vender — reserva de cupo", () => {
-  it("no crea ninguna entrada si el cupo se acabó entre el chequeo y el UPDATE", async () => {
-    mocks.prisma.entradaTipo.findUnique.mockResolvedValue(
-      tanda({ cantidadTotal: 100, cantidadVendida: 99 })
-    );
-    mocks.tx.$executeRaw.mockResolvedValue(0);
-
-    const app = await construirApp();
-    const res = await app.inject({
-      method: "POST",
-      url: "/vender",
-      payload: cuerpoVenta(1),
-    });
-
-    expect(res.statusCode).toBe(422);
-    expect(res.json()).toMatchObject({ error: "Sin cupo disponible" });
-    expect(mocks.tx.entradaVendida.create).not.toHaveBeenCalled();
-    expect(mocks.emit).not.toHaveBeenCalled();
-  });
-
-  it("crea una entrada por unidad cuando el cupo alcanza", async () => {
+describe("POST /vender", () => {
+  it("crea una entrada por unidad cuando hay lugar", async () => {
     mocks.prisma.entradaTipo.findUnique.mockResolvedValue(tanda());
-    mocks.tx.$executeRaw.mockResolvedValue(1);
 
     const app = await construirApp();
     const res = await app.inject({
@@ -129,16 +112,40 @@ describe("POST /vender — reserva de cupo", () => {
 
     expect(res.statusCode).toBe(201);
     expect(mocks.tx.entradaVendida.create).toHaveBeenCalledTimes(2);
-    expect(res.json()).toMatchObject({ cantidad: 2, total: 30000 });
+    expect(res.json()).toMatchObject({ cantidad: 2, total: 6000 });
+    expect(mocks.reservarCupo).toHaveBeenCalledWith(mocks.tx, ENTRADA_TIPO_ID, 2);
   });
 
-  it("mide el cupo con cantidadVendida y no contando entradas canceladas", async () => {
-    // 100 de tope, 100 filas creadas pero 10 canceladas: quedan 10 lugares.
+  it("no crea ninguna entrada si el salón se llenó", async () => {
+    mocks.prisma.entradaTipo.findUnique.mockResolvedValue(tanda());
+    mocks.reservarCupo.mockResolvedValue({
+      ok: false,
+      motivo: "evento_lleno",
+      disponibles: 0,
+    });
+
+    const app = await construirApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/vender",
+      payload: cuerpoVenta(1),
+    });
+
+    expect(res.statusCode).toBe(422);
+    expect(res.json()).toMatchObject({
+      error: "No quedan lugares para este evento",
+      motivo: "evento_lleno",
+    });
+    expect(mocks.tx.entradaVendida.create).not.toHaveBeenCalled();
+    expect(mocks.emit).not.toHaveBeenCalled();
+  });
+
+  it("mide el tope del tipo con cantidadVendida y no contando canceladas", async () => {
+    // 100 de tope con 90 netas: cancelar devuelve el lugar, así que quedan 10.
     // Contando filas esto daba "agotado" con la tanda a medio vender.
     mocks.prisma.entradaTipo.findUnique.mockResolvedValue(
       tanda({ cantidadTotal: 100, cantidadVendida: 90 })
     );
-    mocks.tx.$executeRaw.mockResolvedValue(1);
 
     const app = await construirApp();
     const res = await app.inject({
@@ -150,7 +157,7 @@ describe("POST /vender — reserva de cupo", () => {
     expect(res.statusCode).toBe(201);
   });
 
-  it("corta antes de abrir la transacción si ya estaba agotada", async () => {
+  it("corta antes de pedir lugar si el tipo ya estaba agotado", async () => {
     mocks.prisma.entradaTipo.findUnique.mockResolvedValue(
       tanda({ cantidadTotal: 50, cantidadVendida: 50 })
     );
@@ -163,6 +170,6 @@ describe("POST /vender — reserva de cupo", () => {
     });
 
     expect(res.statusCode).toBe(422);
-    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+    expect(mocks.reservarCupo).not.toHaveBeenCalled();
   });
 });

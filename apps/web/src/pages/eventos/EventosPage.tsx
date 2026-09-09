@@ -380,40 +380,59 @@ function TabTipos({ evento }: { evento: Evento }) {
   const [tipo, setTipo] = useState<TipoEntrada["tipo"]>("general");
   const [precio, setPrecio] = useState("");
   const [cupo, setCupo] = useState("");
+  const [ocupaLugar, setOcupaLugar] = useState(true);
 
   useEffect(() => { void cargarTipos(evento.id); }, [evento.id, cargarTipos]);
 
   const abrirCrear = () => {
-    setEditando(null); setNombre(""); setTipo("general"); setPrecio(""); setCupo("");
+    setEditando(null); setNombre(""); setTipo("general"); setPrecio(""); setCupo(""); setOcupaLugar(true);
     setModalAbierto(true);
   };
 
   const abrirEditar = (t: TipoEntrada) => {
     setEditando(t); setNombre(t.nombre); setTipo(t.tipo);
     setPrecio(String(t.precio)); setCupo(t.cantidadTotal ? String(t.cantidadTotal) : "");
+    setOcupaLugar(t.ocupaLugar);
     setModalAbierto(true);
   };
 
   const handleGuardar = async () => {
     if (!nombre.trim() || !precio) return;
+    const datos = { nombre: nombre.trim(), tipo, precio: Number(precio), cantidadTotal: cupo ? Number(cupo) : null, ocupaLugar };
     if (editando) {
-      const ok = await editarTipo(editando.id, { nombre: nombre.trim(), tipo, precio: Number(precio), cantidadTotal: cupo ? Number(cupo) : null });
+      const ok = await editarTipo(editando.id, datos);
       if (ok) setModalAbierto(false);
     } else {
-      const t = await crearTipo({ eventoId: evento.id, nombre: nombre.trim(), tipo, precio: Number(precio), cantidadTotal: cupo ? Number(cupo) : null });
+      const t = await crearTipo({ eventoId: evento.id, ...datos });
       if (t) setModalAbierto(false);
     }
   };
 
+  // Lo que ya está tomado del salón, sumando solo los tipos que ocupan lugar.
+  const lugaresOcupados = tipos
+    .filter((t) => t.ocupaLugar)
+    .reduce((acc, t) => acc + t.cantidadVendida, 0);
+  const lugaresLibres = Math.max(0, evento.capacidad - lugaresOcupados);
+
   return (
     <div className="space-y-4">
-      {esAdmin && (
-        <div className="flex justify-end">
-          <button onClick={abrirCrear} className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 transition-all">
+      {/* El número que importa: cuántos lugares quedan en total. Los topes por
+          tipo pueden sumar más que la capacidad; el que manda es este. */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-border">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-text-primary">
+            {lugaresLibres} {lugaresLibres === 1 ? "lugar libre" : "lugares libres"}
+          </p>
+          <p className="text-xs text-text-secondary">
+            {lugaresOcupados} de {evento.capacidad} vendidos entre los tipos que ocupan lugar
+          </p>
+        </div>
+        {esAdmin && (
+          <button onClick={abrirCrear} className="px-4 py-2 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 transition-all flex-shrink-0">
             + Agregar tipo
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {cargandoTipos ? (
         <div className="flex justify-center py-8"><div className="w-5 h-5 border-2 border-lime border-t-transparent rounded-full animate-spin" /></div>
@@ -434,8 +453,11 @@ function TabTipos({ evento }: { evento: Evento }) {
                   <p className="text-sm font-semibold text-text-primary">{t.nombre}</p>
                   <p className="text-xs text-text-secondary">
                     {cfg.label} · {ARS(t.precio)}
-                    {t.cantidadTotal && ` · ${t.cantidadVendida}/${t.cantidadTotal} vendidas`}
+                    {t.cantidadTotal
+                      ? ` · ${t.cantidadVendida}/${t.cantidadTotal} vendidas`
+                      : ` · ${t.cantidadVendida} vendidas`}
                     {pct !== null && ` (${pct}%)`}
+                    {!t.ocupaLugar && " · no ocupa lugar"}
                   </p>
                   {t.cantidadTotal && (
                     <div className="mt-1.5 h-1.5 bg-surface rounded-full overflow-hidden w-40">
@@ -481,9 +503,30 @@ function TabTipos({ evento }: { evento: Evento }) {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-text-secondary uppercase tracking-wider">Cupo (vacío = ilimitado)</label>
+                <label className="text-xs text-text-secondary uppercase tracking-wider">
+                  Tope propio (vacío = solo limita la capacidad)
+                </label>
                 <input type="number" value={cupo} onChange={(e) => setCupo(e.target.value)} placeholder="Ej: 200" className="mt-1 w-full px-3 py-2.5 rounded-xl bg-surface-2 border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-lime/40" />
               </div>
+
+              {/* Es lo que decide si esta venta descuenta de los lugares del
+                  salón. Dejarlo mal marcado es lo que hace que se venda de más
+                  o de menos, así que se explica en la misma pantalla. */}
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ocupaLugar}
+                  onChange={(e) => setOcupaLugar(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 flex-shrink-0 accent-lime"
+                />
+                <span className="text-xs text-text-secondary">
+                  <span className="font-semibold text-text-primary">Ocupa un lugar en el salón</span>
+                  <br />
+                  Los que ocupan comparten los {evento.capacidad} de capacidad entre
+                  todos. Destildalo para lo que se vende aparte y no mete gente
+                  adentro, como el transporte.
+                </span>
+              </label>
             </div>
             {errorOperacion && <p className="text-xs text-danger">{errorOperacion}</p>}
             <div className="flex gap-2">

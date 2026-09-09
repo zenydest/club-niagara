@@ -42,6 +42,11 @@ export interface TipoEntrada {
   cantidadTotal: number | null;
   cantidadVendida: number;
   activo: boolean;
+  /**
+   * Si ocupa un lugar en el salón. Los que ocupan comparten la capacidad del
+   * evento entre todos; el transporte y similares van en `false`.
+   */
+  ocupaLugar: boolean;
 }
 
 export interface EntradaVendida {

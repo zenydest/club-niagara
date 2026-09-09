@@ -553,6 +553,15 @@ model EntradaTipo {
   cantidadTotal   Int?        @map("cantidad_total")
   cantidadVendida Int         @default(0) @map("cantidad_vendida")
   activo          Boolean     @default(true)
+  /// Si esta entrada ocupa un lugar en el salón.
+  ///
+  /// Los tipos que ocupan lugar comparten la capacidad del evento: no importa
+  /// cómo se repartan entre sí, entre todos no pueden pasarse. Sirve para no
+  /// tener que adivinar de antemano cuántos van a querer VIP y cuántos general.
+  ///
+  /// El transporte es el caso que no ocupa: es un servicio aparte y se vende
+  /// sin límite aunque el salón esté lleno.
+  ocupaLugar      Boolean     @default(true) @map("ocupa_lugar")
 
   evento           Evento           @relation(fields: [eventoId], references: [id], onDelete: Cascade)
   local            Local            @relation(fields: [localId], references: [id], onDelete: Cascade)

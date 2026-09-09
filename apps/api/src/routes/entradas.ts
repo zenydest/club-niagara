@@ -21,6 +21,7 @@ import { prisma } from "@niagara/db";
 import { io } from "../index.js";
 import { codigoValido } from "../lib/qrRotativo.js";
 import { cancelarEntrada, mensajeRechazo } from "../lib/cancelarEntrada.js";
+import { reservarCupo, mensajeRechazoCupo } from "../lib/reservarCupo.js";
 
 // ── Schemas ──────────────────────────────────────────────────────
 
@@ -30,6 +31,12 @@ const tipoEntradaSchema = z.object({
   tipo: z.enum(["general", "vip", "rrpp", "invitado", "staff"]),
   precio: z.number().nonnegative(),
   cantidadTotal: z.number().int().positive().nullable().optional(),
+  /**
+   * Si ocupa un lugar en el salón. Por defecto sí: es lo que corresponde a una
+   * entrada. Se marca en `false` para lo que se vende junto con la entrada pero
+   * no mete gente adentro, como el transporte.
+   */
+  ocupaLugar: z.boolean().optional(),
 });
 
 const venderEntradaSchema = z.object({
@@ -98,6 +105,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
         tipo: body.data.tipo,
         precio: body.data.precio,
         cantidadTotal: body.data.cantidadTotal ?? null,
+        ...(body.data.ocupaLugar !== undefined && { ocupaLugar: body.data.ocupaLugar }),
       },
     });
 
@@ -125,6 +133,7 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
         ...(body.data.tipo && { tipo: body.data.tipo }),
         ...(body.data.precio !== undefined && { precio: body.data.precio }),
         ...(body.data.cantidadTotal !== undefined && { cantidadTotal: body.data.cantidadTotal }),
+        ...(body.data.ocupaLugar !== undefined && { ocupaLugar: body.data.ocupaLugar }),
       },
     });
 
@@ -222,26 +231,13 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
         })
       : null;
 
-    /**
-     * Reservar el cupo y crear las entradas van juntos, en una transacción.
-     *
-     * La condición viaja adentro del UPDATE: leer el saldo y después
-     * incrementarlo son dos pasos, y dos ventas simultáneas alcanzan a leer el
-     * mismo número y pasar las dos. Si el UPDATE no toca ninguna fila es que no
-     * había lugar, y entonces no se crea ninguna entrada.
-     */
-    const entradas = await prisma.$transaction(async (tx) => {
-      const filas = await tx.$executeRaw`
-        UPDATE entradas_tipo
-           SET cantidad_vendida = cantidad_vendida + ${cantidad}
-         WHERE id = ${entradaTipoId}::uuid
-           AND (cantidad_total IS NULL
-                OR cantidad_vendida + ${cantidad} <= cantidad_total)
-      `;
+    // Reservar el lugar y crear las entradas van juntos, en una transacción: si
+    // algo falla en el medio no queda el contador movido sin entradas.
+    const salida = await prisma.$transaction(async (tx) => {
+      const reserva = await reservarCupo(tx, entradaTipoId, cantidad);
+      if (!reserva.ok) return reserva;
 
-      if (filas === 0) return null;
-
-      return Promise.all(
+      const creadas = await Promise.all(
         Array.from({ length: cantidad }).map(() =>
           tx.entradaVendida.create({
             data: {
@@ -275,25 +271,20 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
           })
         )
       );
+
+      return { ok: true as const, entradas: creadas };
     });
 
-    if (entradas === null) {
-      // Se relee el cupo para responder con el número de ahora: entre el
-      // intento y esta respuesta puede haber cambiado otra vez.
-      const actual = await prisma.entradaTipo.findUnique({
-        where: { id: entradaTipoId },
-        select: { cantidadTotal: true, cantidadVendida: true },
-      });
-
-      const cupo = actual?.cantidadTotal ?? null;
-      const vendidas = actual?.cantidadVendida ?? 0;
-
+    if (!salida.ok) {
       return reply.status(422).send({
-        error: "Sin cupo disponible",
-        disponibles: cupo === null ? 0 : Math.max(0, cupo - vendidas),
+        error: mensajeRechazoCupo(salida),
+        disponibles: salida.disponibles,
+        motivo: salida.motivo,
         requeridas: cantidad,
       });
     }
+
+    const entradas = salida.entradas;
 
     // Emitir evento en tiempo real
     io.to(`local:${localId}`).emit("entrada:vendida", {
