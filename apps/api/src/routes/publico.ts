@@ -114,6 +114,9 @@ export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
       return reply.status(409).send({ error: "El evento no está a la venta" });
     }
 
+    // Corte temprano para el caso común —la tanda ya se agotó— y para poder
+    // decir cuántas quedan. No es el control de cupo: ese está más abajo, en el
+    // UPDATE condicional, porque acá todavía se puede colar otra compra.
     if (tipo.cantidadTotal !== null) {
       const disponibles = tipo.cantidadTotal - tipo.cantidadVendida;
       if (disponibles < cantidad) {
@@ -136,8 +139,35 @@ export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
     const referenciaCompra = randomUUID();
     const precio = Number(tipo.precio);
 
-    const entradas = await prisma.$transaction(async (tx) => {
-      const creadas = await Promise.all(
+    /**
+     * El cupo se reserva con un UPDATE condicional, no con el chequeo de arriba.
+     *
+     * Leer `cantidadVendida` y después incrementarlo son dos pasos, y entre uno
+     * y otro entra la compra de al lado: las dos ven el mismo saldo, las dos lo
+     * dan por bueno y las dos incrementan. En una preventa que se agota eso es
+     * sobreventa, con la entrada ya cobrada y alguien que se queda afuera.
+     *
+     * Acá la condición viaja adentro del propio UPDATE. Postgres bloquea la fila
+     * mientras la modifica, así que las compras simultáneas se ordenan solas y
+     * la que no entra no actualiza ninguna fila. Cero filas = no había lugar.
+     *
+     * Se compara contra el `cantidad_total` de la fila y no contra el valor que
+     * se leyó antes, para que bajar el cupo desde el panel a mitad de venta
+     * también cuente.
+     */
+    const reservado = await prisma.$transaction(async (tx) => {
+      const filas = await tx.$executeRaw`
+        UPDATE entradas_tipo
+           SET cantidad_vendida = cantidad_vendida + ${cantidad}
+         WHERE id = ${entradaTipoId}::uuid
+           AND (cantidad_total IS NULL
+                OR cantidad_vendida + ${cantidad} <= cantidad_total)
+      `;
+
+      // Sin cupo no se crea nada: la transacción termina sin escribir entradas.
+      if (filas === 0) return false;
+
+      await Promise.all(
         Array.from({ length: cantidad }).map(() =>
           tx.entradaVendida.create({
             data: {
@@ -160,13 +190,26 @@ export const registrarRutasPublico: FastifyPluginAsync = async (app) => {
         )
       );
 
-      await tx.entradaTipo.update({
+      return true;
+    });
+
+    if (!reservado) {
+      // Se relee para responder con el número real: entre el intento y esta
+      // respuesta el cupo ya puede haber cambiado otra vez.
+      const actual = await prisma.entradaTipo.findUnique({
         where: { id: entradaTipoId },
-        data: { cantidadVendida: { increment: cantidad } },
+        select: { cantidadTotal: true, cantidadVendida: true },
       });
 
-      return creadas;
-    });
+      const cupo = actual?.cantidadTotal ?? null;
+      const vendidas = actual?.cantidadVendida ?? 0;
+      const disponibles = cupo === null ? 0 : Math.max(0, cupo - vendidas);
+
+      return reply.status(422).send({
+        error: disponibles <= 0 ? "Se agotaron" : `Quedan solo ${disponibles}`,
+        disponibles,
+      });
+    }
 
     try {
       const pref = await crearPreferenciaEntradas({

@@ -179,19 +179,30 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
     // Verificar tipo de entrada y cupo
     const tipo = await prisma.entradaTipo.findUnique({
       where: { id: entradaTipoId, localId, eventoId },
-      include: { _count: { select: { entradasVendidas: true } } },
     });
 
     if (!tipo?.activo) {
       return reply.status(404).send({ error: "Tipo de entrada no encontrado" });
     }
 
+    /**
+     * El cupo se mide con `cantidadVendida`, no contando filas de
+     * `entradasVendidas`.
+     *
+     * Cancelar una entrada no borra la fila —le pone `canceladaAt`— pero sí
+     * devuelve el lugar (ver `lib/cancelarEntrada.ts`). Contando filas, cada
+     * cancelación dejaba un cupo muerto: la tanda figuraba agotada teniendo
+     * lugares libres.
+     *
+     * Esto es solo el corte temprano, para poder decir cuántas quedan. El
+     * control de cupo es el UPDATE condicional de más abajo.
+     */
     if (tipo.cantidadTotal !== null) {
-      const vendidas = tipo._count.entradasVendidas;
-      if (vendidas + cantidad > tipo.cantidadTotal) {
+      const disponibles = tipo.cantidadTotal - tipo.cantidadVendida;
+      if (disponibles < cantidad) {
         return reply.status(422).send({
           error: "Sin cupo disponible",
-          disponibles: tipo.cantidadTotal - vendidas,
+          disponibles: Math.max(0, disponibles),
           requeridas: cantidad,
         });
       }
@@ -211,47 +222,78 @@ export const registrarRutasEntradas: FastifyPluginAsync = async (app) => {
         })
       : null;
 
-    // Crear las entradas (una por cantidad)
-    const entradas = await Promise.all(
-      Array.from({ length: cantidad }).map(() =>
-        prisma.entradaVendida.create({
-          data: {
-            localId,
-            eventoId,
-            entradaTipoId,
-            clienteId: clienteVinculado?.id ?? null,
-            /**
-             * Sin código rotativo, a propósito.
-             *
-             * Estas entradas se venden en el panel y se entregan por link de
-             * WhatsApp: quien las muestra abre una página web, que no puede
-             * calcular el código rotativo sin tener el secreto — y ponerlo en
-             * la página lo dejaría a la vista de cualquiera con el enlace.
-             *
-             * Las compradas desde la app sí lo llevan (ver `routes/cliente.ts`):
-             * ahí la app lo calcula y una captura de pantalla se vence sola.
-             *
-             * La protección de estas es que son de un solo uso: si el link se
-             * reenvía, entra el primero que llega. El portero además ve el
-             * aviso de que ese QR no tiene código rotativo.
-             */
-            qrSecret: null,
-            clienteNombre,
-            clienteEmail: clienteEmail ?? null,
-            clienteTelefono: clienteTelefono ?? null,
-            precioPagado,
-            metodoPago: metodoPago,
-            rrppId: rrppId ?? null,
-          },
-        })
-      )
-    );
+    /**
+     * Reservar el cupo y crear las entradas van juntos, en una transacción.
+     *
+     * La condición viaja adentro del UPDATE: leer el saldo y después
+     * incrementarlo son dos pasos, y dos ventas simultáneas alcanzan a leer el
+     * mismo número y pasar las dos. Si el UPDATE no toca ninguna fila es que no
+     * había lugar, y entonces no se crea ninguna entrada.
+     */
+    const entradas = await prisma.$transaction(async (tx) => {
+      const filas = await tx.$executeRaw`
+        UPDATE entradas_tipo
+           SET cantidad_vendida = cantidad_vendida + ${cantidad}
+         WHERE id = ${entradaTipoId}::uuid
+           AND (cantidad_total IS NULL
+                OR cantidad_vendida + ${cantidad} <= cantidad_total)
+      `;
 
-    // Actualizar contador en EntradaTipo
-    await prisma.entradaTipo.update({
-      where: { id: entradaTipoId },
-      data: { cantidadVendida: { increment: cantidad } },
+      if (filas === 0) return null;
+
+      return Promise.all(
+        Array.from({ length: cantidad }).map(() =>
+          tx.entradaVendida.create({
+            data: {
+              localId,
+              eventoId,
+              entradaTipoId,
+              clienteId: clienteVinculado?.id ?? null,
+              /**
+               * Sin código rotativo, a propósito.
+               *
+               * Estas entradas se venden en el panel y se entregan por link de
+               * WhatsApp: quien las muestra abre una página web, que no puede
+               * calcular el código rotativo sin tener el secreto — y ponerlo en
+               * la página lo dejaría a la vista de cualquiera con el enlace.
+               *
+               * Las compradas desde la app sí lo llevan (ver `routes/cliente.ts`):
+               * ahí la app lo calcula y una captura de pantalla se vence sola.
+               *
+               * La protección de estas es que son de un solo uso: si el link se
+               * reenvía, entra el primero que llega. El portero además ve el
+               * aviso de que ese QR no tiene código rotativo.
+               */
+              qrSecret: null,
+              clienteNombre,
+              clienteEmail: clienteEmail ?? null,
+              clienteTelefono: clienteTelefono ?? null,
+              precioPagado,
+              metodoPago: metodoPago,
+              rrppId: rrppId ?? null,
+            },
+          })
+        )
+      );
     });
+
+    if (entradas === null) {
+      // Se relee el cupo para responder con el número de ahora: entre el
+      // intento y esta respuesta puede haber cambiado otra vez.
+      const actual = await prisma.entradaTipo.findUnique({
+        where: { id: entradaTipoId },
+        select: { cantidadTotal: true, cantidadVendida: true },
+      });
+
+      const cupo = actual?.cantidadTotal ?? null;
+      const vendidas = actual?.cantidadVendida ?? 0;
+
+      return reply.status(422).send({
+        error: "Sin cupo disponible",
+        disponibles: cupo === null ? 0 : Math.max(0, cupo - vendidas),
+        requeridas: cantidad,
+      });
+    }
 
     // Emitir evento en tiempo real
     io.to(`local:${localId}`).emit("entrada:vendida", {

@@ -255,7 +255,6 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
       where: { id: entradaTipoId, localId, activo: true },
       include: {
         evento: { select: { id: true, nombre: true, estado: true } },
-        _count: { select: { entradasVendidas: true } },
       },
     });
 
@@ -267,13 +266,19 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
       return reply.status(409).send({ error: "El evento no está a la venta" });
     }
 
-    // Mismo control de cupo que la venta del panel.
+    /**
+     * Mismo control de cupo que la venta del panel: se mide con
+     * `cantidadVendida` y no contando filas de `entradasVendidas`, porque
+     * cancelar deja la fila y devuelve el lugar (ver `lib/cancelarEntrada.ts`).
+     *
+     * Corte temprano nada más; el cupo lo controla el UPDATE de más abajo.
+     */
     if (tipo.cantidadTotal !== null) {
-      const vendidas = tipo._count.entradasVendidas;
-      if (vendidas + cantidad > tipo.cantidadTotal) {
+      const disponibles = tipo.cantidadTotal - tipo.cantidadVendida;
+      if (disponibles < cantidad) {
         return reply.status(422).send({
           error: "Sin cupo disponible",
-          disponibles: Math.max(0, tipo.cantidadTotal - vendidas),
+          disponibles: Math.max(0, disponibles),
         });
       }
     }
@@ -290,33 +295,64 @@ export const registrarRutasCliente: FastifyPluginAsync = async (app) => {
      */
     const referenciaCompra = randomUUID();
 
-    const entradas = await Promise.all(
-      Array.from({ length: cantidad }).map(() =>
-        prisma.entradaVendida.create({
-          data: {
-            localId,
-            eventoId: tipo.eventoId,
-            entradaTipoId,
-            clienteId: cliente.id,
-            qrSecret: generarSecretoQR(),
-            clienteNombre: `${cliente.nombre} ${cliente.apellido}`,
-            clienteEmail: cliente.user.email,
-            clienteTelefono: cliente.telefono,
-            precioPagado: precio,
-            // Provisorio: lo define el pago real. En "puerta" lo fija el
-            // portero al cobrar; en "online" lo confirma el webhook.
-            metodoPago: modalidad === "online" ? "qr_mp" : "efectivo",
-            pagada: false,
-            ...(modalidad === "online" && { mpPreferenceId: referenciaCompra }),
-          },
-        })
-      )
-    );
+    /**
+     * Reservar el cupo y crear las entradas, juntas y en una transacción.
+     *
+     * Antes eran dos queries sueltas —crear y después incrementar—: dos compras
+     * simultáneas leían el mismo saldo y pasaban las dos, y si el incremento
+     * fallaba el contador quedaba desfasado de las entradas ya creadas. Ahora la
+     * condición viaja adentro del UPDATE; cero filas actualizadas significa que
+     * no había lugar y no se crea nada.
+     */
+    const entradas = await prisma.$transaction(async (tx) => {
+      const filas = await tx.$executeRaw`
+        UPDATE entradas_tipo
+           SET cantidad_vendida = cantidad_vendida + ${cantidad}
+         WHERE id = ${entradaTipoId}::uuid
+           AND (cantidad_total IS NULL
+                OR cantidad_vendida + ${cantidad} <= cantidad_total)
+      `;
 
-    await prisma.entradaTipo.update({
-      where: { id: entradaTipoId },
-      data: { cantidadVendida: { increment: cantidad } },
+      if (filas === 0) return null;
+
+      return Promise.all(
+        Array.from({ length: cantidad }).map(() =>
+          tx.entradaVendida.create({
+            data: {
+              localId,
+              eventoId: tipo.eventoId,
+              entradaTipoId,
+              clienteId: cliente.id,
+              qrSecret: generarSecretoQR(),
+              clienteNombre: `${cliente.nombre} ${cliente.apellido}`,
+              clienteEmail: cliente.user.email,
+              clienteTelefono: cliente.telefono,
+              precioPagado: precio,
+              // Provisorio: lo define el pago real. En "puerta" lo fija el
+              // portero al cobrar; en "online" lo confirma el webhook.
+              metodoPago: modalidad === "online" ? "qr_mp" : "efectivo",
+              pagada: false,
+              ...(modalidad === "online" && { mpPreferenceId: referenciaCompra }),
+            },
+          })
+        )
+      );
     });
+
+    if (entradas === null) {
+      const actual = await prisma.entradaTipo.findUnique({
+        where: { id: entradaTipoId },
+        select: { cantidadTotal: true, cantidadVendida: true },
+      });
+
+      const cupo = actual?.cantidadTotal ?? null;
+      const vendidas = actual?.cantidadVendida ?? 0;
+
+      return reply.status(422).send({
+        error: "Sin cupo disponible",
+        disponibles: cupo === null ? 0 : Math.max(0, cupo - vendidas),
+      });
+    }
 
     const total = precio * cantidad;
 
