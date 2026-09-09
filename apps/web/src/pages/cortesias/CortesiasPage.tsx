@@ -30,6 +30,7 @@ export function CortesiasPage() {
   const { staff } = useAuthStore();
 
   const puedeGestionar = staff?.rol === "admin" || staff?.rol === "encargado";
+  const esRrpp = staff?.rol === "rrpp";
 
   const [modalCrear, setModalCrear] = useState(false);
   const [loteAbierto, setLoteAbierto] = useState<LoteCortesias | null>(null);
@@ -45,9 +46,11 @@ export function CortesiasPage() {
     <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">Cortesías</h1>
+          <h1 className="text-xl font-bold text-text-primary">
+            {esRrpp ? "Mis cortesías" : "Cortesías"}
+          </h1>
           <p className="text-sm text-text-secondary mt-0.5">
-            {activas} pase{activas !== 1 ? "s" : ""} sin usar
+            {activas} pase{activas !== 1 ? "s" : ""} sin repartir
           </p>
         </div>
 
@@ -80,10 +83,13 @@ export function CortesiasPage() {
       ) : lotes.length === 0 ? (
         <div className="bg-surface border border-border rounded-2xl p-8 text-center">
           <Icono nombre="cortesia" tamano={40} className="mx-auto mb-3 text-text-muted" />
-          <p className="text-text-primary font-semibold">Todavía no generaste cortesías</p>
+          <p className="text-text-primary font-semibold">
+            {esRrpp ? "Todavía no te asignaron cortesías" : "Todavía no generaste cortesías"}
+          </p>
           <p className="text-sm text-text-secondary mt-2 max-w-md mx-auto">
-            Generá una tanda, copiá los links y pasáselos al RRPP. Quien reciba
-            uno lo abre y muestra el QR en la puerta.
+            {esRrpp
+              ? "Cuando el boliche te asigne una tanda, la vas a ver acá con los links para repartir."
+              : "Generá una tanda, copiá los links y pasáselos al RRPP. Quien reciba uno lo abre y muestra el QR en la puerta."}
           </p>
         </div>
       ) : (

@@ -25,7 +25,18 @@ import { z } from "zod";
 import { prisma } from "@niagara/db";
 import { io } from "../index.js";
 
+/** Quiénes pueden crear y anular tandas. */
 const ROLES_GESTION = ["admin", "encargado"];
+
+/**
+ * Quiénes pueden **ver** tandas.
+ *
+ * El RRPP entra para copiar los links de las suyas y repartirlos, pero no
+ * genera ni anula: si pudiera generar, podría regalar entradas sin que el
+ * boliche lo decida. Cuánto se regala es una decisión del negocio.
+ */
+const ROLES_LECTURA = ["admin", "encargado", "rrpp"];
+
 const ROLES_PUERTA = ["portero", "admin", "encargado"];
 
 /**
@@ -130,12 +141,20 @@ export const registrarRutasCortesias: FastifyPluginAsync = async (app) => {
     const { localId, staffActual } = req;
     const { eventoId } = req.query as { eventoId?: string };
 
-    if (!ROLES_GESTION.includes(staffActual.rol)) {
+    if (!ROLES_LECTURA.includes(staffActual.rol)) {
       return reply.status(403).send({ error: "Sin permisos" });
     }
 
+    // El RRPP ve solo las tandas que le asignaron. Sin este filtro vería las
+    // de sus compañeros y cuántas cortesías reparte el boliche en total.
+    const soloSuyas = staffActual.rol === "rrpp";
+
     const lotes = await prisma.loteCortesias.findMany({
-      where: { localId, ...(eventoId && { eventoId }) },
+      where: {
+        localId,
+        ...(eventoId && { eventoId }),
+        ...(soloSuyas && { rrppId: staffActual.id }),
+      },
       orderBy: { createdAt: "desc" },
       include: {
         evento: { select: { nombre: true, fechaInicio: true } },
@@ -179,12 +198,18 @@ export const registrarRutasCortesias: FastifyPluginAsync = async (app) => {
     const { localId, staffActual } = req;
     const { id } = req.params as { id: string };
 
-    if (!ROLES_GESTION.includes(staffActual.rol)) {
+    if (!ROLES_LECTURA.includes(staffActual.rol)) {
       return reply.status(403).send({ error: "Sin permisos" });
     }
 
     const lote = await prisma.loteCortesias.findFirst({
-      where: { id, localId },
+      where: {
+        id,
+        localId,
+        // Un RRPP solo saca los códigos de sus propias tandas: sin esto, con
+        // el id de otra podría copiarse los links de un compañero.
+        ...(staffActual.rol === "rrpp" && { rrppId: staffActual.id }),
+      },
       include: { evento: { select: { nombre: true, fechaInicio: true } } },
     });
     if (!lote) return reply.status(404).send({ error: "Lote no encontrado" });
