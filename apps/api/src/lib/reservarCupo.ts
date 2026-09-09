@@ -59,13 +59,22 @@ export async function reservarCupo(
    * —cientos de ventas en una noche, no miles por segundo— no se nota.
    */
   if (tipo.ocupaLugar) {
-    await tx.$queryRaw`SELECT id FROM eventos WHERE id = ${tipo.eventoId}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM eventos WHERE id = ${tipo.eventoId} FOR UPDATE`;
   }
 
+  /**
+   * Los ids van sin castear a `uuid`, a propósito.
+   *
+   * En el schema de Prisma son `String` sin `@db.Uuid`, así que `prisma db push`
+   * los creó como columnas `text`. Castear el parámetro a `uuid` hace que
+   * Postgres corte con `operator does not exist: text = uuid`. El resto del
+   * código crudo hace lo mismo: ver el `::text` de `ventas-por-hora` en
+   * `routes/dashboard.ts`.
+   */
   const filas = await tx.$executeRaw`
     UPDATE entradas_tipo AS t
        SET cantidad_vendida = t.cantidad_vendida + ${cantidad}
-     WHERE t.id = ${entradaTipoId}::uuid
+     WHERE t.id = ${entradaTipoId}
        AND (t.cantidad_total IS NULL
             OR t.cantidad_vendida + ${cantidad} <= t.cantidad_total)
        AND (

@@ -76,6 +76,26 @@ describe("reservarCupo", () => {
     expect(tx.$queryRaw).not.toHaveBeenCalled();
   });
 
+  it("no castea los ids a uuid", async () => {
+    const tx = crearTx();
+    tx.$executeRaw.mockResolvedValue(1);
+
+    await reservarCupo(comoTx(tx), TIPO_ID, 1);
+
+    /**
+     * Las columnas `id` son `text`: el schema de Prisma las declara `String`
+     * sin `@db.Uuid`. Con `::uuid` en el parámetro, Postgres corta la venta con
+     * `operator does not exist: text = uuid`, que es exactamente lo que pasó en
+     * producción cuando se escribió el cast mirando el SQL de `supabase/`, que
+     * no es el que creó esta base.
+     */
+    const lock = (tx.$queryRaw.mock.calls[0]?.[0] as string[]).join("");
+    const update = (tx.$executeRaw.mock.calls[0]?.[0] as string[]).join("");
+
+    expect(lock).not.toContain("::uuid");
+    expect(update).not.toContain("::uuid");
+  });
+
   it("manda al UPDATE la cantidad y el id del tipo", async () => {
     const tx = crearTx();
     tx.$executeRaw.mockResolvedValue(1);
