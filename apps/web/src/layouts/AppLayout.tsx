@@ -46,7 +46,10 @@ type Pagina =
  */
 const INICIO_PREFERIDO: Record<string, Pagina> = {
   admin: "dashboard",
-  encargado: "dashboard",
+  // El encargado ya no tiene dashboard; Reportes es donde está el detalle que
+  // antes miraba ahí.
+  encargado: "reportes",
+  // El cajero sí tiene dashboard, pero arranca en la caja: es donde trabaja.
   cajero: "caja",
   barman: "caja",
   portero: "porteria",

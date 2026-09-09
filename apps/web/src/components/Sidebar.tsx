@@ -15,7 +15,10 @@ const NAV_ITEMS: NavItem[] = [
   // El dashboard muestra la recaudación de la noche: no va para todos los
   // roles. Los que no lo tienen arrancan en la primera sección que sí pueden
   // ver (ver `AppLayout`).
-  { id: "dashboard", label: "Dashboard", icono: "dashboard", roles: ["admin", "encargado"] },
+  // El dashboard es distinto según quién entra: el admin ve la recaudación de
+  // la noche, el cajero solo lo que vendió él, sin montos acumulados. Por eso
+  // el cajero está acá y el encargado no: para gerencia está Reportes.
+  { id: "dashboard", label: "Dashboard", icono: "dashboard", roles: ["admin", "cajero"] },
   { id: "porteria", label: "Portería", icono: "porteria", roles: ["admin", "encargado", "portero"] },
   { id: "caja", label: "Caja / POS", icono: "caja", roles: ["admin", "encargado", "cajero", "barman"] },
   { id: "cashless", label: "Cashless", icono: "cashless", roles: ["admin", "encargado", "cajero"] },

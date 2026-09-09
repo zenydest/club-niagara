@@ -50,11 +50,182 @@ interface RecaudacionCajero {
   porMetodo: Record<string, { cantidad: number; monto: number }>;
 }
 
+/** Formatear moneda ARS */
+const formatPesos = (monto: number) =>
+  new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(monto);
+
 /**
- * Dashboard principal con KPIs en tiempo real.
- * Usa Socket.io para aforo y ventas en vivo.
+ * Lo que vendió el cajero en su turno, tal como lo devuelve
+ * GET /dashboard/mi-consumo. Sin montos acumulados a propósito.
+ */
+interface MiConsumo {
+  evento: { id: string; nombre: string } | null;
+  cantidadVentas: number;
+  totalUnidades: number;
+  categorias: {
+    nombre: string;
+    unidades: number;
+    productos: { nombre: string; unidades: number; precioUnitario: number }[];
+  }[];
+  /** Solo viene cuando no hay evento en vivo: desde cuándo se está contando. */
+  desde?: string;
+}
+
+/**
+ * Dashboard según quién mira.
+ *
+ * El cajero y el dueño necesitan cosas distintas de la misma noche: uno quiere
+ * saber qué le queda por reponer en la barra, el otro cuánto entró. Son dos
+ * pantallas y no una con campos ocultos, porque "ocultar" en el front deja los
+ * montos viajando igual en la respuesta.
  */
 export function DashboardPage() {
+  const { staff } = useAuthStore();
+
+  if (staff?.rol === "cajero") return <DashboardCajero />;
+  return <DashboardGerencia />;
+}
+
+/**
+ * Vista del cajero: qué salió de su barra, en unidades.
+ *
+ * No muestra recaudación ni totales —eso lo mira el dueño— pero sí el precio de
+ * lista de cada producto, que es lo que el cajero necesita tener a mano cuando
+ * alguien pregunta cuánto sale algo.
+ */
+function DashboardCajero() {
+  const { staff } = useAuthStore();
+  const queryClient = useQueryClient();
+  const localId = staff?.localId;
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["mi-consumo", localId],
+    queryFn: () => api.get<MiConsumo>("/dashboard/mi-consumo", localId),
+    enabled: !!localId,
+    refetchInterval: 60_000,
+  });
+
+  // Se refresca solo cuando la venta es propia: las del resto de las barras no
+  // cambian nada de esta pantalla y refrescar por cada una sería ruido.
+  useEffect(() => {
+    if (!localId || !staff?.id) return;
+
+    const onVentaNueva = (venta: { staffId?: string }) => {
+      if (venta.staffId !== staff.id) return;
+      void queryClient.invalidateQueries({ queryKey: ["mi-consumo", localId] });
+    };
+
+    socket.on("venta:nueva", onVentaNueva);
+    return () => {
+      socket.off("venta:nueva", onVentaNueva);
+    };
+  }, [localId, staff?.id, queryClient]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-lime border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const categorias = data?.categorias ?? [];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-text-primary">Mi turno</h1>
+          <p className="text-text-secondary text-sm mt-1">
+            {data?.evento
+              ? `${data.evento.nombre} · lo que vendiste vos`
+              : "Lo que vendiste en las últimas 12 horas"}
+          </p>
+        </div>
+        <Badge variante={data?.evento ? "lime" : "neutral"}>
+          {data?.evento ? "En vivo" : "Sin evento"}
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <KpiCard
+          titulo="Ventas cerradas"
+          valor={data?.cantidadVentas ?? 0}
+          acento="lime"
+          enVivo={!!data?.evento}
+          icono={<Icono nombre="caja" tamano={20} />}
+        />
+        <KpiCard
+          titulo="Unidades despachadas"
+          valor={data?.totalUnidades ?? 0}
+          subtitulo={`${categorias.length} categoría${categorias.length === 1 ? "" : "s"}`}
+          acento="purple"
+          icono={<Icono nombre="producto" tamano={20} />}
+        />
+      </div>
+
+      {categorias.length === 0 ? (
+        <div className="card text-center py-12">
+          <Icono nombre="caja" tamano={40} className="mx-auto mb-4 text-text-muted" />
+          <h3 className="text-lg font-bold text-text-primary mb-2">
+            Todavía no vendiste nada
+          </h3>
+          <p className="text-text-secondary text-sm">
+            Apenas cierres la primera venta va a aparecer acá, ordenado por categoría.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {categorias.map((categoria) => (
+            <div key={categoria.nombre} className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-text-primary">
+                  {categoria.nombre}
+                </h3>
+                <span className="text-xs font-bold text-lime">
+                  {categoria.unidades} u.
+                </span>
+              </div>
+
+              <ul className="flex flex-col">
+                {categoria.productos.map((producto) => (
+                  <li
+                    key={producto.nombre}
+                    className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm text-text-primary truncate">
+                        {producto.nombre}
+                      </p>
+                      {/* Precio de lista, no lo recaudado: sirve para responder
+                          "cuánto sale" sin salir de la pantalla. */}
+                      <p className="text-xs text-text-muted">
+                        {formatPesos(producto.precioUnitario)} c/u
+                      </p>
+                    </div>
+                    <span className="text-sm font-bold text-text-primary flex-shrink-0">
+                      {producto.unidades}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Dashboard de gerencia con KPIs en tiempo real.
+ * Usa Socket.io para aforo y ventas en vivo.
+ */
+function DashboardGerencia() {
   const { staff } = useAuthStore();
   const queryClient = useQueryClient();
   const [aforoActual, setAforoActual] = useState<number | null>(null);
@@ -148,14 +319,6 @@ export function DashboardPage() {
     enabled: !!localId,
     refetchInterval: 60_000,
   });
-
-  // Formatear moneda ARS
-  const formatPesos = (monto: number) =>
-    new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      maximumFractionDigits: 0,
-    }).format(monto);
 
   const aforo = aforoActual ?? kpisData?.kpis.aforoActual ?? 0;
   const aforoMax = kpisData?.kpis.aforoMaximo ?? 0;

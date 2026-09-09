@@ -13,14 +13,18 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
     const { eventoId } = req.query as { eventoId?: string };
 
     /**
-     * Los KPIs incluyen la recaudación de la noche, así que van solo para
-     * gerencia.
+     * Los KPIs incluyen la recaudación de la noche, así que van solo para el
+     * dueño.
      *
      * Se pasó por alto en la revisión de permisos: se cerró Reportes pero no
      * esto, y un RRPP entrando al panel veía la facturación completa en la
      * primera pantalla.
+     *
+     * El encargado quedó afuera junto con el dashboard: lo que necesita mirar
+     * está en Reportes. El cajero tiene su propia vista en `/mi-consumo`, sin
+     * montos acumulados.
      */
-    if (!["admin", "encargado"].includes(staffActual.rol)) {
+    if (staffActual.rol !== "admin") {
       return reply.status(403).send({ error: "Sin permisos" });
     }
 
@@ -111,7 +115,7 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
   app.get("/ventas-por-hora", async (req, reply) => {
     const { localId, staffActual } = req;
 
-    if (!["admin", "encargado"].includes(staffActual.rol)) {
+    if (staffActual.rol !== "admin") {
       return reply.status(403).send({ error: "Sin permisos" });
     }
     const { eventoId } = req.query as { eventoId?: string };
@@ -130,5 +134,101 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
     `;
 
     return { ventasPorHora: resultado };
+  });
+
+  /**
+   * GET /api/dashboard/mi-consumo — qué vendió el cajero que está pidiendo.
+   *
+   * Es el dashboard del cajero, y es deliberadamente distinto del de gerencia:
+   * responde "qué salió de mi barra" y no "cuánto se facturó". Por eso devuelve
+   * unidades y precio de lista, y ningún total acumulado. La facturación la
+   * mira el dueño.
+   *
+   * El filtro por `staffId` no es configurable: siempre es quien pregunta. Un
+   * cajero no puede consultar lo de otro ni pasando parámetros.
+   */
+  app.get("/mi-consumo", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["cajero", "admin"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const evento = await prisma.evento.findFirst({
+      where: { localId, estado: "en_vivo" },
+      orderBy: { fechaInicio: "desc" },
+      select: { id: true, nombre: true },
+    });
+
+    /**
+     * Con evento en vivo se filtra por evento; si no, por las últimas 12 horas.
+     *
+     * No sirve "hoy": una noche de boliche cruza la medianoche, y a las 3 AM el
+     * cajero vería su turno vacío porque las ventas quedaron en el día
+     * anterior. Doce horas cubre el turno más largo sin arrastrar el de ayer.
+     */
+    const desde = new Date(Date.now() - 12 * 60 * 60 * 1000);
+
+    const items = await prisma.ventaItem.findMany({
+      where: {
+        localId,
+        venta: {
+          staffId: staffActual.id,
+          ...(evento ? { eventoId: evento.id } : { createdAt: { gte: desde } }),
+        },
+      },
+      select: {
+        cantidad: true,
+        ventaId: true,
+        producto: { select: { nombre: true, categoria: true, precio: true } },
+      },
+    });
+
+    // Se agrupa acá y no en SQL porque es el turno de una sola persona: unos
+    // cientos de filas como mucho. Un groupBy de Prisma no alcanza igual,
+    // porque la categoría vive en `productos` y no en `venta_items`.
+    const porCategoria = new Map<
+      string,
+      { unidades: number; productos: Map<string, { unidades: number; precioUnitario: number }> }
+    >();
+
+    for (const item of items) {
+      const categoria = item.producto.categoria;
+      // El `new Map()` va tipado: sin los parámetros infiere `Map<any, any>` y
+      // todo lo que sale de `grupo` deja de estar chequeado.
+      const grupo = porCategoria.get(categoria) ?? {
+        unidades: 0,
+        productos: new Map<string, { unidades: number; precioUnitario: number }>(),
+      };
+
+      grupo.unidades += item.cantidad;
+
+      const previo = grupo.productos.get(item.producto.nombre);
+      grupo.productos.set(item.producto.nombre, {
+        unidades: (previo?.unidades ?? 0) + item.cantidad,
+        precioUnitario: Number(item.producto.precio),
+      });
+
+      porCategoria.set(categoria, grupo);
+    }
+
+    const categorias = [...porCategoria.entries()]
+      .map(([nombre, grupo]) => ({
+        nombre,
+        unidades: grupo.unidades,
+        productos: [...grupo.productos.entries()]
+          .map(([nombreProducto, datos]) => ({ nombre: nombreProducto, ...datos }))
+          .sort((a, b) => b.unidades - a.unidades),
+      }))
+      .sort((a, b) => b.unidades - a.unidades);
+
+    return {
+      evento,
+      // Cuántas ventas distintas cerró, no cuánta plata entró.
+      cantidadVentas: new Set(items.map((i) => i.ventaId)).size,
+      totalUnidades: items.reduce((acc, i) => acc + i.cantidad, 0),
+      categorias,
+      ...(evento ? {} : { desde: desde.toISOString() }),
+    };
   });
 };

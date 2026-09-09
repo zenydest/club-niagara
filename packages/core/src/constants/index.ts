@@ -21,18 +21,31 @@ export const ROL_LABELS: Record<string, string> = {
   admin: "Administrador",
   encargado: "Encargado",
   cajero: "Cajero",
-  portero: "Portero",
+  // El valor en la base sigue siendo `portero`: cambiarlo obligaría a migrar
+  // el enum y todas las filas de staff. Acá solo se cambia cómo se lee.
+  portero: "Encargado de Ingreso",
   rrpp: "Relaciones Públicas",
   barman: "Barman",
 };
 
-/** Permisos por rol */
+/**
+ * Permisos por rol — referencia, no control de acceso.
+ *
+ * Lo que manda de verdad son dos cosas: `NAV_ITEMS` en el Sidebar del panel,
+ * que decide qué se ve, y el chequeo de rol de cada ruta de la API, que decide
+ * qué se puede pedir. Esta tabla es un resumen para leer de un vistazo, y hay
+ * que actualizarla cuando cambian los otros dos.
+ */
 export const ROL_PERMISOS = {
   admin: ["*"], // Acceso total
-  encargado: ["dashboard", "eventos", "reportes", "staff", "productos", "caja"],
-  cajero: ["caja", "productos"],
+  // El encargado dejó de tener dashboard: la recaudación de la noche es solo
+  // del dueño. Lo que necesita mirar está en Reportes.
+  encargado: ["eventos", "reportes", "staff", "productos", "caja", "porteria"],
+  // El cajero tiene dashboard, pero es el suyo: unidades que despachó él, sin
+  // montos acumulados (GET /dashboard/mi-consumo).
+  cajero: ["dashboard", "caja", "cashless", "productos"],
   portero: ["porteria", "accesos"],
-  rrpp: ["entradas", "reservas"],
+  rrpp: ["cortesias", "reservas"],
   barman: ["caja", "productos", "stock"],
 } as const;
 

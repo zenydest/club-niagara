@@ -384,7 +384,9 @@ export const ROL_CONFIG: Record<
   admin:     { label: "Admin",     icono: "dashboard",  color: "text-accent" },
   encargado: { label: "Encargado", icono: "actividad",  color: "text-purple-400" },
   cajero:    { label: "Cajero",    icono: "caja",       color: "text-blue-400" },
-  portero:   { label: "Portero",   icono: "porteria",   color: "text-yellow-400" },
+  // La clave sigue siendo `portero` porque es el valor del enum en la base;
+  // solo cambia cómo se lee en pantalla.
+  portero:   { label: "Encargado de Ingreso", icono: "porteria", color: "text-yellow-400" },
   rrpp:      { label: "RRPP",      icono: "personal",   color: "text-green-400" },
   barman:    { label: "Barman",    icono: "producto",   color: "text-orange-400" },
 };
