@@ -17,6 +17,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { Icono, type NombreIcono } from "@/components/Icono";
 import { useCobroPointStore } from "@/stores/cobroPointStore";
 import { ModalCobroPoint } from "@/components/ModalCobroPoint";
+import { api } from "@/lib/apiClient";
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -30,6 +31,146 @@ const METODOS: { id: MetodoPago; label: string; icono: NombreIcono }[] = [
   { id: "cashless", label: "Cashless", icono: "fichas" },
   { id: "cortesia", label: "Cortesía", icono: "cortesia" },
 ];
+
+/** Corte de caja tal como lo devuelve POST /reportes/cortes. */
+interface CorteCreado {
+  ventasEfectivo: number;
+  ventasTarjeta: number;
+  ventasCashless: number;
+  ventasQr: number;
+  ventasCortesia: number;
+  totalVentas: number;
+  efectivoEsperado: number;
+}
+
+/**
+ * Cierre de caja del cajero.
+ *
+ * El corte lo arma quien cobró y lo cierra gerencia declarando cuánto efectivo
+ * hay de verdad: es el control cruzado que evita que un faltante se tape
+ * poniendo el número que cierra. Por eso acá no se pide ningún monto — solo se
+ * deja registrado lo que el sistema dice que se vendió.
+ *
+ * Cuenta solo las ventas propias y las últimas 12 horas, no el día calendario:
+ * la noche cruza la medianoche.
+ */
+function CerrarMiCaja() {
+  const { staff } = useAuthStore();
+  const [abierto, setAbierto] = useState(false);
+  const [corte, setCorte] = useState<CorteCreado | null>(null);
+  const [procesando, setProcesando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (staff?.rol !== "cajero") return null;
+
+  const cerrar = async () => {
+    setProcesando(true);
+    setError(null);
+    try {
+      const data = await api.post<{ corte: CorteCreado }>(
+        "/reportes/cortes",
+        {},
+        staff.localId
+      );
+      setCorte(data.corte);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo cerrar la caja");
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const filas: { label: string; valor: number }[] = corte
+    ? [
+        { label: "Efectivo", valor: corte.ventasEfectivo },
+        { label: "Tarjeta", valor: corte.ventasTarjeta },
+        { label: "Cashless", valor: corte.ventasCashless },
+        { label: "QR / MP", valor: corte.ventasQr },
+        { label: "Cortesías", valor: corte.ventasCortesia },
+      ].filter((f) => f.valor > 0)
+    : [];
+
+  return (
+    <>
+      <button
+        onClick={() => { setAbierto(true); setCorte(null); setError(null); }}
+        className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-text-secondary hover:text-lime hover:border-lime/40 transition-all"
+      >
+        Cerrar mi caja
+      </button>
+
+      {abierto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setAbierto(false)} />
+
+          <div className="relative w-full max-w-sm bg-surface border border-border rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-bold text-text-primary">
+              {corte ? "Caja cerrada" : "Cerrar mi caja"}
+            </h3>
+
+            {!corte && (
+              <>
+                <p className="text-sm text-text-secondary">
+                  Se registra lo que vendiste vos en las últimas 12 horas. El
+                  efectivo real lo cuenta y lo declara gerencia después.
+                </p>
+                {error && <p className="text-xs text-danger">{error}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setAbierto(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-border text-text-secondary text-sm hover:border-lime/40 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => void cerrar()}
+                    disabled={procesando}
+                    className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 disabled:opacity-50 transition-all"
+                  >
+                    {procesando ? "Cerrando…" : "Cerrar caja"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {corte && (
+              <>
+                <div className="flex flex-col gap-2">
+                  {filas.map((f) => (
+                    <div key={f.label} className="flex items-center justify-between">
+                      <span className="text-sm text-text-secondary">{f.label}</span>
+                      <span className="text-sm font-semibold text-text-primary">{ARS(f.valor)}</span>
+                    </div>
+                  ))}
+
+                  <div className="flex items-center justify-between border-t border-border pt-2 mt-1">
+                    <span className="text-sm font-semibold text-text-primary">Total</span>
+                    <span className="text-sm font-bold text-lime">{ARS(corte.totalVentas)}</span>
+                  </div>
+                </div>
+
+                {/* Lo único que después hay que contar a mano contra la caja. */}
+                <div className="rounded-xl bg-surface-2 border border-border p-3">
+                  <p className="text-xs text-text-secondary">Efectivo a entregar</p>
+                  <p className="text-xl font-black text-text-primary">
+                    {ARS(corte.efectivoEsperado)}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setAbierto(false)}
+                  className="w-full py-2.5 rounded-xl bg-accent text-white text-sm font-bold hover:brightness-110 transition-all"
+                >
+                  Listo
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 // ── Sub-componente: Badge de estado ─────────────────────────────
 
@@ -902,7 +1043,10 @@ export function CajaPage() {
           <h1 className="text-base font-bold text-text-primary">Caja</h1>
           <SelectorBarra />
         </div>
-        <BadgeEstado />
+        <div className="flex items-center gap-3">
+          <CerrarMiCaja />
+          <BadgeEstado />
+        </div>
       </div>
 
       {/* ── Contenido split ────────────────────────────────── */}

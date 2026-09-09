@@ -465,13 +465,43 @@ export const registrarRutasReportes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: body.error.flatten() });
     }
 
-    const rango = parsearRangoFechas(body.data.fechaDesde, body.data.fechaHasta);
+    /**
+     * Sin fechas, el corte cubre las últimas 12 horas y no "desde las 00:00".
+     *
+     * Una noche de boliche cruza la medianoche: un corte hecho a las 4 AM con
+     * el día calendario dejaba afuera todo lo vendido antes de las 12, que es
+     * casi toda la noche, y el efectivo esperado daba muy por debajo de lo que
+     * había en la caja. Doce horas cubren el turno más largo sin arrastrar el
+     * de ayer, igual que en `/dashboard/mi-consumo`.
+     *
+     * El resto de los reportes sigue usando el día calendario: ahí se elige el
+     * rango a mano y se mira con la noche ya cerrada.
+     */
+    const DOCE_HORAS = 12 * 60 * 60 * 1000;
+    const rango = parsearRangoFechas(
+      body.data.fechaDesde ?? new Date(Date.now() - DOCE_HORAS).toISOString(),
+      body.data.fechaHasta
+    );
+
+    /**
+     * El cajero corta lo suyo y nada más.
+     *
+     * El cálculo tomaba todas las ventas del local en el rango, así que un
+     * corte hecho por un cajero venía con la plata de las otras barras adentro
+     * — y el permiso para crearlo ya lo tenía. Gerencia sigue viendo el corte
+     * completo cuando no filtra por barra ni evento.
+     *
+     * Quién declara el efectivo real sigue siendo gerencia (ver
+     * `PATCH /cortes/:id/cerrar`): el que cobró arma el corte, otro lo cierra.
+     */
+    const soloLoPropio = staffActual.rol === "cajero";
 
     const filtroBase = {
       localId,
       createdAt: { gte: rango.gte, lte: rango.lte },
       ...(body.data.barraId ? { barraId: body.data.barraId } : {}),
       ...(body.data.eventoId ? { eventoId: body.data.eventoId } : {}),
+      ...(soloLoPropio ? { staffId: staffActual.id } : {}),
     };
 
     // Calcular totales desde las ventas del período
