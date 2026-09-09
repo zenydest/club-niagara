@@ -178,9 +178,27 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
       c.ventas + c.entradasVendidas + c.accesos + c.reservas + c.guardarropa;
 
     if (movimiento > 0) {
+      /**
+       * El mensaje enumera qué lo está frenando.
+       *
+       * Antes decía solo "tiene movimiento registrado", y la pantalla del
+       * evento muestra entradas vendidas y aforo: si el movimiento eran ventas
+       * de barra o una reserva, los dos contadores visibles estaban en cero y
+       * parecía que el sistema se negaba porque sí.
+       */
+      const partes = [
+        c.ventas > 0 && `${c.ventas} ${c.ventas === 1 ? "venta" : "ventas"} de barra`,
+        c.entradasVendidas > 0 &&
+          `${c.entradasVendidas} ${c.entradasVendidas === 1 ? "entrada vendida" : "entradas vendidas"}`,
+        c.accesos > 0 && `${c.accesos} ${c.accesos === 1 ? "ingreso" : "ingresos"}`,
+        c.reservas > 0 && `${c.reservas} ${c.reservas === 1 ? "reserva" : "reservas"}`,
+        c.guardarropa > 0 && `${c.guardarropa} de guardarropa`,
+      ].filter((p): p is string => typeof p === "string");
+
       return reply.status(409).send({
         error:
-          "El evento tiene movimiento registrado y no se puede eliminar. " +
+          `No se puede eliminar: el evento tiene ${partes.join(", ")}. ` +
+          "Esa información es la recaudación de una noche. " +
           "Cambialo a “cerrado” para sacarlo de la vista.",
         detalle: {
           ventas: c.ventas,
