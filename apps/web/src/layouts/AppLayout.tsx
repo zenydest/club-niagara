@@ -38,9 +38,27 @@ type Pagina =
  * Sidebar fijo + área de contenido.
  * Responsive: sidebar colapsable en móvil.
  */
+/**
+ * Con qué pantalla arranca cada rol.
+ *
+ * El dashboard es solo de gerencia, así que los demás entran directo a lo suyo.
+ * Sin esto, un portero o un RRPP abría el panel en una pantalla vacía con un
+ * error de permisos.
+ */
+const INICIO_POR_ROL: Record<string, Pagina> = {
+  admin: "dashboard",
+  encargado: "dashboard",
+  cajero: "caja",
+  barman: "caja",
+  portero: "porteria",
+  rrpp: "cortesias",
+};
+
 export function AppLayout() {
   const { staff, logout } = useAuthStore();
-  const [paginaActual, setPaginaActual] = useState<Pagina>("dashboard");
+  const [paginaActual, setPaginaActual] = useState<Pagina>(
+    () => INICIO_POR_ROL[staff?.rol ?? ""] ?? "dashboard"
+  );
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
 
   const renderPagina = () => {

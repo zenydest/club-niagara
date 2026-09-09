@@ -12,7 +12,10 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: "dashboard", label: "Dashboard", icono: "dashboard" },
+  // El dashboard muestra la recaudación de la noche: no va para todos los
+  // roles. Los que no lo tienen arrancan en la primera sección que sí pueden
+  // ver (ver `AppLayout`).
+  { id: "dashboard", label: "Dashboard", icono: "dashboard", roles: ["admin", "encargado"] },
   { id: "porteria", label: "Portería", icono: "porteria", roles: ["admin", "encargado", "portero"] },
   { id: "caja", label: "Caja / POS", icono: "caja", roles: ["admin", "encargado", "cajero", "barman"] },
   { id: "cashless", label: "Cashless", icono: "cashless", roles: ["admin", "encargado", "cajero"] },

@@ -9,8 +9,20 @@ import { prisma } from "@niagara/db";
 export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
   // GET /api/dashboard/kpis?eventoId=xxx
   app.get("/kpis", async (req, reply) => {
-    const { localId } = req;
+    const { localId, staffActual } = req;
     const { eventoId } = req.query as { eventoId?: string };
+
+    /**
+     * Los KPIs incluyen la recaudación de la noche, así que van solo para
+     * gerencia.
+     *
+     * Se pasó por alto en la revisión de permisos: se cerró Reportes pero no
+     * esto, y un RRPP entrando al panel veía la facturación completa en la
+     * primera pantalla.
+     */
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
 
     // Evento activo: el pasado por query o el último evento "en_vivo"
     const evento = eventoId
@@ -96,8 +108,12 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
   });
 
   // GET /api/dashboard/ventas-por-hora?eventoId=xxx
-  app.get("/ventas-por-hora", async (req) => {
-    const { localId } = req;
+  app.get("/ventas-por-hora", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
     const { eventoId } = req.query as { eventoId?: string };
 
     // Ventas agrupadas por hora — filtro opcional de eventoId con cast nullable
