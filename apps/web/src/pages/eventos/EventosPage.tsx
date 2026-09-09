@@ -906,12 +906,22 @@ function EventoDetalle({ evento, onVolver }: { evento: Evento; onVolver: () => v
 export function EventosPage() {
   const { eventos, cargando, eventoActual, cargarEventos, setEventoActual } = useEventosStore();
   const { staff } = useAuthStore();
-  const [filtroEstado, setFiltroEstado] = useState<string>("todos");
+  /**
+   * Arranca en "activos" y no en "todos".
+   *
+   * Un evento con movimiento no se borra nunca —guarda la recaudación de esa
+   * noche— así que la lista solo crece: después de dos temporadas, encontrar el
+   * evento del viernes entre los cerrados es un scroll largo. Los cerrados y
+   * cancelados siguen a un click, en su propio filtro.
+   */
+  const [filtroEstado, setFiltroEstado] = useState<string>("activos");
   const [modalCrear, setModalCrear] = useState(false);
   const esAdmin = staff && ["admin", "encargado"].includes(staff.rol);
 
   useEffect(() => {
-    void cargarEventos(filtroEstado === "todos" ? undefined : filtroEstado);
+    // "activos" no es un estado de la base: se pide todo y se filtra abajo.
+    const unSoloEstado = filtroEstado !== "todos" && filtroEstado !== "activos";
+    void cargarEventos(unSoloEstado ? filtroEstado : undefined);
   }, [filtroEstado, cargarEventos]);
 
   // Vista detalle
@@ -919,9 +929,12 @@ export function EventosPage() {
     return <EventoDetalle evento={eventoActual} onVolver={() => setEventoActual(null)} />;
   }
 
-  const eventosFiltrados = filtroEstado === "todos"
-    ? eventos
-    : eventos.filter((e) => e.estado === filtroEstado);
+  const eventosFiltrados =
+    filtroEstado === "todos"
+      ? eventos
+      : filtroEstado === "activos"
+        ? eventos.filter((e) => e.estado !== "cerrado" && e.estado !== "cancelado")
+        : eventos.filter((e) => e.estado === filtroEstado);
 
   return (
     <div className="space-y-6">
@@ -945,11 +958,13 @@ export function EventosPage() {
       {/* Filtro de estado */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {[
-          { id: "todos", label: "Todos" },
+          { id: "activos", label: "Activos" },
           { id: "en_vivo", label: "En vivo" },
           { id: "preventa", label: "Preventa" },
           { id: "borrador", label: "Borrador" },
           { id: "cerrado", label: "Cerrado" },
+          { id: "cancelado", label: "Cancelado" },
+          { id: "todos", label: "Todos" },
         ].map((f) => (
           <button
             key={f.id}
