@@ -150,7 +150,9 @@ export const registrarRutasDashboard: FastifyPluginAsync = async (app) => {
   app.get("/mi-consumo", async (req, reply) => {
     const { localId, staffActual } = req;
 
-    if (!["cajero", "admin"].includes(staffActual.rol)) {
+    // El barman despacha en la barra igual que el cajero, así que necesita la
+    // misma pantalla: quedó afuera por olvido, no por decisión.
+    if (!["cajero", "barman", "admin"].includes(staffActual.rol)) {
       return reply.status(403).send({ error: "Sin permisos" });
     }
 
