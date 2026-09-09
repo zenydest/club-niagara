@@ -58,6 +58,15 @@ interface CajaState {
   montoCobrado: number; // para efectivo: cuánto dio el cliente
   procesando: boolean;
 
+  /**
+   * Última venta cerrada en este turno, para poder reimprimir su ticket.
+   *
+   * `sincronizada` distingue la que ya está en la base de la que quedó en la
+   * cola offline. Solo la primera se puede imprimir: la API arma el ticket
+   * leyendo la venta, así que si todavía no llegó allá no hay nada que leer.
+   */
+  ultimaVenta: { id: string; total: number; sincronizada: boolean } | null;
+
   // Cola offline
   cola: VentaOffline[];
   online: boolean;
@@ -146,6 +155,7 @@ export const useCajaStore = create<CajaState>((set, get) => ({
 
   cola: leerCola(),
   online: navigator.onLine,
+  ultimaVenta: null,
   sincronizando: false,
   errorSync: null,
 
@@ -275,7 +285,10 @@ export const useCajaStore = create<CajaState>((set, get) => ({
       try {
         await api.post("/ventas", venta, localId);
         get().limpiarCarrito();
-        set({ procesando: false });
+        set({
+          procesando: false,
+          ultimaVenta: { id: venta.id, total, sincronizada: true },
+        });
         return true;
       } catch {
         // Falló online → encolar para sync posterior
@@ -285,7 +298,13 @@ export const useCajaStore = create<CajaState>((set, get) => ({
     // Guardar en cola offline
     const cola = [...leerCola(), venta];
     guardarCola(cola);
-    set({ cola, procesando: false });
+    set({
+      cola,
+      procesando: false,
+      // Queda registrada como última venta igual, pero sin poder imprimirse
+      // hasta que suba. El botón lo refleja en vez de fallar con un 404.
+      ultimaVenta: { id: venta.id, total, sincronizada: false },
+    });
     get().limpiarCarrito();
     return true; // La operación fue aceptada (pending sync)
   },
@@ -318,7 +337,17 @@ export const useCajaStore = create<CajaState>((set, get) => ({
         .map((v) => ({ ...v, _intentos: v._intentos + 1 }));
 
       guardarCola(nuevaCola);
-      set({ cola: nuevaCola, sincronizando: false });
+
+      // Si la última venta era una de las que estaban esperando, ya se puede
+      // reimprimir: recién ahora la API tiene con qué armar el ticket.
+      const ultima = get().ultimaVenta;
+      const yaSubio = ultima !== null && !ultima.sincronizada && idsOk.has(ultima.id);
+
+      set({
+        cola: nuevaCola,
+        sincronizando: false,
+        ...(yaSubio && { ultimaVenta: { ...ultima, sincronizada: true } }),
+      });
     } catch {
       set({ sincronizando: false, errorSync: "Error al sincronizar ventas" });
     }

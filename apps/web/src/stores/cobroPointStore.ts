@@ -87,6 +87,40 @@ interface CobroPointState {
 
   cancelar: () => Promise<void>;
   reiniciar: () => void;
+
+  /**
+   * Imprimir siempre el comprobante en los cobros que no pasan por la terminal.
+   *
+   * Se guarda porque es una decisión del local, no de cada venta: si el boliche
+   * entrega ticket, el cajero no puede tildar una casilla doscientas veces por
+   * noche. El modal de pago se desmonta entre ventas, así que un estado local
+   * ahí se perdía en cada cobro.
+   */
+  imprimirSiempre: boolean;
+  setImprimirSiempre: (valor: boolean) => void;
+
+  /** Está en curso una impresión (se usa para el botón de reimprimir). */
+  imprimiendo: boolean;
+
+  /** Último fallo de impresión, para avisarle al cajero. */
+  errorImpresion: string | null;
+
+  /**
+   * Manda a imprimir el ticket de una venta ya registrada.
+   *
+   * Es para las ventas que no pasan por la terminal —efectivo, cashless,
+   * cortesía— donde el cliente igual quiere su comprobante, y para reimprimir
+   * cualquier venta cuando el papel se trabó o el cliente lo pide de nuevo.
+   *
+   * Solo viaja el id: el contenido lo arma la API leyendo la venta, así que
+   * la copia siempre coincide con lo que quedó registrado.
+   */
+  imprimirTicket: (input: {
+    ventaId: string;
+    reimpresion?: boolean;
+  }) => Promise<boolean>;
+
+  limpiarErrorImpresion: () => void;
 }
 
 function localIdActual(): string | undefined {
@@ -112,6 +146,11 @@ export const useCobroPointStore = create<CobroPointState>()(
       referencia: null,
       orden: null,
       error: null,
+      imprimiendo: false,
+      errorImpresion: null,
+      imprimirSiempre: false,
+
+      setImprimirSiempre: (valor) => set({ imprimirSiempre: valor }),
 
       cargarTerminales: async () => {
         const localId = localIdActual();
@@ -215,12 +254,50 @@ export const useCobroPointStore = create<CobroPointState>()(
         detenerPolling();
         set({ estado: "inactivo", referencia: null, orden: null, error: null });
       },
+
+      imprimirTicket: async ({ ventaId, reimpresion }) => {
+        const localId = localIdActual();
+        const terminalId = get().terminalId;
+
+        if (!localId) return false;
+        if (!terminalId) {
+          set({ errorImpresion: "Elegí una terminal para imprimir" });
+          return false;
+        }
+
+        set({ imprimiendo: true, errorImpresion: null });
+
+        try {
+          await api.post(
+            "/point/imprimir",
+            { terminalId, ventaId, ...(reimpresion && { reimpresion: true }) },
+            localId
+          );
+          set({ imprimiendo: false });
+          return true;
+        } catch (err) {
+          // El error se guarda aparte de `error` a propósito: ese otro es el
+          // del cobro y lo lee el modal de la terminal. Mezclarlos haría que
+          // un ticket fallado parezca un cobro fallado.
+          set({
+            imprimiendo: false,
+            errorImpresion:
+              err instanceof Error ? err.message : "No se pudo imprimir el ticket",
+          });
+          return false;
+        }
+      },
+
+      limpiarErrorImpresion: () => set({ errorImpresion: null }),
     }),
     {
       name: "niagara-panel-point",
-      // Solo se recuerda la terminal elegida; el cobro en curso no debe
-      // sobrevivir a un refresh.
-      partialize: (s) => ({ terminalId: s.terminalId }),
+      // Solo se recuerdan las preferencias de la caja; el cobro en curso y los
+      // errores no deben sobrevivir a un refresh.
+      partialize: (s) => ({
+        terminalId: s.terminalId,
+        imprimirSiempre: s.imprimirSiempre,
+      }),
     }
   )
 );

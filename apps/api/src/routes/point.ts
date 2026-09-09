@@ -33,9 +33,11 @@ import {
   posIdComoTexto,
   nombrePorDefecto,
   metodoPagoDeOrden,
+  imprimirEnTerminal,
   MPPointError,
   type OrdenMP,
 } from "../lib/mpPoint.js";
+import { armarTicket } from "../lib/ticketVenta.js";
 
 const ROLES_COBRO = ["admin", "encargado", "cajero", "barman"];
 const ROLES_ADMIN = ["admin", "encargado"];
@@ -392,6 +394,90 @@ export const registrarRutasPoint: FastifyPluginAsync = async (app) => {
     const huerfanos = pagadas.filter((o) => !conVenta.has(o.referencia));
 
     return { huerfanos, total: huerfanos.length };
+  });
+
+  /**
+   * POST /api/point/imprimir — ticket sin cobrar.
+   *
+   * Dos usos: el comprobante de las ventas que no pasan por la terminal
+   * (efectivo, cashless, cortesía), y la reimpresión de cualquier venta cuando
+   * el papel se trabó o el cliente lo pide de nuevo.
+   *
+   * No mueve plata: solo manda a imprimir. Si falla, la venta ya está
+   * registrada igual — perder un ticket no puede tumbar un cobro.
+   */
+  app.post("/imprimir", async (req, reply) => {
+    const { localId, staffActual } = req;
+
+    if (!ROLES_COBRO.includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const body = z.object({
+      terminalId: z.string().min(1),
+      /** Id de la venta ya registrada: de ahí se lee qué imprimir. */
+      ventaId: z.string().uuid(),
+      /** Segunda copia en adelante. Sale aclarado en el papel. */
+      reimpresion: z.boolean().optional(),
+    }).safeParse(req.body);
+
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() });
+
+    const terminal = await prisma.terminal.findFirst({
+      where: { id: body.data.terminalId, localId },
+    });
+    if (!terminal) return reply.status(404).send({ error: "Terminal no encontrada" });
+
+    // El contenido se arma con lo que hay en la base, no con lo que manda el
+    // navegador. Así un ticket no puede decir algo distinto de lo que se
+    // registró, y la reimpresión sale idéntica al original por construcción.
+    const venta = await prisma.venta.findFirst({
+      where: { id: body.data.ventaId, localId },
+      include: {
+        items: { include: { producto: { select: { nombre: true } } } },
+        staff: { select: { nombre: true, apellido: true } },
+        local: { select: { nombre: true } },
+      },
+    });
+
+    if (!venta) return reply.status(404).send({ error: "Venta no encontrada" });
+    if (venta.items.length === 0) {
+      return reply.status(409).send({ error: "La venta no tiene ítems para imprimir" });
+    }
+
+    try {
+      await imprimirEnTerminal({
+        terminalId: body.data.terminalId,
+        // La referencia de una reimpresión lleva sufijo: repetir la del
+        // original haría que MP la tome por la misma acción y no vuelva a
+        // imprimir, que es justo lo contrario de lo que se pidió.
+        referencia: body.data.reimpresion
+          ? `${body.data.ventaId}-r${Date.now().toString(36)}`
+          : body.data.ventaId,
+        contenido: armarTicket({
+          local: venta.local.nombre,
+          items: venta.items.map((i) => ({
+            nombre: i.producto.nombre,
+            cantidad: i.cantidad,
+            subtotal: Number(i.subtotal),
+          })),
+          total: Number(venta.total),
+          metodoPago: venta.metodoPago,
+          fecha: venta.createdAt,
+          cajero: `${venta.staff.nombre} ${venta.staff.apellido}`,
+          ...(venta.nota && { nota: venta.nota }),
+          ...(body.data.reimpresion && { reimpresion: true }),
+        }),
+      });
+
+      return { ok: true };
+    } catch (err) {
+      if (err instanceof MPPointError) {
+        return reply.status(err.status === 503 ? 503 : 502).send({ error: err.message });
+      }
+      req.log.error({ err }, "Falló la impresión del ticket");
+      return reply.status(500).send({ error: "No se pudo imprimir" });
+    }
   });
 
   // ══════════════════════════════════════════════════════════════

@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { cn } from "@niagara/ui";
 import { useAuthStore } from "@/stores/authStore";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, paginasPermitidas } from "@/components/Sidebar";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { PorteriaPage } from "@/pages/porteria/PorteriaPage";
 import { CajaPage } from "@/pages/caja/CajaPage";
@@ -39,13 +39,12 @@ type Pagina =
  * Responsive: sidebar colapsable en móvil.
  */
 /**
- * Con qué pantalla arranca cada rol.
+ * Con qué pantalla arranca cada rol, cuando puede verla.
  *
- * El dashboard es solo de gerencia, así que los demás entran directo a lo suyo.
- * Sin esto, un portero o un RRPP abría el panel en una pantalla vacía con un
- * error de permisos.
+ * Es una preferencia, no una regla de acceso: si el rol no tiene permitida la
+ * sección, abajo se corrige a la primera que sí.
  */
-const INICIO_POR_ROL: Record<string, Pagina> = {
+const INICIO_PREFERIDO: Record<string, Pagina> = {
   admin: "dashboard",
   encargado: "dashboard",
   cajero: "caja",
@@ -56,10 +55,29 @@ const INICIO_POR_ROL: Record<string, Pagina> = {
 
 export function AppLayout() {
   const { staff, logout } = useAuthStore();
-  const [paginaActual, setPaginaActual] = useState<Pagina>(
-    () => INICIO_POR_ROL[staff?.rol ?? ""] ?? "dashboard"
-  );
+  const [paginaActual, setPaginaActual] = useState<Pagina>("dashboard");
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
+
+  /**
+   * Corrige la sección abierta cuando no corresponde al rol.
+   *
+   * Hace falta un efecto y no solo un valor inicial porque `staff` llega
+   * después del primer render: al montar todavía es `null`, así que cualquier
+   * cálculo inicial cae al default. Sin esto, un RRPP entraba viendo el
+   * dashboard aunque el menú ya no lo mostrara.
+   */
+  useEffect(() => {
+    if (!staff) return;
+
+    const permitidas = paginasPermitidas(staff.rol);
+    if (permitidas.includes(paginaActual)) return;
+
+    const preferida = INICIO_PREFERIDO[staff.rol];
+    const destino =
+      preferida && permitidas.includes(preferida) ? preferida : permitidas[0];
+
+    if (destino) setPaginaActual(destino as Pagina);
+  }, [staff, paginaActual]);
 
   const renderPagina = () => {
     switch (paginaActual) {

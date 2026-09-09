@@ -225,6 +225,7 @@ function ModalPago({
     setMontoCobrado,
     confirmarVenta,
     carrito,
+    online,
   } = useCajaStore();
 
   const total = carrito.reduce((acc, i) => acc + i.subtotal, 0);
@@ -251,10 +252,17 @@ function ModalPago({
     cargarTerminales,
     setTerminal,
     cobrar: cobrarConPoint,
+    imprimirTicket,
+    // Preferencia guardada: cuando el cobro no pasa por la terminal, imprimir
+    // igual el comprobante. Vive en el store y no acá porque este modal se
+    // desmonta después de cada venta.
+    imprimirSiempre,
+    setImprimirSiempre,
   } = useCobroPointStore();
 
   const { barraSeleccionada } = useCajaStore();
   const [modalPoint, setModalPoint] = useState(false);
+
 
   useEffect(() => {
     void cargarTerminales();
@@ -364,8 +372,25 @@ function ModalPago({
       return;
     }
 
-    const ok = await confirmarVenta(eventoId);
+    // Métodos que no pasan por la terminal: acá el ticket se pide aparte.
+    const ventaId = crypto.randomUUID();
+    const ok = await confirmarVenta(eventoId, ventaId);
+
     if (ok) {
+      // La venta pudo haber quedado en la cola offline aunque `online` fuera
+      // true (por ejemplo si el POST falló). En ese caso todavía no está en la
+      // base y la API no tendría con qué armar el ticket, así que no se
+      // intenta: queda para el botón de reimprimir, cuando suba.
+      if (imprimirSiempre && terminalId) {
+        const registrada = useCajaStore.getState().ultimaVenta;
+        if (registrada?.id === ventaId && registrada.sincronizada) {
+          // No se espera el resultado ni se corta la venta si falla: ya está
+          // registrada, y trabar la caja por un ticket sería peor. El fallo
+          // queda en `errorImpresion` y se avisa en la caja.
+          void imprimirTicket({ ventaId });
+        }
+      }
+
       limpiarConsulta();
       onExito();
     }
@@ -619,6 +644,27 @@ function ModalPago({
             </div>
           )}
 
+          {/* Comprobante para los cobros que no pasan por la terminal.
+              Con tarjeta o QR el ticket sale solo con el pago, así que ahí no
+              se ofrece: sería imprimir dos veces lo mismo. */}
+          {!metodoVaPorTerminal && hayTerminales && terminalId && online && (
+            <label className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-surface-2 border border-border cursor-pointer">
+              <input
+                type="checkbox"
+                checked={imprimirSiempre}
+                onChange={(e) => setImprimirSiempre(e.target.checked)}
+                className="accent-accent"
+              />
+              <div className="flex-1">
+                <p className="text-sm text-text-primary">Imprimir comprobante</p>
+                <p className="text-xs text-text-secondary">
+                  Sale por la terminal, sin cobrar
+                </p>
+              </div>
+              <Icono nombre="imprimir" tamano={18} className="text-text-secondary" />
+            </label>
+          )}
+
           {/* Botón confirmar */}
           <button
             onClick={() => void handleConfirmar()}
@@ -692,6 +738,93 @@ function ToastExito({ onClose }: { onClose: () => void }) {
 
 // ── Página principal ─────────────────────────────────────────────
 
+/**
+ * Reimprimir el ticket de la última venta del turno.
+ *
+ * Existe porque el papel se traba, se corta o el cliente lo pide de nuevo, y
+ * sin esto la única salida era cobrar otra vez. Reimprime siempre la última:
+ * es lo que se pide el 99% de las veces y evita tener que buscar en una lista
+ * con el bar lleno.
+ *
+ * La copia sale marcada como reimpresión desde la API, así que dos papeles del
+ * mismo consumo no se pueden hacer pasar por dos consumos.
+ */
+function BotonReimprimir() {
+  const { ultimaVenta } = useCajaStore();
+  const { terminalId, imprimiendo, errorImpresion, imprimirTicket, limpiarErrorImpresion } =
+    useCobroPointStore();
+  const [listo, setListo] = useState(false);
+
+  // No hay nada que reimprimir hasta la primera venta del turno.
+  if (!ultimaVenta) return null;
+
+  const pendiente = !ultimaVenta.sincronizada;
+  const sinTerminal = !terminalId;
+  const bloqueado = pendiente || sinTerminal || imprimiendo;
+
+  const motivo = pendiente
+    ? "La venta todavía no subió — se puede reimprimir cuando vuelva la conexión"
+    : sinTerminal
+      ? "Elegí una terminal al cobrar para poder imprimir"
+      : null;
+
+  // El monto en el tooltip evita reimprimir la venta equivocada cuando ya se
+  // cobró la siguiente.
+  const titulo =
+    motivo ?? `Reimprimir el ticket de la última venta (${ARS(ultimaVenta.total)})`;
+
+  const reimprimir = async () => {
+    limpiarErrorImpresion();
+    const ok = await imprimirTicket({ ventaId: ultimaVenta.id, reimpresion: true });
+    if (ok) {
+      setListo(true);
+      setTimeout(() => setListo(false), 2500);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <button
+        onClick={() => void reimprimir()}
+        disabled={bloqueado}
+        title={titulo}
+        className={cn(
+          "w-full py-2.5 rounded-xl text-sm font-semibold transition-all",
+          "flex items-center justify-center gap-2 border",
+          bloqueado
+            ? "bg-surface-2 text-text-tertiary border-border cursor-not-allowed"
+            : "bg-surface-2 text-text-primary border-border hover:border-accent hover:text-accent active:scale-[0.98]"
+        )}
+      >
+        {imprimiendo ? (
+          <>
+            <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            Imprimiendo…
+          </>
+        ) : listo ? (
+          <>
+            <Icono nombre="ok" tamano={15} />
+            Ticket enviado
+          </>
+        ) : (
+          <>
+            <Icono nombre="imprimir" tamano={15} />
+            Reimprimir último ticket
+          </>
+        )}
+      </button>
+
+      {motivo && !errorImpresion && (
+        <p className="text-[11px] text-text-tertiary leading-snug">{motivo}</p>
+      )}
+
+      {errorImpresion && (
+        <p className="text-[11px] text-danger leading-snug">{errorImpresion}</p>
+      )}
+    </div>
+  );
+}
+
 export function CajaPage() {
   const {
     productos,
@@ -705,6 +838,7 @@ export function CajaPage() {
     limpiarCarrito,
   } = useCajaStore();
 
+  const { cargarTerminales } = useCobroPointStore();
   const { staff } = useAuthStore();
   const [busqueda, setBusqueda] = useState("");
   const [modalPago, setModalPago] = useState(false);
@@ -718,6 +852,13 @@ export function CajaPage() {
     void cargarProductos();
     void cargarBarras();
   }, [cargarProductos, cargarBarras]);
+
+  // Las terminales también se cargan acá y no solo al abrir el modal de pago:
+  // el botón de reimprimir necesita saber si hay una disponible antes de que
+  // el cajero cobre por primera vez en la sesión.
+  useEffect(() => {
+    void cargarTerminales();
+  }, [cargarTerminales]);
 
   // Escuchar cambios de conectividad
   useEffect(() => {
@@ -903,6 +1044,8 @@ export function CajaPage() {
             >
               {carrito.length > 0 ? `Cobrar ${ARS(total)}` : "Carrito vacío"}
             </button>
+
+            <BotonReimprimir />
           </div>
         </div>
       </div>

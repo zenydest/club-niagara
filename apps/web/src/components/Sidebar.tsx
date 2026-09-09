@@ -34,6 +34,22 @@ const NAV_ITEMS: NavItem[] = [
   { id: "staff", label: "Personal", icono: "personal", roles: ["admin"] },
 ];
 
+/**
+ * Secciones que puede abrir un rol, en el orden del menú.
+ *
+ * Se exporta para que el layout no tenga su propia copia de las reglas: si las
+ * dos listas se desincronizaran, el menú mostraría una cosa y el contenido
+ * otra —que es justo el bug de arrancar en una sección que no está en el
+ * menú—.
+ */
+export function paginasPermitidas(rol: string | undefined): string[] {
+  return NAV_ITEMS.filter((item) => {
+    if (!item.roles) return true;
+    if (!rol) return false;
+    return item.roles.includes(rol);
+  }).map((item) => item.id);
+}
+
 interface SidebarProps {
   abierto: boolean;
   paginaActual: string;
