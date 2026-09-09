@@ -27,6 +27,8 @@ export interface ServerToClientEvents {
     metodoPago: string;
   }) => void;
   "evento:estado_cambiado": (data: { eventoId: string; estado: string }) => void;
+  /** Evento nuevo — la lista de Eventos se recarga sola en los paneles abiertos */
+  "evento:creado": (data: { eventoId: string; nombre: string }) => void;
   /** Ingreso o egreso registrado en la puerta — alimenta el feed del dashboard */
   "acceso:nuevo": (data: {
     eventoId: string;

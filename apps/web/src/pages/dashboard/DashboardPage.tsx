@@ -120,9 +120,19 @@ function DashboardCajero() {
       void queryClient.invalidateQueries({ queryKey: ["mi-consumo", localId] });
     };
 
+    // Cuando la fiesta arranca, "Mi turno" pasa de contar las últimas 12 horas
+    // a contar el evento. Sin escuchar esto, el cambio tardaba hasta un minuto
+    // en verse, que es el refresco automático.
+    const onEstadoCambiado = () => {
+      void queryClient.invalidateQueries({ queryKey: ["mi-consumo", localId] });
+    };
+
     socket.on("venta:nueva", onVentaNueva);
+    socket.on("evento:estado_cambiado", onEstadoCambiado);
+
     return () => {
       socket.off("venta:nueva", onVentaNueva);
+      socket.off("evento:estado_cambiado", onEstadoCambiado);
     };
   }, [localId, staff?.id, queryClient]);
 

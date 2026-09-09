@@ -99,6 +99,19 @@ export const registrarRutasEventos: FastifyPluginAsync = async (app) => {
       },
     });
 
+    /**
+     * Aviso a los paneles abiertos.
+     *
+     * Sin esto, el encargado con la pantalla de Eventos abierta no veía el
+     * evento nuevo hasta refrescar: la lista se carga una sola vez y no
+     * escuchaba nada. El cambio de estado sí avisaba, así que la mitad del
+     * flujo estaba en vivo y la otra no.
+     */
+    io.to(`local:${localId}`).emit("evento:creado", {
+      eventoId: evento.id,
+      nombre: evento.nombre,
+    });
+
     return reply.status(201).send({ evento });
   });
 

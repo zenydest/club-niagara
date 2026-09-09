@@ -5,7 +5,7 @@
  * Vista detalle: tabs — Info · Tipos de entrada · Vender · Vendidas
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@niagara/ui";
 import {
   useEventosStore,
@@ -20,6 +20,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { Icono, type NombreIcono } from "@/components/Icono";
 import { CampoImagen } from "@/components/CampoImagen";
 import { CodigoQR } from "@/components/CodigoQR";
+import { socket } from "@/lib/socketClient";
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -1016,11 +1017,32 @@ export function EventosPage() {
   const [modalCrear, setModalCrear] = useState(false);
   const esAdmin = staff && ["admin", "encargado"].includes(staff.rol);
 
-  useEffect(() => {
+  const recargar = useCallback(() => {
     // "activos" no es un estado de la base: se pide todo y se filtra abajo.
     const unSoloEstado = filtroEstado !== "todos" && filtroEstado !== "activos";
     void cargarEventos(unSoloEstado ? filtroEstado : undefined);
   }, [filtroEstado, cargarEventos]);
+
+  useEffect(() => {
+    recargar();
+  }, [recargar]);
+
+  /**
+   * La lista se mantiene sola.
+   *
+   * Antes se cargaba una sola vez: si otro creaba el evento o lo pasaba a
+   * "en vivo", el que tenía la pantalla abierta seguía viendo la lista vieja
+   * y no había nada que se lo indicara.
+   */
+  useEffect(() => {
+    socket.on("evento:creado", recargar);
+    socket.on("evento:estado_cambiado", recargar);
+
+    return () => {
+      socket.off("evento:creado", recargar);
+      socket.off("evento:estado_cambiado", recargar);
+    };
+  }, [recargar]);
 
   // Vista detalle
   if (eventoActual) {
