@@ -17,7 +17,7 @@ import { useEventosStore } from "@/stores/eventosStore";
 import { usePersonalStore } from "@/stores/personalStore";
 import { useAuthStore } from "@/stores/authStore";
 import { Icono } from "@/components/Icono";
-import { exportarCSV } from "@/lib/exportar";
+import { exportarExcel } from "@/lib/exportarExcel";
 
 const horaCorta = (iso: string) =>
   new Date(iso).toLocaleString("es-AR", {
@@ -397,12 +397,60 @@ function ModalGenerar({
 function ModalCodigos({ lote, onCerrar }: { lote: LoteCortesias; onCerrar: () => void }) {
   const { codigos, cargandoCodigos, cargarCodigos } = useCortesiasStore();
   const [copiado, setCopiado] = useState(false);
+  const [generando, setGenerando] = useState(false);
 
   useEffect(() => {
     void cargarCodigos(lote.id);
   }, [lote.id, cargarCodigos]);
 
   const sinUsar = codigos.filter((c) => !c.usada);
+
+  /**
+   * Planilla para la puerta.
+   *
+   * Sale en xlsx y no en CSV porque se usa a mano mientras entra la gente: las
+   * columnas de la derecha vienen vacías con desplegable para ir tildando, y
+   * las que el sistema ya sabe usadas vienen tachadas. Es el respaldo de papel
+   * cuando el escáner no lee o se cae el wifi.
+   *
+   * La librería se baja recién acá, con `import()` adentro de `exportarExcel`.
+   */
+  const descargarPlanilla = async () => {
+    setGenerando(true);
+    try {
+      await exportarExcel({
+        nombre: `cortesias-${lote.nombre.replace(/\s+/g, "-").toLowerCase()}`,
+        hoja: "Cortesías",
+        titulo: `Cortesías · ${lote.nombre}`,
+        contexto: [
+          `Evento: ${lote.evento}`,
+          `Entrada hasta: ${horaCorta(lote.validaHasta)}`,
+          ...(lote.rrpp ? [`Reparte: ${lote.rrpp}`] : []),
+          `${codigos.length} códigos · ${sinUsar.length} sin usar al momento de bajar la planilla`,
+          ...(lote.anulado ? ["TANDA ANULADA — estos códigos no validan en la puerta"] : []),
+        ],
+        columnas: [
+          { titulo: "#", ancho: 6, valor: (_c, i) => i + 1 },
+          { titulo: "Código", ancho: 16, valor: (c) => c.codigo },
+          { titulo: "Estado", ancho: 12, valor: (c) => (c.usada ? "Usada" : "Sin usar") },
+          {
+            titulo: "Hora de uso",
+            ancho: 16,
+            valor: (c) => (c.usadaAt ? horaCorta(c.usadaAt) : ""),
+          },
+          { titulo: "Link", ancho: 46, valor: (c) => linkCortesia(c.codigo) },
+        ],
+        columnasManuales: [
+          { titulo: "Ingresó", opciones: ["Sí", "No"], ancho: 12 },
+          { titulo: "Nombre en la puerta", ancho: 26 },
+        ],
+        resaltarCuando: { titulo: "Estado", valor: "Usada" },
+        filas: codigos,
+      });
+    } finally {
+      setGenerando(false);
+    }
+  };
 
   /** Todos los links en un texto, listo para pegar en WhatsApp. */
   const copiarTodos = async () => {
@@ -443,21 +491,11 @@ function ModalCodigos({ lote, onCerrar }: { lote: LoteCortesias; onCerrar: () =>
           </button>
 
           <button
-            onClick={() =>
-              exportarCSV({
-                nombre: `cortesias-${lote.nombre.replace(/\s+/g, "-").toLowerCase()}`,
-                columnas: [
-                  { titulo: "Código", valor: (c) => c.codigo },
-                  { titulo: "Link", valor: (c) => linkCortesia(c.codigo) },
-                  { titulo: "Estado", valor: (c) => (c.usada ? "Usada" : "Sin usar") },
-                ],
-                filas: codigos,
-              })
-            }
-            disabled={codigos.length === 0}
+            onClick={() => void descargarPlanilla()}
+            disabled={codigos.length === 0 || generando}
             className="px-4 py-2.5 rounded-xl border border-border text-text-secondary text-sm hover:text-accent hover:border-accent/40 disabled:opacity-40 transition-colors"
           >
-            Planilla
+            {generando ? "Generando…" : "Planilla"}
           </button>
         </div>
 
