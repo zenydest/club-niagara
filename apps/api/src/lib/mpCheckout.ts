@@ -82,11 +82,16 @@ export async function crearPreferenciaEntradas(input: {
       ],
       external_reference: input.referencia,
       ...(input.emailComprador && { payer: { email: input.emailComprador } }),
+      /**
+       * La referencia viaja en la URL de vuelta para que la pantalla de
+       * resultado sepa qué compra mostrar. Mercado Pago también agrega sus
+       * propios parámetros, pero el nuestro es el único que controlamos.
+       */
       ...(frontend && {
         back_urls: {
-          success: `${frontend}/pago-ok`,
-          failure: `${frontend}/pago-error`,
-          pending: `${frontend}/pago-pendiente`,
+          success: `${frontend}/pago-ok?ref=${input.referencia}`,
+          failure: `${frontend}/pago-ok?ref=${input.referencia}`,
+          pending: `${frontend}/pago-pendiente?ref=${input.referencia}`,
         },
       }),
       // La entrada se habilita por webhook, no por la vuelta del navegador: si

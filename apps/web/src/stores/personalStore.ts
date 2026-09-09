@@ -22,6 +22,8 @@ export interface StaffMiembro {
   createdAt: string;
   user: { email: string; createdAt: string };
   _count?: { ventas: number; accesos: number };
+  /** Código para el link de venta. Solo los RRPP lo tienen. */
+  codigoRrpp?: string | null;
 }
 
 /** Cliente registrado desde la app, con su historial de compras. */
@@ -105,6 +107,9 @@ interface PersonalState {
     datos: { email?: string; password?: string }
   ) => Promise<{ sesionesCerradas: boolean } | null>;
   cambiarEstado: (id: string, activo: boolean) => Promise<boolean>;
+
+  /** Genera el código con el que el RRPP arma su link de venta. */
+  generarCodigoRrpp: (id: string) => Promise<string | null>;
 
   clientes: ClienteApp[];
   cargandoClientes: boolean;
@@ -215,6 +220,28 @@ export const usePersonalStore = create<PersonalState>((set, get) => ({
     } catch (err) {
       set({ procesando: false, error: err instanceof Error ? err.message : "Error al cambiar estado" });
       return false;
+    }
+  },
+
+  /** Genera (o regenera) el código de venta de un RRPP. */
+  generarCodigoRrpp: async (id) => {
+    const localId = getLocalId();
+    set({ procesando: true, error: null });
+    try {
+      const res = await api.post<{ codigo: string }>(
+        `/personal/${id}/codigo-rrpp`, {}, localId
+      );
+      set((s) => ({
+        staff: s.staff.map((m) => (m.id === id ? { ...m, codigoRrpp: res.codigo } : m)),
+        procesando: false,
+      }));
+      return res.codigo;
+    } catch (err) {
+      set({
+        procesando: false,
+        error: err instanceof Error ? err.message : "No se pudo generar el código",
+      });
+      return null;
     }
   },
 

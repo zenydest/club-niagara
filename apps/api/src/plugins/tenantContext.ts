@@ -43,6 +43,8 @@ const RUTAS_PUBLICAS = [
   // Ídem para las entradas vendidas: el comprador abre el link que le mandaron
   // por WhatsApp, sin cuenta ni app.
   "/api/entradas/publica/",
+  // Venta pública: la abre gente sin cuenta desde el link de un RRPP.
+  "/api/publico/",
 ];
 
 /** Convierte IncomingHttpHeaders de Node.js a Web API Headers */

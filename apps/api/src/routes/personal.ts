@@ -16,6 +16,7 @@
  */
 
 import type { FastifyPluginAsync } from "fastify";
+import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@niagara/db";
 import { auth } from "../lib/auth.js";
@@ -280,6 +281,61 @@ export const registrarRutasPersonal: FastifyPluginAsync = async (app) => {
     });
 
     return { staff };
+  });
+
+  /**
+   * POST /api/personal/:id/codigo-rrpp
+   *
+   * Le asigna (o regenera) el código con el que arma su link de venta.
+   *
+   * Se genera del nombre más unos caracteres al azar: "JUAN-7K2M" es algo que
+   * el RRPP reconoce como propio y puede dictar por teléfono, a diferencia de
+   * un UUID.
+   */
+  app.post("/:id/codigo-rrpp", async (req, reply) => {
+    const { localId, staffActual } = req;
+    const { id } = req.params as { id: string };
+
+    if (!["admin", "encargado"].includes(staffActual.rol)) {
+      return reply.status(403).send({ error: "Sin permisos" });
+    }
+
+    const miembro = await prisma.staff.findFirst({ where: { id, localId } });
+    if (!miembro) return reply.status(404).send({ error: "Staff no encontrado" });
+
+    if (miembro.rol !== "rrpp") {
+      return reply.status(422).send({
+        error: "El código de venta es solo para el rol RRPP",
+      });
+    }
+
+    // Se reintenta por si el código sale repetido: es único en toda la base.
+    for (let intento = 0; intento < 5; intento += 1) {
+      const base = miembro.nombre
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[^A-Z]/g, "")
+        .slice(0, 6);
+
+      const sufijo = Array.from({ length: 4 }, () =>
+        "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[randomInt(31)]
+      ).join("");
+
+      const codigo = `${base || "RRPP"}${sufijo}`;
+
+      try {
+        const actualizado = await prisma.staff.update({
+          where: { id },
+          data: { codigoRrpp: codigo },
+        });
+        return { codigo: actualizado.codigoRrpp };
+      } catch {
+        // Colisión: se prueba con otro sufijo.
+      }
+    }
+
+    return reply.status(500).send({ error: "No se pudo generar un código único" });
   });
 
   // ══════════════════════════════════════════════════════════════

@@ -3,24 +3,45 @@ import { useAuthStore } from "@/stores/authStore";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { AppLayout } from "@/layouts/AppLayout";
 import { PaseQR } from "@/paginas-publicas/PaseQR";
+import { ComprarEntrada } from "@/paginas-publicas/ComprarEntrada";
+import { PagoResultado } from "@/paginas-publicas/PagoResultado";
+
+type Publica =
+  | { vista: "pase"; tipo: "free" | "entrada"; codigo: string }
+  | { vista: "comprar"; eventoId: string; rrpp?: string }
+  | { vista: "pago"; referencia: string };
 
 /**
- * Rutas que abre gente de la calle desde un link de WhatsApp.
+ * Rutas que abre gente de la calle, sin cuenta.
  *
- *   /free/CODIGO   — pase de cortesía
- *   /entrada/UUID  — entrada vendida
+ *   /free/CODIGO       — pase de cortesía
+ *   /entrada/UUID      — entrada ya comprada
+ *   /e/EVENTO?r=CODIGO — comprar, con el código del RRPP que compartió el link
+ *   /pago-ok?ref=...   — vuelta desde Mercado Pago
  *
- * Se resuelven leyendo la URL y no con un router: son dos rutas fijas y el
- * resto del panel no usa navegación por URL, así que sumar react-router sería
- * traer una dependencia entera para esto.
+ * Se resuelven leyendo la URL y no con un router: son pocas rutas fijas y el
+ * panel no usa navegación por URL, así que sumar react-router sería traer una
+ * dependencia entera para esto.
  */
-function rutaPublica(): { tipo: "free" | "entrada"; codigo: string } | null {
+function rutaPublica(): Publica | null {
   const partes = window.location.pathname.split("/").filter(Boolean);
-  const [seccion, codigo] = partes;
+  const [seccion, valor] = partes;
+  const params = new URLSearchParams(window.location.search);
 
-  if (!codigo) return null;
-  if (seccion === "free") return { tipo: "free", codigo };
-  if (seccion === "entrada") return { tipo: "entrada", codigo };
+  if (seccion === "pago-ok" || seccion === "pago-pendiente") {
+    const ref = params.get("ref") ?? params.get("external_reference");
+    return ref ? { vista: "pago", referencia: ref } : null;
+  }
+
+  if (!valor) return null;
+
+  if (seccion === "free") return { vista: "pase", tipo: "free", codigo: valor };
+  if (seccion === "entrada") return { vista: "pase", tipo: "entrada", codigo: valor };
+
+  if (seccion === "e") {
+    const rrpp = params.get("r");
+    return { vista: "comprar", eventoId: valor, ...(rrpp && { rrpp }) };
+  }
 
   return null;
 }
@@ -43,7 +64,18 @@ export function App() {
   }, [inicializar, publica]);
 
   if (publica) {
-    return <PaseQR tipo={publica.tipo} codigo={publica.codigo} />;
+    if (publica.vista === "pase") {
+      return <PaseQR tipo={publica.tipo} codigo={publica.codigo} />;
+    }
+    if (publica.vista === "comprar") {
+      return (
+        <ComprarEntrada
+          eventoId={publica.eventoId}
+          {...(publica.rrpp !== undefined && { rrpp: publica.rrpp })}
+        />
+      );
+    }
+    return <PagoResultado referencia={publica.referencia} />;
   }
 
   // Pantalla de carga inicial

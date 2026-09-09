@@ -221,6 +221,16 @@ model Staff {
   ventas           Venta[]
   accesos          Acceso[]
   recargas         Recarga[]
+  /// Código corto para el link de venta del RRPP.
+  ///
+  /// Va en la URL que comparte (`/e/EVENTO?r=JUAN7K`), y toda entrada comprada
+  /// por ese link queda asociada a él. Es lo que permite calcular la comisión
+  /// sin que nadie tenga que reportar a mano cuánto vendió.
+  ///
+  /// Solo lo tienen los de rol `rrpp`. Único en toda la base para que el link
+  /// no dependa del local.
+  codigoRrpp String? @unique @map("codigo_rrpp")
+
   entradasVendidas EntradaVendida[] @relation("EntradaVendidaRrpp")
   lotesCortesias   LoteCortesias[]  @relation("LoteCortesiasRrpp")
   stockMovimientos StockMovimiento[]

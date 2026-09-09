@@ -34,6 +34,7 @@ import { registrarRutasCliente } from "./routes/cliente.js";
 import { registrarRutasUploads } from "./routes/uploads.js";
 import { registrarRutasTareas } from "./routes/tareas.js";
 import { registrarRutasCortesias } from "./routes/cortesias.js";
+import { registrarRutasPublico } from "./routes/publico.js";
 import { iniciarSocketIO } from "./socket/index.js";
 
 const PORT = Number(process.env["PORT"] ?? 3001);
@@ -212,6 +213,7 @@ await app.register(registrarRutasCliente,     { prefix: "/api/cliente" });
 await app.register(registrarRutasUploads,     { prefix: "/api/uploads" });
 await app.register(registrarRutasTareas,      { prefix: "/api/tareas" });
 await app.register(registrarRutasCortesias,   { prefix: "/api/cortesias" });
+await app.register(registrarRutasPublico,     { prefix: "/api/publico" });
 await app.register(registrarRutasAuth, { prefix: "/api/staff" });
 
 // ── Socket.io handlers ───────────────────────────────────────

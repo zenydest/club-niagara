@@ -14,6 +14,7 @@ import {
   type ComisionRrpp,
 } from "@/stores/personalStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useEventosStore } from "@/stores/eventosStore";
 
 type Tab = "staff" | "clientes" | "comisiones";
 
@@ -273,6 +274,12 @@ function TarjetaStaff({ miembro, esMio, esAdmin }: {
             {miembro._count.ventas} ventas · {miembro._count.accesos} accesos
           </p>
         )}
+
+        {/* Link de venta: solo para RRPP. Es lo que comparte para que las
+            entradas que vende queden asociadas a él. */}
+        {miembro.rol === "rrpp" && esAdmin && (
+          <LinkRrpp miembro={miembro} />
+        )}
       </div>
 
       {/* Acciones.
@@ -311,6 +318,73 @@ function TarjetaStaff({ miembro, esMio, esAdmin }: {
           esAdmin={esAdmin}
           esMio={esMio}
         />
+      )}
+    </div>
+  );
+}
+
+// ── Link de venta del RRPP ───────────────────────────────────────
+
+/**
+ * El link que el RRPP comparte para vender.
+ *
+ * Necesita un evento: se arma sobre el que está a la venta. Si hay más de uno,
+ * se muestra el más próximo — es el que va a estar promocionando.
+ */
+function LinkRrpp({ miembro }: { miembro: StaffMiembro }) {
+  const { generarCodigoRrpp, procesando } = usePersonalStore();
+  const { eventos, cargarEventos } = useEventosStore();
+  const [copiado, setCopiado] = useState(false);
+
+  useEffect(() => {
+    if (eventos.length === 0) void cargarEventos();
+  }, [eventos.length, cargarEventos]);
+
+  const evento = eventos
+    .filter((e) => e.estado === "preventa" || e.estado === "en_vivo")
+    .sort((a, b) => +new Date(a.fechaInicio) - +new Date(b.fechaInicio))[0];
+
+  if (!miembro.codigoRrpp) {
+    return (
+      <button
+        onClick={() => void generarCodigoRrpp(miembro.id)}
+        disabled={procesando}
+        className="mt-2 text-xs text-accent hover:underline disabled:opacity-40"
+      >
+        Generar link de venta
+      </button>
+    );
+  }
+
+  const link = evento
+    ? `${window.location.origin}/e/${evento.id}?r=${miembro.codigoRrpp}`
+    : null;
+
+  const copiar = async () => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      // Sin permiso de portapapeles queda el texto a la vista para copiarlo.
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      {link ? (
+        <button
+          onClick={() => void copiar()}
+          className="text-xs text-accent hover:underline text-left"
+          title={link}
+        >
+          {copiado ? "¡Link copiado!" : `Copiar link de venta · ${evento?.nombre}`}
+        </button>
+      ) : (
+        <p className="text-xs text-text-muted">
+          Código {miembro.codigoRrpp} · sin eventos a la venta
+        </p>
       )}
     </div>
   );
