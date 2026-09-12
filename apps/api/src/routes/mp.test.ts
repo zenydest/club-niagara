@@ -81,6 +81,50 @@ beforeEach(() => {
   });
 });
 
+describe("GET /estado", () => {
+  it("avisa cuando falta el token, que es la falla silenciosa", async () => {
+    mocks.tokenMP.mockReturnValue(undefined);
+
+    const app = await construirApp();
+    const res = await app.inject({ method: "GET", url: "/estado" });
+
+    const cuerpo: { configurado: boolean; avisos: string[] } = res.json();
+    expect(cuerpo.configurado).toBe(false);
+    expect(cuerpo.avisos.join(" ")).toContain("MP_ACCESS_TOKEN");
+  });
+
+  it("avisa cuando el webhook no verifica firma", async () => {
+    mocks.envLimpio.mockReturnValue(undefined);
+
+    const app = await construirApp();
+    const res = await app.inject({ method: "GET", url: "/estado" });
+
+    const cuerpo: { firmaVerificada: boolean; avisos: string[] } = res.json();
+    expect(cuerpo.firmaVerificada).toBe(false);
+    expect(cuerpo.avisos.join(" ")).toContain("MP_WEBHOOK_SECRET");
+  });
+
+  it("con todo configurado no avisa nada", async () => {
+    const app = await construirApp();
+    const res = await app.inject({ method: "GET", url: "/estado" });
+
+    expect(res.json()).toMatchObject({
+      configurado: true,
+      firmaVerificada: true,
+      avisos: [],
+    });
+  });
+
+  it("nunca devuelve el valor de los secretos", async () => {
+    const app = await construirApp();
+    const res = await app.inject({ method: "GET", url: "/estado" });
+
+    // Lo lee cualquier staff logueado: informa presencia, no contenido.
+    expect(res.body).not.toContain(SECRETO);
+    expect(res.body).not.toContain("APP_USR-token");
+  });
+});
+
 describe("POST /webhook", () => {
   it("habilita las entradas cuando el pago está aprobado", async () => {
     const app = await construirApp();

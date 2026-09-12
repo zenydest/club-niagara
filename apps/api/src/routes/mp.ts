@@ -92,11 +92,35 @@ async function crearPreferenciaMP(monto: number, descripcion: string, referencia
 export const registrarRutasMP: FastifyPluginAsync = async (app) => {
 
   // GET /api/mp/estado — info sobre la integración MP
+  /**
+   * Diagnóstico de la configuración de Mercado Pago.
+   *
+   * Informa **si** cada secreto está presente, nunca su valor: esto lo puede
+   * leer cualquier staff logueado.
+   *
+   * Existe porque los dos modos de falla del cobro online son silenciosos y no
+   * se distinguen mirando la app: sin `MP_ACCESS_TOKEN` el webhook responde 200
+   * y no habilita nada, y sin `MP_WEBHOOK_SECRET` acepta notificaciones de
+   * cualquier origen. En los dos casos la app se ve igual de bien hasta que
+   * alguien llega a la puerta con el comprobante de pago y la entrada figura
+   * impaga.
+   */
   app.get("/estado", async () => {
     const real = modoReal();
+    const firmaVerificada = secretoWebhook() !== undefined;
+
+    const avisos = [
+      !real && "Falta MP_ACCESS_TOKEN: los pagos online no se confirman solos.",
+      real &&
+        !firmaVerificada &&
+        "Falta MP_WEBHOOK_SECRET: el webhook acepta avisos de pago de cualquier origen.",
+    ].filter((a): a is string => typeof a === "string");
+
     return {
       configurado: real,
       modo: real ? "produccion" : "simulado",
+      firmaVerificada,
+      avisos,
       mensaje: real
         ? "Mercado Pago configurado y listo"
         : "MP en modo simulado. Configurar MP_ACCESS_TOKEN para pagos reales.",
